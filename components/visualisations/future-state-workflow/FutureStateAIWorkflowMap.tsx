@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { VisualisationFrame } from "../shared/VisualisationFrame";
+import { StaleBanner } from "../shared/StaleBanner";
+import { SourceBadge } from "../shared/SourceBadge";
 import { downloadText } from "../shared/export-helpers";
 import { CanvasContextMenu, type ContextMenuItem } from "../shared/CanvasContextMenu";
 import { useUndoRedo } from "../shared/useUndoRedo";
@@ -15,6 +17,7 @@ import { CurrentFutureComparisonPanel } from "./CurrentFutureComparisonPanel";
 import { newBlankFutureNode, FUTURE_LANE_Y } from "./futureWorkflowUtils";
 import { futureStateToMermaid } from "@/lib/visualisations/mermaid-export";
 import { layoutNodesInLanes } from "@/lib/visualisations/auto-layout";
+import { hashWorkflows } from "@/lib/visualisations/workflow-helpers";
 import type {
   FutureStateAIWorkflowMap as MapType,
   FutureWorkflowNode,
@@ -267,6 +270,12 @@ export function FutureStateAIWorkflowMap() {
 
   const selectedNode = map?.nodes.find((n) => n.id === selectedNodeId) ?? null;
 
+  const stale = useMemo(() => {
+    if (!map || !project) return false;
+    if (!map.derivedFromHash) return false;
+    return map.derivedFromHash !== hashWorkflows(project.workflows);
+  }, [map, project]);
+
   const nodeContextItems: ContextMenuItem[] = contextMenu?.nodeId ? [
     { type: "item", label: "Duplicate", shortcut: "⌘D", onClick: () => handleDuplicateNode(contextMenu.nodeId!) },
     { type: "separator" },
@@ -307,6 +316,12 @@ export function FutureStateAIWorkflowMap() {
       <VisualisationFrame
         title="Future-State AI Workflow Map"
         subtitle="Double-click to rename · Right-click for actions · ⌘Z undo · ⌘L tidy · drag-select to multi-pick"
+        titleBadge={map ? <SourceBadge source={map.source} /> : null}
+        banner={
+          map ? (
+            <StaleBanner stale={stale} generating={generating} onSync={handleGenerate} variant="future" />
+          ) : null
+        }
         toolbar={
           <FutureWorkflowToolbar
             generating={generating}

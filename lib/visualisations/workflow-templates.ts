@@ -13,6 +13,7 @@ import type {
   AutomationLevel,
 } from "./workflow-types";
 import { generateId } from "../utils";
+import { hashWorkflows } from "./workflow-helpers";
 
 const CURRENT_LANES = [
   { id: "lane_operator",   title: "Operator",   description: "Human work" },
@@ -145,6 +146,7 @@ export function buildCurrentStateWorkflowTemplate(project: OnboardingProject): C
     generatedFromSourceIds: project.workflows.map((w) => w.id),
     source: "template_fallback",
     updatedAt: new Date().toISOString(),
+    derivedFromHash: hashWorkflows(project.workflows),
   };
 }
 
@@ -338,5 +340,6 @@ export function buildFutureStateAIWorkflowTemplate(
     ],
     source: "template_fallback",
     updatedAt: new Date().toISOString(),
+    derivedFromHash: hashWorkflows(project.workflows),
   };
 }

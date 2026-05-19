@@ -62,6 +62,9 @@ export type CurrentStateWorkflowMap = {
   generatedFromSourceIds: string[];
   source: GenerationSource;
   updatedAt: string;
+  // Hash of the workflow snapshot at generation time. Used to detect when the
+  // map is stale relative to the step list. Optional for legacy maps.
+  derivedFromHash?: string;
 };
 
 // ────────────────────────────────────────────────────────────
@@ -119,6 +122,7 @@ export type FutureStateAIWorkflowMap = {
   assumptions: string[];
   source: GenerationSource;
   updatedAt: string;
+  derivedFromHash?: string;
 };
 
 // ────────────────────────────────────────────────────────────
@@ -175,6 +179,7 @@ export const CurrentStateWorkflowMapSchema = z.object({
   generatedFromSourceIds: z.array(z.string()),
   source: z.enum(["ai", "manual", "template_fallback"]),
   updatedAt: z.string(),
+  derivedFromHash: z.string().optional(),
 });
 
 const FUTURE_NODE_TYPES = [
@@ -217,4 +222,5 @@ export const FutureStateAIWorkflowMapSchema = z.object({
   assumptions: z.array(z.string()),
   source: z.enum(["ai", "manual", "template_fallback"]),
   updatedAt: z.string(),
+  derivedFromHash: z.string().optional(),
 });

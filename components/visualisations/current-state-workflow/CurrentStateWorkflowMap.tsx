@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { VisualisationFrame } from "../shared/VisualisationFrame";
+import { StaleBanner } from "../shared/StaleBanner";
+import { SourceBadge } from "../shared/SourceBadge";
 import { downloadText } from "../shared/export-helpers";
 import { CanvasContextMenu, type ContextMenuItem } from "../shared/CanvasContextMenu";
 import { useUndoRedo } from "../shared/useUndoRedo";
@@ -14,6 +16,7 @@ import { WorkflowLegend } from "./WorkflowLegend";
 import { newBlankNode, CURRENT_LANE_Y } from "./workflowUtils";
 import { currentStateToMermaid } from "@/lib/visualisations/mermaid-export";
 import { layoutNodesInLanes } from "@/lib/visualisations/auto-layout";
+import { hashWorkflows } from "@/lib/visualisations/workflow-helpers";
 import type {
   CurrentStateWorkflowMap as MapType,
   WorkflowNode,
@@ -265,6 +268,14 @@ export function CurrentStateWorkflowMap() {
 
   const selectedNode = map?.nodes.find((n) => n.id === selectedNodeId) ?? null;
 
+  // Stale when the workflow steps have changed since this map was generated.
+  // Legacy maps without derivedFromHash are treated as fresh.
+  const stale = useMemo(() => {
+    if (!map || !project) return false;
+    if (!map.derivedFromHash) return false;
+    return map.derivedFromHash !== hashWorkflows(project.workflows);
+  }, [map, project]);
+
   // Context menu items
   const nodeContextItems: ContextMenuItem[] = contextMenu?.nodeId ? [
     { type: "item", label: "Duplicate", shortcut: "⌘D", onClick: () => handleDuplicateNode(contextMenu.nodeId!) },
@@ -309,6 +320,12 @@ export function CurrentStateWorkflowMap() {
       <VisualisationFrame
         title="Current-State Workflow Map"
         subtitle="Double-click to rename · Right-click for actions · ⌘Z undo · ⌘L tidy · drag-select to multi-pick"
+        titleBadge={map ? <SourceBadge source={map.source} /> : null}
+        banner={
+          map ? (
+            <StaleBanner stale={stale} generating={generating} onSync={handleGenerate} variant="current" />
+          ) : null
+        }
         toolbar={
           <WorkflowToolbar
             generating={generating}

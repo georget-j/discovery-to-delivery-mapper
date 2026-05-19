@@ -3,6 +3,7 @@ import type { OnboardingProject } from "@/lib/types";
 import { FutureStateAIWorkflowMapSchema } from "@/lib/visualisations/workflow-types";
 import { buildFutureStateAIWorkflowPrompt } from "@/lib/visualisations/prompts";
 import { buildFutureStateAIWorkflowTemplate } from "@/lib/visualisations/workflow-templates";
+import { hashWorkflows } from "@/lib/visualisations/workflow-helpers";
 
 export async function POST(req: NextRequest) {
   let project: OnboardingProject;
@@ -62,7 +63,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ map, source: "template_fallback" });
     }
 
-    return NextResponse.json({ map: validated.data, source: "ai" });
+    const map = { ...validated.data, derivedFromHash: hashWorkflows(project.workflows) };
+    return NextResponse.json({ map, source: "ai" });
   } catch (err) {
     console.error("Future-state map AI generation failed:", err);
     const map = buildFutureStateAIWorkflowTemplate(project, currentStateMapId);

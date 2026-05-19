@@ -3,6 +3,7 @@ import type { OnboardingProject } from "@/lib/types";
 import { CurrentStateWorkflowMapSchema } from "@/lib/visualisations/workflow-types";
 import { buildCurrentStateWorkflowPrompt } from "@/lib/visualisations/prompts";
 import { buildCurrentStateWorkflowTemplate } from "@/lib/visualisations/workflow-templates";
+import { hashWorkflows } from "@/lib/visualisations/workflow-helpers";
 
 export async function POST(req: NextRequest) {
   let project: OnboardingProject;
@@ -59,7 +60,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ map, source: "template_fallback" });
     }
 
-    return NextResponse.json({ map: validated.data, source: "ai" });
+    // Stamp the workflow hash so the canvas knows when it's stale against the
+    // current step list. Trusting the AI to compute it would be silly.
+    const map = { ...validated.data, derivedFromHash: hashWorkflows(project.workflows) };
+    return NextResponse.json({ map, source: "ai" });
   } catch (err) {
     console.error("Current-state map AI generation failed:", err);
     const map = buildCurrentStateWorkflowTemplate(project);

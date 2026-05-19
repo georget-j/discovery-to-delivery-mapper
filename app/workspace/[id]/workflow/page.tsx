@@ -1,51 +1,49 @@
 "use client";
 
+import { useState } from "react";
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { WorkflowStepEditor } from "@/components/WorkflowStepEditor";
-import { Separator } from "@/components/ui/separator";
+import { WorkflowAtAGlance } from "@/components/WorkflowAtAGlance";
+import { WorkflowTabs, type WorkflowTabId } from "@/components/WorkflowTabs";
 import { CurrentStateWorkflowMap } from "@/components/visualisations/current-state-workflow/CurrentStateWorkflowMap";
 import { FutureStateAIWorkflowMap } from "@/components/visualisations/future-state-workflow/FutureStateAIWorkflowMap";
 import { PageNav } from "@/components/PageNav";
 
 export default function WorkflowPage() {
   const { project, loading, updateProject } = useWorkspace();
+  const [activeTab, setActiveTab] = useState<WorkflowTabId>("steps");
 
   if (loading) return <div className="p-8 text-sm text-muted-foreground">Loading…</div>;
   if (!project) return <div className="p-8 text-sm text-muted-foreground">Project not found.</div>;
 
   return (
-    <div className="p-8 max-w-6xl space-y-8">
+    <div className="p-8 max-w-6xl space-y-6">
       <div>
         <h1 className="text-xl font-bold">Workflow Mapping</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Map the current-state workflow steps and define the future-state AI integration. Changes are saved automatically.
+          Steps are the source of truth. The two visual maps are derived views — generate or sync them once your steps are populated.
         </p>
       </div>
 
-      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-        <span>{project.workflows.length} step{project.workflows.length !== 1 ? "s" : ""}</span>
-        <span>·</span>
-        <span>{project.workflows.filter((w) => w.automationPotential === "high").length} high-automation potential</span>
-        <span>·</span>
-        <span>{project.workflows.filter((w) => w.futureState === "automated").length} fully automated in future state</span>
-      </div>
-
-      <WorkflowStepEditor
+      <WorkflowAtAGlance
         steps={project.workflows}
-        onChange={(workflows) => updateProject({ workflows })}
+        onJumpToStep={() => setActiveTab("steps")}
       />
 
-      <Separator />
-
-      <div className="space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Current-State Workflow Map</h2>
-        <CurrentStateWorkflowMap />
-      </div>
-
-      <div className="space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Future-State AI Workflow Map</h2>
-        <FutureStateAIWorkflowMap />
-      </div>
+      <WorkflowTabs
+        active={activeTab}
+        onChange={setActiveTab}
+        steps={
+          <div className="rounded-lg border bg-background p-4">
+            <WorkflowStepEditor
+              steps={project.workflows}
+              onChange={(workflows) => updateProject({ workflows })}
+            />
+          </div>
+        }
+        current={<CurrentStateWorkflowMap />}
+        future={<FutureStateAIWorkflowMap />}
+      />
 
       <PageNav />
     </div>

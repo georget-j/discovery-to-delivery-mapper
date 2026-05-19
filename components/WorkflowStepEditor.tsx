@@ -137,22 +137,6 @@ function StepRow({ step, index, onUpdate, onRemove }: StepRowProps) {
             </FormField>
 
             <div className="grid sm:grid-cols-2 gap-4">
-              <FormField label="Input Data" helper="Press Enter to add each item.">
-                <ChipInput
-                  value={step.inputData}
-                  onChange={(v) => onUpdate({ inputData: v })}
-                  placeholder="e.g. transaction history"
-                  ariaLabel="Input data"
-                />
-              </FormField>
-              <FormField label="Output Artefacts" helper="Press Enter to add each item.">
-                <ChipInput
-                  value={step.outputArtifact}
-                  onChange={(v) => onUpdate({ outputArtifact: v })}
-                  placeholder="e.g. case note"
-                  ariaLabel="Output artefacts"
-                />
-              </FormField>
               <FormField label="Pain Points" helper="Frustrations, delays, manual rework.">
                 <ChipInput
                   value={step.painPoints}
