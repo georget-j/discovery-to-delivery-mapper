@@ -32,7 +32,8 @@ export function generateRequirements(project: OnboardingProject): Requirement[] 
           `Automate: ${step.name}`,
           `Workflow step "${step.name}" (owner: ${step.ownerTeam || "unknown"}) has high automation potential and should be a primary AI use case in scope.`,
           "functional",
-          "must_have"
+          "must_have",
+          { sourceRefs: [{ type: "workflow_step", refId: step.id, label: step.name }] }
         )
       );
     }
@@ -47,7 +48,7 @@ export function generateRequirements(project: OnboardingProject): Requirement[] 
           `${system.name} has no available API. A custom connector, CSV-based pipeline, or manual upload workflow must be scoped before go-live.`,
           "integration",
           "must_have",
-          { source: "technical_scoping" }
+          { source: "technical_scoping", sourceRefs: [{ type: "system", refId: system.id, label: system.name }] }
         )
       );
     }
@@ -58,7 +59,7 @@ export function generateRequirements(project: OnboardingProject): Requirement[] 
           `Access method for ${system.name} is unknown. Must be resolved during technical scoping before integration design can begin.`,
           "integration",
           "must_have",
-          { source: "technical_scoping", status: "needs_validation" }
+          { source: "technical_scoping", status: "needs_validation", sourceRefs: [{ type: "system", refId: system.id, label: system.name }] }
         )
       );
     }
@@ -73,7 +74,7 @@ export function generateRequirements(project: OnboardingProject): Requirement[] 
           `${source.name} is rated poor quality. A data cleansing, labelling, or enrichment programme is required before model training or inference can proceed.`,
           "data",
           "must_have",
-          { source: "workflow_mapping" }
+          { source: "workflow_mapping", sourceRefs: [{ type: "data_source", refId: source.id, label: source.name }] }
         )
       );
     }
@@ -84,7 +85,7 @@ export function generateRequirements(project: OnboardingProject): Requirement[] 
           `${source.name} is rated mixed quality. A data quality assessment should be completed and documented before go-live.`,
           "data",
           "should_have",
-          { source: "workflow_mapping" }
+          { source: "workflow_mapping", sourceRefs: [{ type: "data_source", refId: source.id, label: source.name }] }
         )
       );
     }
@@ -97,7 +98,7 @@ export function generateRequirements(project: OnboardingProject): Requirement[] 
           `${source.name} contains PII. Data retention, masking, access controls, and deletion procedures must be documented and approved before processing begins.`,
           "security",
           "must_have",
-          { source: "security_review", owner: "shared", status: "needs_validation" }
+          { source: "security_review", owner: "shared", status: "needs_validation", sourceRefs: [{ type: "data_source", refId: source.id, label: source.name }] }
         )
       );
     }
@@ -112,7 +113,10 @@ export function generateRequirements(project: OnboardingProject): Requirement[] 
         `Customer operates under ${regs}. All AI model outputs, data processing activities, and audit trails must comply with applicable obligations before deployment.`,
         "compliance",
         "must_have",
-        { source: "customer_discovery", owner: "shared", status: "needs_validation" }
+        {
+          source: "customer_discovery", owner: "shared", status: "needs_validation",
+          sourceRefs: project.customer.regulatoryContext.map((r) => ({ type: "regulatory_context" as const, refId: r, label: r })),
+        }
       )
     );
   }

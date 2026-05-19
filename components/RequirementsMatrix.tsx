@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { EvidenceTrail } from "@/components/EvidenceTrail";
 import type { Requirement, RequirementCategory, RequirementPriority } from "@/lib/types";
 
 type Props = {
@@ -163,6 +164,7 @@ export function RequirementsMatrix({ requirements, manualIds, onDelete }: Props)
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">{req.description}</p>
+                  <EvidenceTrail refs={req.sourceRefs} />
                   <div className="flex gap-3 text-xs text-muted-foreground">
                     <span>Owner: <span className="capitalize">{req.owner}</span></span>
                     <span>·</span>

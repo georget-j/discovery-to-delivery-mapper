@@ -38,7 +38,7 @@ export function generateRisks(project: OnboardingProject): DeploymentRisk[] {
         "high",
         "high",
         "Scope a custom connector or file-based pipeline. Add 4–6 weeks buffer to integration timeline.",
-        { owner: "engineering", escalationTrigger: "Integration timeline exceeds 6 weeks or vendor refuses to provide data access" }
+        { owner: "engineering", escalationTrigger: "Integration timeline exceeds 6 weeks or vendor refuses to provide data access", sourceRefs: [{ type: "system", refId: system.id, label: system.name }] }
       ));
     }
     if (system.integrationComplexity === "high") {
@@ -49,7 +49,7 @@ export function generateRisks(project: OnboardingProject): DeploymentRisk[] {
         "medium",
         "medium",
         "Conduct a dedicated technical scoping session with the customer's IT team before committing to a timeline.",
-        { owner: "engineering" }
+        { owner: "engineering", sourceRefs: [{ type: "system", refId: system.id, label: system.name }] }
       ));
     }
   }
@@ -64,7 +64,7 @@ export function generateRisks(project: OnboardingProject): DeploymentRisk[] {
         "high",
         "high",
         "Allocate dedicated data quality sprint before pilot. Define minimum quality thresholds as a launch criterion.",
-        { owner: "customer", escalationTrigger: "Data quality below agreed threshold at T-4 weeks before pilot start" }
+        { owner: "customer", escalationTrigger: "Data quality below agreed threshold at T-4 weeks before pilot start", sourceRefs: [{ type: "data_source", refId: source.id, label: source.name }] }
       ));
     }
     if (source.accessStatus === "blocked") {
@@ -75,7 +75,7 @@ export function generateRisks(project: OnboardingProject): DeploymentRisk[] {
         "critical",
         "high",
         "Escalate to customer executive sponsor immediately. Define a hard unblock deadline as a launch criterion.",
-        { owner: "customer", escalationTrigger: "Access not unblocked within 2 weeks of project start" }
+        { owner: "customer", escalationTrigger: "Access not unblocked within 2 weeks of project start", sourceRefs: [{ type: "data_source", refId: source.id, label: source.name }] }
       ));
     }
   }

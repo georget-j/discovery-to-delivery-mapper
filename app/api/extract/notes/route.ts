@@ -48,6 +48,14 @@ Return a JSON object with this exact structure:
       "mitigation": "string — mitigation idea if discussed"
     }
   ],
+  "suggestedActionItems": [
+    {
+      "title": "string — what needs to be done, imperative voice (e.g. 'Send DPA template to legal')",
+      "assignee": "string — name of the person or team responsible (often a stakeholder mentioned in the notes)",
+      "dueDate": "string — ISO date YYYY-MM-DD if a specific date was given, OR a quarter like 'Q3 2026', OR omit if no due date was discussed",
+      "urgency": "high|medium|low"
+    }
+  ],
   "summary": "One sentence describing what was extracted from these notes"
 }
 
@@ -55,6 +63,7 @@ Guidelines:
 - For workflows: extract any process steps mentioned (e.g. "analyst reviews case", "supervisor signs off"). Aim for 3-8 steps if a workflow is described.
 - For risks: include risks the customer explicitly raised AND obvious risks implied by the context (e.g. if PII data is mentioned, flag a security/privacy risk).
 - For regulatory context: include any acronyms (GDPR, FCA, HIPAA, SOC2, FATF, etc.) mentioned.
+- For action items: extract any explicit follow-ups, commitments, or "X to do Y by Z". Phrases like "we'll send", "Sarah will", "by next Tuesday", "next steps", "action item" are strong signals. Each item must have a title and an assignee — if the assignee isn't clear, infer from context (the team they're on, or "Customer" / "Our team"). Only include the dueDate if a specific date or quarter was mentioned.
 - Keep all extracted text concise and factual — do NOT embellish, infer beyond what is stated, or pad with generic content.
 - Empty arrays are fine; omit fields not mentioned rather than inserting placeholder strings.`;
 

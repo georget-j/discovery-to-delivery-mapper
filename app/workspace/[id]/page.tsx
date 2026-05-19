@@ -9,7 +9,8 @@ import { cn } from "@/lib/utils";
 import { detectMissingInfo } from "@/lib/missing-info-engine";
 import { JourneyOverview } from "@/components/JourneyOverview";
 import { DataFlowDiagram } from "@/components/DataFlowDiagram";
-import { NotesImport } from "@/components/NotesImport";
+import { SessionLog } from "@/components/SessionLog";
+import { ActionItems } from "@/components/ActionItems";
 import type { MissingInfoItem, MissingInfoOwner } from "@/lib/types";
 
 const SEVERITY_COLOR: Record<string, string> = {
@@ -160,8 +161,14 @@ export default function WorkspaceDashboard() {
         )}
       </div>
 
-      {/* Notes & Interview Import — promoted to a prominent quick-start position */}
-      <NotesImport />
+      {/* Discovery session log — multi-session capture, replaces the old single notes textarea */}
+      <section className="space-y-2">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Discovery Sessions</h2>
+        <SessionLog />
+      </section>
+
+      {/* Aggregated action items extracted across all sessions */}
+      <ActionItems />
 
       {/* 4-phase journey hero */}
       <JourneyOverview />

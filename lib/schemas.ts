@@ -58,6 +58,13 @@ const RiskSuggestionSchema = z.object({
   mitigation: z.string(),
 });
 
+const ActionItemSuggestionSchema = z.object({
+  title: z.string(),
+  assignee: z.string(),
+  dueDate: z.string().optional(),
+  urgency: z.string(),
+});
+
 const DiscoverySuggestionSchema = z.object({
   businessProblem: z.string().optional(),
   primaryUseCase: z.string().optional(),
@@ -77,6 +84,7 @@ export const NotesExtractionResultSchema = z.object({
   suggestedDataSources: z.array(DataSourceSuggestionSchema).optional(),
   suggestedWorkflows: z.array(WorkflowSuggestionSchema).optional(),
   suggestedRisks: z.array(RiskSuggestionSchema).optional(),
+  suggestedActionItems: z.array(ActionItemSuggestionSchema).optional(),
   summary: z.string(),
 });
 

@@ -237,6 +237,10 @@ export type Requirement = {
   source: RequirementSource;
   owner: RequirementOwner;
   status: RequirementStatus;
+  // Evidence trail — links back to the workflow step / session / stakeholder /
+  // discovery field that drove this requirement. Populated by the engine and
+  // by the NotesImport flow. Optional for legacy / manually-added items.
+  sourceRefs?: SourceRef[];
 };
 
 // ────────────────────────────────────────────────────────────
@@ -292,6 +296,56 @@ export type DeploymentRisk = {
   escalationTrigger: string;
   status: RiskStatus;
   source?: "auto" | "manual";
+  sourceRefs?: SourceRef[];
+};
+
+// ────────────────────────────────────────────────────────────
+// Source references (evidence trail)
+// ────────────────────────────────────────────────────────────
+
+export type SourceRefType =
+  | "workflow_step"        // a step in project.workflows
+  | "system"               // a project.systems entry
+  | "data_source"          // a project.dataSources entry
+  | "stakeholder"          // a stakeholder
+  | "stakeholder_concern"  // a specific concern string on a stakeholder
+  | "discovery_field"      // a field on discovery / customer (use refId as the field name)
+  | "session"              // a DiscoverySession
+  | "regulatory_context";  // a regulatory tag
+
+export type SourceRef = {
+  type: SourceRefType;
+  refId: string;   // id of the referenced entity (or field name for discovery_field)
+  label?: string;  // pre-rendered label, e.g. "Workflow step #3 — Manual review"
+};
+
+// ────────────────────────────────────────────────────────────
+// Action items + Discovery sessions
+// ────────────────────────────────────────────────────────────
+
+export type ActionItemUrgency = "low" | "medium" | "high";
+export type ActionItemStatus = "open" | "done";
+
+export type ActionItem = {
+  id: string;
+  title: string;
+  assignee: string;          // free-text; usually a stakeholder name
+  dueDate?: string;          // ISO date (YYYY-MM-DD) or quarter (Q3 2026) — free-text
+  urgency: ActionItemUrgency;
+  status: ActionItemStatus;
+  sessionId?: string;        // session this was extracted from, if any
+  createdAt: string;
+};
+
+export type DiscoverySession = {
+  id: string;
+  date: string;              // ISO date (YYYY-MM-DD)
+  title: string;             // e.g. "Initial discovery call with Sarah Chen"
+  attendees: string[];       // names; loosely linked to stakeholders
+  notes: string;             // raw pasted notes / transcript
+  extractedAt?: string;      // when AI extraction was last run
+  actionItems: ActionItem[]; // items extracted or added against this session
+  createdAt: string;
 };
 
 // ────────────────────────────────────────────────────────────
@@ -364,7 +418,14 @@ export type OnboardingProject = {
   stakeholders: Stakeholder[];
   pilotPlan: PilotPlan | null;
   outputs: GeneratedArtifacts | null;
+  // Legacy single-session notes blob. Migrated into meetingSessions[0] on first
+  // open. Keep here for backwards compat with seeded scenarios and old session
+  // storage payloads.
   meetingNotes?: string;
+  // Multi-session discovery log — replaces the single notes textarea as the
+  // primary capture surface. Each session has its own raw notes + extracted
+  // action items.
+  meetingSessions?: DiscoverySession[];
   visualisations?: ProjectVisualisations;
 };
 
@@ -407,6 +468,12 @@ export type NotesExtractionResult = {
     severity: string;
     likelihood: string;
     mitigation: string;
+  }[];
+  suggestedActionItems?: {
+    title: string;
+    assignee: string;
+    dueDate?: string;
+    urgency: string;
   }[];
   summary: string;
 };

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { EvidenceTrail } from "@/components/EvidenceTrail";
 import type { DeploymentRisk, RiskCategory, RiskSeverity, RiskLikelihood, RiskStatus } from "@/lib/types";
 
 type Props = {
@@ -231,6 +232,7 @@ function RiskRow({ risk, onStatusChange, onDelete }: RiskRowProps) {
               <p className="text-sm text-muted-foreground leading-relaxed">{risk.escalationTrigger}</p>
             </div>
           )}
+          <EvidenceTrail refs={risk.sourceRefs} />
           <div className="flex flex-wrap gap-4 text-xs text-muted-foreground pt-1">
             <span>Category: {CATEGORY_LABELS[risk.category]}</span>
             {risk.owner && <span>Owner: <span className="capitalize">{risk.owner}</span></span>}
