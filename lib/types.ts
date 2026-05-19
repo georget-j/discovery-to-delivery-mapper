@@ -365,6 +365,17 @@ export type OnboardingProject = {
   pilotPlan: PilotPlan | null;
   outputs: GeneratedArtifacts | null;
   meetingNotes?: string;
+  visualisations?: ProjectVisualisations;
+};
+
+// ────────────────────────────────────────────────────────────
+// Visualisations (added by the visualisation layer; see lib/visualisations/)
+// ────────────────────────────────────────────────────────────
+
+export type ProjectVisualisations = {
+  currentStateWorkflowMap?: import("./visualisations/workflow-types").CurrentStateWorkflowMap;
+  futureStateAIWorkflowMap?: import("./visualisations/workflow-types").FutureStateAIWorkflowMap;
+  // architecture, lineage, heatmap, kpiTree added in later phases
 };
 
 // ────────────────────────────────────────────────────────────
