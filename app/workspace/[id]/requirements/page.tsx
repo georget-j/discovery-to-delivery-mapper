@@ -56,7 +56,7 @@ export default function RequirementsPage() {
         <div>
           <h1 className="text-xl font-bold">Requirements Matrix</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Auto-generated from discovery, workflows, systems, and data sources. Add custom requirements as needed.
+            The sign-off list for engineering. Auto-derived from your workflows, systems, regulatory context, and PII data — every item carries an evidence trail.
           </p>
         </div>
         {!showForm && (

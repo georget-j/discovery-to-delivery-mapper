@@ -65,7 +65,7 @@ export function RequirementsMatrix({ requirements, manualIds, onDelete }: Props)
   if (requirements.length === 0) {
     return (
       <div className="rounded-lg border border-dashed px-6 py-12 text-center text-sm text-muted-foreground">
-        No requirements generated yet. Add workflow steps, systems, and data sources to generate requirements automatically.
+        No requirements yet. Fill in Workflow, Systems & Data, or Discovery — requirements derive automatically and show an evidence trail back to the source.
       </div>
     );
   }

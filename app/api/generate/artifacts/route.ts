@@ -3,6 +3,17 @@ import type { OnboardingProject, GeneratedArtifacts } from "@/lib/types";
 import { buildArtifactPrompt } from "@/lib/prompts";
 import { GeneratedArtifactsSchema } from "@/lib/schemas";
 import { generateTemplateArtifacts } from "@/lib/artifact-templates";
+import { hashGenerationInputs } from "@/lib/artifact-helpers";
+
+// Stamp every generated GeneratedArtifacts blob with the input hash + timestamp
+// so the Outputs page can detect when project inputs have drifted since.
+function stamp(artifacts: GeneratedArtifacts, project: OnboardingProject): GeneratedArtifacts {
+  return {
+    ...artifacts,
+    derivedFromHash: hashGenerationInputs(project),
+    generatedAt: new Date().toISOString(),
+  };
+}
 
 export async function POST(req: NextRequest) {
   let project: OnboardingProject;
@@ -16,7 +27,7 @@ export async function POST(req: NextRequest) {
 
   if (!apiKey) {
     // No API key — return deterministic template artifacts
-    const artifacts = generateTemplateArtifacts(project);
+    const artifacts = stamp(generateTemplateArtifacts(project), project);
     return NextResponse.json({ artifacts, source: "template" });
   }
 
@@ -54,14 +65,15 @@ export async function POST(req: NextRequest) {
 
     if (!validated.success) {
       // Fall back to templates if AI response doesn't match schema
-      const artifacts = generateTemplateArtifacts(project);
+      const artifacts = stamp(generateTemplateArtifacts(project), project);
       return NextResponse.json({ artifacts, source: "template_fallback" });
     }
 
-    return NextResponse.json({ artifacts: validated.data as GeneratedArtifacts, source: "ai" });
+    const artifacts = stamp(validated.data as GeneratedArtifacts, project);
+    return NextResponse.json({ artifacts, source: "ai" });
   } catch (err) {
     console.error("AI generation failed, falling back to templates:", err);
-    const artifacts = generateTemplateArtifacts(project);
+    const artifacts = stamp(generateTemplateArtifacts(project), project);
     return NextResponse.json({ artifacts, source: "template_fallback" });
   }
 }

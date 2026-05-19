@@ -15,7 +15,7 @@ export default function DiscoveryPage() {
       <div>
         <h1 className="text-xl font-bold">Customer Discovery</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Capture the customer context, business problem, and deployment constraints. Changes are saved automatically.
+          Who they are, what they're trying to fix, and what was said in the discovery call. Feeds every downstream artifact.
         </p>
       </div>
       <DiscoveryForm project={project} onUpdate={updateProject} />

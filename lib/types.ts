@@ -395,6 +395,10 @@ export type GeneratedArtifacts = {
   productFeedbackMemo: string;
   executiveSummary: string;
   nextActionsChecklist: string;
+  // Generation metadata — server-side stamped, used for stale detection.
+  // Optional so legacy stored outputs still work.
+  derivedFromHash?: string;
+  generatedAt?: string;
 };
 
 // ────────────────────────────────────────────────────────────

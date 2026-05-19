@@ -426,7 +426,7 @@ export function SystemsDataSourceEditor({ systems, dataSources, onSystemsChange,
 
         {systems.length === 0 && (
           <div className="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
-            No systems added yet. Add systems the AI product will need to integrate with.
+            No systems yet. Add every tool the AI reads from or writes to — CRM, case manager, ticketing, document store, etc.
           </div>
         )}
         {systems.map((s) => (
@@ -462,7 +462,7 @@ export function SystemsDataSourceEditor({ systems, dataSources, onSystemsChange,
 
         {dataSources.length === 0 && (
           <div className="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
-            No data sources added yet. Add datasets the AI model will consume.
+            No data sources yet. Add datasets the AI ingests — transactions, tickets, contracts, telemetry. Quality and PII flags drive risks.
           </div>
         )}
         {dataSources.map((s) => (

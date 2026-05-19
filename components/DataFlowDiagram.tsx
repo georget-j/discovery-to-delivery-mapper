@@ -44,11 +44,16 @@ export function DataFlowDiagram() {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          How Everything Connects
-        </h2>
-        <p className="text-xs text-muted-foreground">Live data flow across the project</p>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            How Everything Connects
+          </h2>
+          <p className="text-[11px] text-muted-foreground/80 mt-0.5">
+            Raw inputs become structured design, which derives requirements + risks, which ship as the deployment pack.
+          </p>
+        </div>
+        <p className="text-xs text-muted-foreground">Live — updates as you edit any tab</p>
       </div>
 
       <div className="rounded-lg border bg-muted/10 p-5">
@@ -142,7 +147,7 @@ export function DataFlowDiagram() {
         </div>
 
         <p className="text-[11px] text-muted-foreground mt-4 text-center italic">
-          Discovery + workflows feed requirements and risks. All inputs flow into the final deployment pack.
+          Click any card to jump to the source tab.
         </p>
       </div>
     </div>

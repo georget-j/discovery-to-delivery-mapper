@@ -88,7 +88,7 @@ export default function PilotPage() {
       <div>
         <h1 className="text-xl font-bold">Pilot Plan</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Define pilot scope, success metrics, launch and rollback criteria. Changes are saved automatically.
+          Lock down what success means before kick-off. Scope, users, metrics, and the launch/rollback gates that decide go/no-go.
         </p>
       </div>
 

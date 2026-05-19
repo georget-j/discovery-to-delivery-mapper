@@ -53,6 +53,8 @@ ${serializeProject(project)}
 
 Generate all 15 artifacts in the JSON response. Each artifact should be 150–400 words of professional prose appropriate for its audience. Be specific — reference actual system names, workflow names, risk titles, and stakeholder roles from the context.
 
+CITATIONS — important. When a sentence is derived from a specific input (e.g. a workflow step, a system, a risk, a regulatory tag, a stakeholder), add a numbered citation in square brackets at the end of that sentence. Example: "reduces analyst review time by 70%[1]." Use distinct numbers per artifact starting at 1. Cite freely but only where a specific input directly justifies the claim — don't pad with citations for generic statements. Do NOT include a separate "Sources" footer; the UI renders the citation list separately.
+
 ARTIFACTS TO GENERATE:
 1. customerDiscoverySummary — Executive summary of what was learned in discovery. Audience: internal team.
 2. currentStateWorkflow — Description of the customer's current manual process with pain points. Audience: engineering + product.

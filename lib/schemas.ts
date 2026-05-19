@@ -16,6 +16,8 @@ export const GeneratedArtifactsSchema = z.object({
   productFeedbackMemo: z.string(),
   executiveSummary: z.string(),
   nextActionsChecklist: z.string(),
+  derivedFromHash: z.string().optional(),
+  generatedAt: z.string().optional(),
 });
 
 export type GeneratedArtifactsSchema = z.infer<typeof GeneratedArtifactsSchema>;

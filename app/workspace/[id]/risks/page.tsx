@@ -48,7 +48,7 @@ export default function RisksPage() {
         <div>
           <h1 className="text-xl font-bold">Risk Register</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Deployment risks identified from project context. Status changes are saved automatically.
+            What could derail the deployment, with severity × likelihood and a mitigation. Auto-generated from your inputs; add custom ones below.
           </p>
         </div>
         {!showForm && (

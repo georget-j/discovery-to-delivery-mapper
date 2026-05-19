@@ -15,7 +15,7 @@ export default function SystemsPage() {
       <div>
         <h1 className="text-xl font-bold">Systems & Data</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Map the customer's existing systems and data sources. Integration blockers and data quality issues are flagged automatically.
+          Every system and data source the AI will touch. Missing APIs, blocked access, and poor data quality are flagged as risks automatically.
         </p>
       </div>
 

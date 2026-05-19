@@ -69,7 +69,7 @@ export function RiskRegister({ risks, onStatusChange, onDelete }: Props) {
   if (risks.length === 0) {
     return (
       <div className="rounded-lg border border-dashed px-6 py-12 text-center text-sm text-muted-foreground">
-        No risks generated yet. Add systems, data sources, and stakeholders to trigger risk detection.
+        No risks yet. Add systems, data sources, or stakeholders — the engine flags integration, data, security, and adoption risks automatically. Add custom ones below.
       </div>
     );
   }

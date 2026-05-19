@@ -17,10 +17,15 @@ export function JourneyOverview() {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          Customer Journey
-        </h2>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Customer Journey
+          </h2>
+          <p className="text-[11px] text-muted-foreground/80 mt-0.5">
+            Four phases from first call to shipped pack. The highlighted one is what to work on next.
+          </p>
+        </div>
         <p className="text-xs text-muted-foreground">
           {PHASES.filter((p) => isPhaseComplete(project, p.id)).length} of {PHASES.length} phases complete
         </p>

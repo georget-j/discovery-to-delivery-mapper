@@ -223,7 +223,7 @@ export function WorkflowStepEditor({ steps, onChange }: Props) {
     <div className="space-y-3">
       {steps.length === 0 && (
         <div className="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
-          No workflow steps yet. Add the first step to map the current process.
+          No workflow steps yet. Add one for each step in the customer's current process — owner, system used, pain points. Drives the canvas and the future-state map.
         </div>
       )}
       {steps.map((step, i) => (
