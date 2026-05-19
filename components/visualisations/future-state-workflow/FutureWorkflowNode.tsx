@@ -1,8 +1,9 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState, useRef, useEffect } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { cn } from "@/lib/utils";
+import { useMapEdit } from "../shared/MapEditContext";
 import type { FutureWorkflowNode as NodeData, FutureWorkflowNodeType } from "@/lib/visualisations/workflow-types";
 import { AutomationLevelBadge } from "./AutomationLevelBadge";
 import { GuardrailBadge } from "./GuardrailBadge";
@@ -21,10 +22,23 @@ const TYPE_STYLES: Record<FutureWorkflowNodeType, { container: string; label: st
   exception_path:  { container: "border-red-300 bg-red-50/80",         label: "text-red-900",     typeLabel: "Exception" },
 };
 
-function FutureWorkflowNodeImpl({ data, selected }: NodeProps) {
+function FutureWorkflowNodeImpl({ id, data, selected }: NodeProps) {
   const node = data as unknown as NodeData;
   const style = TYPE_STYLES[node.type];
   const isAi = node.type === "ai_assist" || node.type === "ai_agent";
+  const { patchNode } = useMapEdit();
+
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(node.title);
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { setDraft(node.title); }, [node.title]);
+  useEffect(() => { if (editing && inputRef.current) { inputRef.current.focus(); inputRef.current.select(); } }, [editing]);
+
+  const commit = () => {
+    setEditing(false);
+    if (draft.trim() && draft !== node.title) patchNode(id, { title: draft.trim() });
+  };
+  const cancel = () => { setEditing(false); setDraft(node.title); };
 
   if (node.type === "decision_gate") {
     return (
@@ -36,10 +50,26 @@ function FutureWorkflowNodeImpl({ data, selected }: NodeProps) {
             style.container,
             selected && "shadow-lg ring-2 ring-amber-400"
           )}
+          onDoubleClick={(e) => { e.stopPropagation(); setEditing(true); }}
         >
-          <div className="-rotate-45 text-center px-2">
+          <div className="-rotate-45 text-center px-2 w-full">
             <p className={cn("text-[10px] uppercase tracking-wider font-medium opacity-60", style.label)}>Decision</p>
-            <p className={cn("text-xs font-medium leading-tight mt-0.5", style.label)}>{node.title}</p>
+            {editing ? (
+              <input
+                ref={inputRef}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onBlur={commit}
+                onKeyDown={(e) => {
+                  e.stopPropagation();
+                  if (e.key === "Enter") commit();
+                  if (e.key === "Escape") cancel();
+                }}
+                className={cn("w-full text-xs font-medium leading-tight mt-0.5 text-center bg-white/80 border border-amber-400 rounded px-1", style.label)}
+              />
+            ) : (
+              <p className={cn("text-xs font-medium leading-tight mt-0.5", style.label)}>{node.title}</p>
+            )}
           </div>
         </div>
         <Handle type="source" position={Position.Right} className="!bg-amber-500 !w-2 !h-2" />
@@ -57,6 +87,7 @@ function FutureWorkflowNodeImpl({ data, selected }: NodeProps) {
           style.container,
           selected && "shadow-lg ring-2 ring-primary/40"
         )}
+        onDoubleClick={(e) => { e.stopPropagation(); setEditing(true); }}
       >
         <div className="flex items-center justify-between gap-2">
           <p className={cn("text-[10px] uppercase tracking-wider font-medium opacity-60", style.label)}>
@@ -66,7 +97,22 @@ function FutureWorkflowNodeImpl({ data, selected }: NodeProps) {
             <span className="text-[10px] text-amber-700">👤 approval</span>
           )}
         </div>
-        <p className={cn("text-xs font-semibold leading-snug mt-0.5", style.label)}>{node.title}</p>
+        {editing ? (
+          <input
+            ref={inputRef}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Enter") commit();
+              if (e.key === "Escape") cancel();
+            }}
+            className={cn("w-full text-xs font-semibold leading-snug mt-0.5 bg-white/80 border border-primary/40 rounded px-1 focus:outline-none focus:ring-1 focus:ring-primary", style.label)}
+          />
+        ) : (
+          <p className={cn("text-xs font-semibold leading-snug mt-0.5", style.label)}>{node.title}</p>
+        )}
         {node.description && (
           <p className="text-[11px] text-muted-foreground leading-snug mt-1 line-clamp-2">{node.description}</p>
         )}

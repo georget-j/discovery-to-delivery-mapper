@@ -7,7 +7,12 @@ import { cn } from "@/lib/utils";
 type Props = {
   generating: boolean;
   hasMap: boolean;
+  canUndo?: boolean;
+  canRedo?: boolean;
   onGenerate: () => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  onAutoLayout?: () => void;
   onAddNode: (type: WorkflowNodeType) => void;
   onExportMermaid: () => void;
   onExportJson: () => void;
@@ -23,7 +28,10 @@ const ADD_OPTIONS: { type: WorkflowNodeType; label: string }[] = [
   { type: "missing_info", label: "+ Missing info" },
 ];
 
-export function WorkflowToolbar({ generating, hasMap, onGenerate, onAddNode, onExportMermaid, onExportJson, onReset, source }: Props) {
+export function WorkflowToolbar({
+  generating, hasMap, canUndo, canRedo, source,
+  onGenerate, onUndo, onRedo, onAutoLayout, onAddNode, onExportMermaid, onExportJson, onReset,
+}: Props) {
   const [addOpen, setAddOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
 
@@ -48,6 +56,37 @@ export function WorkflowToolbar({ generating, hasMap, onGenerate, onAddNode, onE
       >
         {generating ? "Generating…" : hasMap ? "AI Improve" : "AI Generate"}
       </button>
+
+      {hasMap && onUndo && (
+        <div className="flex items-center gap-0.5 border rounded-md">
+          <button
+            type="button"
+            onClick={onUndo}
+            disabled={!canUndo}
+            title="Undo (⌘Z)"
+            className="text-xs px-2 py-1.5 hover:bg-muted/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors rounded-l-md"
+          >↶</button>
+          <div className="w-px h-4 bg-border" />
+          <button
+            type="button"
+            onClick={onRedo}
+            disabled={!canRedo}
+            title="Redo (⌘⇧Z)"
+            className="text-xs px-2 py-1.5 hover:bg-muted/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors rounded-r-md"
+          >↷</button>
+        </div>
+      )}
+
+      {hasMap && onAutoLayout && (
+        <button
+          type="button"
+          onClick={onAutoLayout}
+          title="Auto-layout (⌘L)"
+          className="text-xs px-3 py-1.5 rounded-md border hover:bg-muted/50 transition-colors"
+        >
+          ⌘ Tidy
+        </button>
+      )}
 
       {hasMap && (
         <div className="relative">

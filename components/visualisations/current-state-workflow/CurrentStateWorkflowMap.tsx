@@ -4,12 +4,16 @@ import { useState, useCallback } from "react";
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { VisualisationFrame } from "../shared/VisualisationFrame";
 import { downloadText } from "../shared/export-helpers";
+import { CanvasContextMenu, type ContextMenuItem } from "../shared/CanvasContextMenu";
+import { useUndoRedo } from "../shared/useUndoRedo";
+import { useCanvasShortcuts } from "../shared/useCanvasShortcuts";
 import { WorkflowCanvas } from "./WorkflowCanvas";
 import { WorkflowInspectorPanel } from "./WorkflowInspectorPanel";
 import { WorkflowToolbar } from "./WorkflowToolbar";
 import { WorkflowLegend } from "./WorkflowLegend";
-import { newBlankNode, CURRENT_LANE_Y, DEFAULT_CURRENT_LANES } from "./workflowUtils";
+import { newBlankNode, CURRENT_LANE_Y } from "./workflowUtils";
 import { currentStateToMermaid } from "@/lib/visualisations/mermaid-export";
+import { layoutNodesInLanes } from "@/lib/visualisations/auto-layout";
 import type {
   CurrentStateWorkflowMap as MapType,
   WorkflowNode,
@@ -21,7 +25,9 @@ export function CurrentStateWorkflowMap() {
   const { project, updateProject } = useWorkspace();
   const [generating, setGenerating] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [multiSelectIds, setMultiSelectIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId: string | null } | null>(null);
 
   const map = project?.visualisations?.currentStateWorkflowMap ?? null;
 
@@ -37,6 +43,8 @@ export function CurrentStateWorkflowMap() {
     },
     [project, updateProject]
   );
+
+  const { undo, redo, canUndo, canRedo } = useUndoRedo<MapType>(map, persist);
 
   const handleGenerate = useCallback(async () => {
     if (!project) return;
@@ -62,15 +70,15 @@ export function CurrentStateWorkflowMap() {
   }, [project, persist]);
 
   const handleAddNode = useCallback(
-    (type: WorkflowNodeType) => {
+    (type: WorkflowNodeType, atPos?: { x: number; y: number }) => {
       if (!map) return;
       const laneId =
         type === "system_step" ? "lane_systems"
         : type === "risk" || type === "missing_info" ? "lane_notes"
         : type === "decision" ? "lane_compliance"
         : "lane_operator";
-      const y = CURRENT_LANE_Y[laneId];
-      const x = 200 + (map.nodes.length % 6) * 240;
+      const y = atPos?.y ?? CURRENT_LANE_Y[laneId];
+      const x = atPos?.x ?? 200 + (map.nodes.length % 6) * 240;
       const node = newBlankNode(type, laneId, { x, y });
       persist({
         ...map,
@@ -111,12 +119,103 @@ export function CurrentStateWorkflowMap() {
     [map, persist]
   );
 
+  const handleDuplicateNode = useCallback(
+    (id: string) => {
+      if (!map) return;
+      const original = map.nodes.find((n) => n.id === id);
+      if (!original) return;
+      const dup: WorkflowNode = {
+        ...original,
+        id: `${original.id}_copy_${Date.now()}`,
+        title: `${original.title} (copy)`,
+        position: { x: original.position.x + 40, y: original.position.y + 40 },
+      };
+      persist({
+        ...map,
+        nodes: [...map.nodes, dup],
+        source: "manual",
+        updatedAt: new Date().toISOString(),
+      });
+      setSelectedNodeId(dup.id);
+    },
+    [map, persist]
+  );
+
+  const handleDeleteSelected = useCallback(() => {
+    if (!map) return;
+    const ids = new Set<string>(multiSelectIds);
+    if (selectedNodeId) ids.add(selectedNodeId);
+    if (ids.size === 0) return;
+    persist({
+      ...map,
+      nodes: map.nodes.filter((n) => !ids.has(n.id)),
+      edges: map.edges.filter((e) => !ids.has(e.source) && !ids.has(e.target)),
+      source: "manual",
+      updatedAt: new Date().toISOString(),
+    });
+    setSelectedNodeId(null);
+    setMultiSelectIds([]);
+  }, [map, multiSelectIds, selectedNodeId, persist]);
+
+  const handleDuplicateSelected = useCallback(() => {
+    if (!map) return;
+    const ids = new Set<string>(multiSelectIds);
+    if (selectedNodeId) ids.add(selectedNodeId);
+    if (ids.size === 0) return;
+    const copies: WorkflowNode[] = [];
+    map.nodes.forEach((n) => {
+      if (!ids.has(n.id)) return;
+      copies.push({
+        ...n,
+        id: `${n.id}_copy_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        title: `${n.title} (copy)`,
+        position: { x: n.position.x + 40, y: n.position.y + 40 },
+      });
+    });
+    persist({
+      ...map,
+      nodes: [...map.nodes, ...copies],
+      source: "manual",
+      updatedAt: new Date().toISOString(),
+    });
+  }, [map, multiSelectIds, selectedNodeId, persist]);
+
+  const handleNudgeSelected = useCallback(
+    (dx: number, dy: number) => {
+      if (!map) return;
+      const ids = new Set<string>(multiSelectIds);
+      if (selectedNodeId) ids.add(selectedNodeId);
+      if (ids.size === 0) return;
+      persist({
+        ...map,
+        nodes: map.nodes.map((n) =>
+          ids.has(n.id) ? { ...n, position: { x: n.position.x + dx, y: n.position.y + dy } } : n
+        ),
+        source: "manual",
+        updatedAt: new Date().toISOString(),
+      });
+    },
+    [map, multiSelectIds, selectedNodeId, persist]
+  );
+
+  const handleAutoLayout = useCallback(() => {
+    if (!map || map.nodes.length === 0) return;
+    const positions = layoutNodesInLanes(map.nodes, map.edges, CURRENT_LANE_Y, map.lanes);
+    persist({
+      ...map,
+      nodes: map.nodes.map((n) => ({ ...n, position: positions[n.id] ?? n.position })),
+      source: "manual",
+      updatedAt: new Date().toISOString(),
+    });
+  }, [map, persist]);
+
   const handleReset = useCallback(() => {
     if (!project) return;
     const next = { ...(project.visualisations ?? {}) };
     delete next.currentStateWorkflowMap;
     updateProject({ visualisations: next });
     setSelectedNodeId(null);
+    setMultiSelectIds([]);
   }, [project, updateProject]);
 
   const handleConvertToRisk = useCallback(
@@ -154,52 +253,120 @@ export function CurrentStateWorkflowMap() {
     downloadText(json, `${slug}-current-state-workflow.json`, "application/json");
   }, [map, project]);
 
+  useCanvasShortcuts({
+    onUndo: undo,
+    onRedo: redo,
+    onDuplicate: handleDuplicateSelected,
+    onDelete: handleDeleteSelected,
+    onAutoLayout: handleAutoLayout,
+    onNudge: handleNudgeSelected,
+    onEscape: () => { setSelectedNodeId(null); setContextMenu(null); },
+  }, !!map);
+
   const selectedNode = map?.nodes.find((n) => n.id === selectedNodeId) ?? null;
 
+  // Context menu items
+  const nodeContextItems: ContextMenuItem[] = contextMenu?.nodeId ? [
+    { type: "item", label: "Duplicate", shortcut: "⌘D", onClick: () => handleDuplicateNode(contextMenu.nodeId!) },
+    { type: "item", label: "Edit title", onClick: () => {
+      setSelectedNodeId(contextMenu.nodeId);
+      // Inline edit is triggered by double-click; nudge user to do that.
+      // Could also trigger via custom event in the future.
+    }},
+    { type: "separator" },
+    {
+      type: "item",
+      label: "Convert to risk →",
+      onClick: () => {
+        const n = map?.nodes.find((x) => x.id === contextMenu.nodeId);
+        if (n) handleConvertToRisk(n);
+      },
+    },
+    { type: "separator" },
+    { type: "item", label: "Delete", shortcut: "⌫", danger: true, onClick: () => handleDeleteNode(contextMenu.nodeId!) },
+  ] : [];
+
+  const paneContextItems: ContextMenuItem[] = [
+    {
+      type: "submenu",
+      label: "Add node here",
+      items: [
+        { type: "item", label: "Human step",   onClick: () => handleAddNode("human_step") },
+        { type: "item", label: "System step",  onClick: () => handleAddNode("system_step") },
+        { type: "item", label: "Decision",     onClick: () => handleAddNode("decision") },
+        { type: "item", label: "Risk",         onClick: () => handleAddNode("risk") },
+        { type: "item", label: "Missing info", onClick: () => handleAddNode("missing_info") },
+      ],
+    },
+    { type: "separator" },
+    { type: "item", label: "Auto-layout (tidy)", shortcut: "⌘L", onClick: handleAutoLayout },
+    { type: "item", label: "Undo", shortcut: "⌘Z", onClick: undo, disabled: !canUndo },
+    { type: "item", label: "Redo", shortcut: "⌘⇧Z", onClick: redo, disabled: !canRedo },
+  ];
+
   return (
-    <VisualisationFrame
-      title="Current-State Workflow Map"
-      subtitle="A swimlane-style map of how work happens today — handoffs, systems, manual steps, and evidence gaps."
-      toolbar={
-        <WorkflowToolbar
-          generating={generating}
-          hasMap={!!map}
-          source={map?.source}
-          onGenerate={handleGenerate}
-          onAddNode={handleAddNode}
-          onExportMermaid={handleExportMermaid}
-          onExportJson={handleExportJson}
-          onReset={handleReset}
+    <>
+      <VisualisationFrame
+        title="Current-State Workflow Map"
+        subtitle="Double-click to rename · Right-click for actions · ⌘Z undo · ⌘L tidy · drag-select to multi-pick"
+        toolbar={
+          <WorkflowToolbar
+            generating={generating}
+            hasMap={!!map}
+            source={map?.source}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            onGenerate={handleGenerate}
+            onUndo={undo}
+            onRedo={redo}
+            onAutoLayout={handleAutoLayout}
+            onAddNode={(t) => handleAddNode(t)}
+            onExportMermaid={handleExportMermaid}
+            onExportJson={handleExportJson}
+            onReset={handleReset}
+          />
+        }
+        canvas={
+          map ? (
+            <WorkflowCanvas
+              map={map}
+              onChange={persist}
+              onSelectNode={setSelectedNodeId}
+              selectedNodeId={selectedNodeId}
+              onMultiSelectChange={setMultiSelectIds}
+              onNodeContextMenu={(nodeId, x, y) => setContextMenu({ nodeId, x, y })}
+              onPaneContextMenu={(x, y) => setContextMenu({ nodeId: null, x, y })}
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-center px-8 space-y-3">
+              <p className="text-sm text-muted-foreground max-w-md">
+                No current-state map yet. Click <strong className="text-foreground">AI Generate</strong> to build one from your workflow steps and systems.
+              </p>
+              {error && <p className="text-xs text-destructive">{error}</p>}
+            </div>
+          )
+        }
+        inspector={
+          map ? (
+            <WorkflowInspectorPanel
+              node={selectedNode}
+              onUpdate={handleUpdateNode}
+              onDelete={handleDeleteNode}
+              onConvertToRisk={handleConvertToRisk}
+            />
+          ) : undefined
+        }
+        legend={map ? <WorkflowLegend /> : undefined}
+      />
+
+      {contextMenu && (
+        <CanvasContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={contextMenu.nodeId ? nodeContextItems : paneContextItems}
+          onClose={() => setContextMenu(null)}
         />
-      }
-      canvas={
-        map ? (
-          <WorkflowCanvas
-            map={map}
-            onChange={persist}
-            onSelectNode={setSelectedNodeId}
-            selectedNodeId={selectedNodeId}
-          />
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full text-center px-8 space-y-3">
-            <p className="text-sm text-muted-foreground max-w-md">
-              No current-state map yet. Click <strong className="text-foreground">AI Generate</strong> to build one from your workflow steps and systems.
-            </p>
-            {error && <p className="text-xs text-destructive">{error}</p>}
-          </div>
-        )
-      }
-      inspector={
-        map ? (
-          <WorkflowInspectorPanel
-            node={selectedNode}
-            onUpdate={handleUpdateNode}
-            onDelete={handleDeleteNode}
-            onConvertToRisk={handleConvertToRisk}
-          />
-        ) : undefined
-      }
-      legend={map ? <WorkflowLegend /> : undefined}
-    />
+      )}
+    </>
   );
 }

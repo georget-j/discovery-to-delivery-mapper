@@ -10,8 +10,13 @@ type Props = {
   hasCurrentMap: boolean;
   comparing: boolean;
   source?: string;
+  canUndo?: boolean;
+  canRedo?: boolean;
   onGenerate: () => void;
   onToggleCompare: () => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  onAutoLayout?: () => void;
   onAddNode: (type: FutureWorkflowNodeType) => void;
   onExportMermaid: () => void;
   onExportJson: () => void;
@@ -29,8 +34,9 @@ const ADD_OPTIONS: { type: FutureWorkflowNodeType; label: string }[] = [
 ];
 
 export function FutureWorkflowToolbar({
-  generating, hasMap, hasCurrentMap, comparing, source,
-  onGenerate, onToggleCompare, onAddNode, onExportMermaid, onExportJson, onReset,
+  generating, hasMap, hasCurrentMap, comparing, source, canUndo, canRedo,
+  onGenerate, onToggleCompare, onUndo, onRedo, onAutoLayout,
+  onAddNode, onExportMermaid, onExportJson, onReset,
 }: Props) {
   const [addOpen, setAddOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
@@ -56,6 +62,37 @@ export function FutureWorkflowToolbar({
       >
         {generating ? "Generating…" : hasMap ? "AI Redesign" : "AI Generate"}
       </button>
+
+      {hasMap && onUndo && (
+        <div className="flex items-center gap-0.5 border rounded-md">
+          <button
+            type="button"
+            onClick={onUndo}
+            disabled={!canUndo}
+            title="Undo (⌘Z)"
+            className="text-xs px-2 py-1.5 hover:bg-muted/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors rounded-l-md"
+          >↶</button>
+          <div className="w-px h-4 bg-border" />
+          <button
+            type="button"
+            onClick={onRedo}
+            disabled={!canRedo}
+            title="Redo (⌘⇧Z)"
+            className="text-xs px-2 py-1.5 hover:bg-muted/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors rounded-r-md"
+          >↷</button>
+        </div>
+      )}
+
+      {hasMap && onAutoLayout && (
+        <button
+          type="button"
+          onClick={onAutoLayout}
+          title="Auto-layout (⌘L)"
+          className="text-xs px-3 py-1.5 rounded-md border hover:bg-muted/50 transition-colors"
+        >
+          ⌘ Tidy
+        </button>
+      )}
 
       {hasMap && hasCurrentMap && (
         <button

@@ -5,9 +5,12 @@ import {
   ReactFlow,
   Background,
   Controls,
+  MiniMap,
   useNodesState,
   useEdgesState,
   addEdge,
+  PanOnScrollMode,
+  SelectionMode,
   type Connection,
   type Node as RFNode,
   type Edge as RFEdge,
@@ -21,6 +24,7 @@ import type { FutureStateAIWorkflowMap, FutureWorkflowNode, WorkflowEdge } from 
 import { FutureWorkflowNode as FutureWorkflowNodeComp } from "./FutureWorkflowNode";
 import { WorkflowLaneBackground } from "../current-state-workflow/WorkflowLaneBackground";
 import { mapToReactFlowNodes, mapToReactFlowEdges, FUTURE_LANE_Y, laneIdForY } from "./futureWorkflowUtils";
+import { MapEditProvider } from "../shared/MapEditContext";
 
 const NODE_TYPES = { future_workflow: FutureWorkflowNodeComp };
 
@@ -29,9 +33,15 @@ type Props = {
   onChange: (next: FutureStateAIWorkflowMap) => void;
   onSelectNode: (id: string | null) => void;
   selectedNodeId: string | null;
+  onMultiSelectChange?: (ids: string[]) => void;
+  onNodeContextMenu?: (nodeId: string, x: number, y: number) => void;
+  onPaneContextMenu?: (x: number, y: number) => void;
 };
 
-function CanvasInner({ map, onChange, onSelectNode, selectedNodeId }: Props) {
+function CanvasInner({
+  map, onChange, onSelectNode, selectedNodeId,
+  onMultiSelectChange, onNodeContextMenu, onPaneContextMenu,
+}: Props) {
   const initialNodes = useMemo(() => mapToReactFlowNodes(map), [map]);
   const initialEdges = useMemo(() => mapToReactFlowEdges(map), [map]);
 
@@ -44,9 +54,33 @@ function CanvasInner({ map, onChange, onSelectNode, selectedNodeId }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map.id, map.updatedAt]);
 
+  const patchNode = useCallback(
+    (id: string, patch: Record<string, unknown>) => {
+      onChange({
+        ...map,
+        nodes: map.nodes.map((n) => (n.id === id ? { ...n, ...patch } as FutureWorkflowNode : n)),
+        source: "manual",
+        updatedAt: new Date().toISOString(),
+      });
+    },
+    [map, onChange]
+  );
+
   const handleNodesChange = useCallback(
     (changes: NodeChange[]) => {
       onNodesChange(changes);
+
+      const selectChanges = changes.filter((c) => c.type === "select");
+      if (selectChanges.length > 0 && onMultiSelectChange) {
+        setTimeout(() => {
+          setNodes((curr) => {
+            const ids = curr.filter((n) => n.selected).map((n) => n.id);
+            onMultiSelectChange(ids);
+            return curr;
+          });
+        }, 0);
+      }
+
       const positionChanges = changes.filter((c) => c.type === "position" && !("dragging" in c && c.dragging));
       const removeChanges = changes.filter((c) => c.type === "remove");
       if (positionChanges.length === 0 && removeChanges.length === 0) return;
@@ -77,7 +111,7 @@ function CanvasInner({ map, onChange, onSelectNode, selectedNodeId }: Props) {
         updatedAt: new Date().toISOString(),
       });
     },
-    [onNodesChange, map, onChange]
+    [onNodesChange, map, onChange, onMultiSelectChange, setNodes]
   );
 
   const handleEdgesChange = useCallback(
@@ -124,32 +158,85 @@ function CanvasInner({ map, onChange, onSelectNode, selectedNodeId }: Props) {
 
   const handlePaneClick = useCallback(() => onSelectNode(null), [onSelectNode]);
 
+  const handleNodeContextMenu = useCallback(
+    (e: React.MouseEvent, node: RFNode) => {
+      e.preventDefault();
+      onSelectNode(node.id);
+      onNodeContextMenu?.(node.id, e.clientX, e.clientY);
+    },
+    [onSelectNode, onNodeContextMenu]
+  );
+
+  const handlePaneContextMenu = useCallback(
+    (e: React.MouseEvent | MouseEvent) => {
+      e.preventDefault();
+      onPaneContextMenu?.((e as MouseEvent).clientX, (e as MouseEvent).clientY);
+    },
+    [onPaneContextMenu]
+  );
+
   const nodesWithSelection = useMemo(
-    () => nodes.map((n) => ({ ...n, selected: n.id === selectedNodeId })),
+    () => nodes.map((n) => ({ ...n, selected: n.id === selectedNodeId || n.selected })),
     [nodes, selectedNodeId]
   );
 
   return (
-    <div className="absolute inset-0">
-      <WorkflowLaneBackground lanes={map.lanes} laneYs={FUTURE_LANE_Y} />
-      <ReactFlow
-        nodes={nodesWithSelection}
-        edges={edges}
-        nodeTypes={NODE_TYPES}
-        onNodesChange={handleNodesChange}
-        onEdgesChange={handleEdgesChange}
-        onConnect={handleConnect}
-        onNodeClick={handleNodeClick}
-        onPaneClick={handlePaneClick}
-        fitView
-        fitViewOptions={{ padding: 0.15, maxZoom: 1 }}
-        proOptions={{ hideAttribution: true }}
-        deleteKeyCode={["Backspace", "Delete"]}
-      >
-        <Background gap={20} size={1} color="#e2e8f0" />
-        <Controls position="bottom-right" showInteractive={false} />
-      </ReactFlow>
-    </div>
+    <MapEditProvider value={{ patchNode }}>
+      <div className="absolute inset-0">
+        <WorkflowLaneBackground lanes={map.lanes} laneYs={FUTURE_LANE_Y} />
+        <ReactFlow
+          nodes={nodesWithSelection}
+          edges={edges}
+          nodeTypes={NODE_TYPES}
+          onNodesChange={handleNodesChange}
+          onEdgesChange={handleEdgesChange}
+          onConnect={handleConnect}
+          onNodeClick={handleNodeClick}
+          onPaneClick={handlePaneClick}
+          onNodeContextMenu={handleNodeContextMenu}
+          onPaneContextMenu={handlePaneContextMenu}
+          fitView
+          fitViewOptions={{ padding: 0.15, maxZoom: 1 }}
+          proOptions={{ hideAttribution: true }}
+          deleteKeyCode={["Backspace", "Delete"]}
+          multiSelectionKeyCode={["Meta", "Shift", "Control"]}
+          selectionOnDrag
+          selectionMode={SelectionMode.Partial}
+          panOnDrag={[1, 2]}
+          panOnScroll
+          panOnScrollMode={PanOnScrollMode.Free}
+          zoomOnScroll={false}
+          zoomOnPinch
+          snapToGrid
+          snapGrid={[20, 20]}
+        >
+          <Background gap={20} size={1} color="#e2e8f0" />
+          <Controls position="bottom-right" showInteractive={false} />
+          <MiniMap
+            position="bottom-left"
+            pannable
+            zoomable
+            nodeColor={(n) => {
+              const data = n.data as unknown as FutureWorkflowNode | undefined;
+              switch (data?.type) {
+                case "ai_assist":
+                case "ai_agent":      return "#c4b5fd";
+                case "human_action":
+                case "approval":      return "#93c5fd";
+                case "system_action":
+                case "data_retrieval": return "#6ee7b7";
+                case "guardrail":     return "#fbcfe8";
+                case "decision_gate": return "#fcd34d";
+                case "monitoring":
+                case "audit_log":     return "#a5f3fc";
+                default:              return "#cbd5e1";
+              }
+            }}
+            maskColor="rgba(248, 250, 252, 0.7)"
+          />
+        </ReactFlow>
+      </div>
+    </MapEditProvider>
   );
 }
 
