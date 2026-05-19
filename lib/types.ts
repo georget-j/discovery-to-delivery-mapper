@@ -387,8 +387,26 @@ export type NotesExtractionResult = {
     businessProblem?: string;
     primaryUseCase?: string;
     desiredOutcome?: string;
+    regulatoryContext?: string[];
   };
   suggestedStakeholders?: { name: string; role: string; team: string; concerns: string[] }[];
   suggestedSystems?: { name: string; type: string; notes: string }[];
+  suggestedDataSources?: { name: string; dataType: string; format: string; notes: string }[];
+  suggestedWorkflows?: {
+    name: string;
+    description: string;
+    ownerTeam: string;
+    frequency: string;
+    manualEffort: string;
+    painPoints: string[];
+  }[];
+  suggestedRisks?: {
+    title: string;
+    description: string;
+    category: string;
+    severity: string;
+    likelihood: string;
+    mitigation: string;
+  }[];
   summary: string;
 };

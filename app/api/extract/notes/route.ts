@@ -2,34 +2,61 @@ import { NextRequest, NextResponse } from "next/server";
 import type { OnboardingProject } from "@/lib/types";
 import { NotesExtractionResultSchema } from "@/lib/schemas";
 
-const EXTRACTION_PROMPT = `You are an expert at extracting structured information from unstructured meeting notes and customer documents.
+const EXTRACTION_PROMPT = `You are an expert at extracting structured information from unstructured meeting notes, discovery call transcripts, and customer documents for an AI onboarding tool.
 
-Given raw notes from a customer discovery call or shared documentation, extract the relevant fields and return them as JSON. Only include fields where you have reasonable confidence the value is present in the notes. Return null or omit fields that are not mentioned.
+Given raw input, extract everything you can identify across discovery, design, and planning artifacts. Return JSON. Only include fields where you have reasonable confidence the value is present — omit anything not mentioned (do NOT invent details).
 
-Return a JSON object with this structure:
+Return a JSON object with this exact structure:
 {
   "discovery": {
-    "businessProblem": "string or omit",
-    "primaryUseCase": "string or omit",
-    "desiredOutcome": "string or omit",
-    "currentProcess": "string or omit",
-    "successDefinition": "string or omit",
-    "implementationDeadline": "string or omit",
-    "buyerTeam": "string or omit",
-    "constraints": "string or omit"
+    "businessProblem": "string — the core business problem in their words",
+    "primaryUseCase": "string — what the AI will do",
+    "desiredOutcome": "string — measurable improvement target",
+    "currentProcess": "string — how they handle this today",
+    "successDefinition": "string — how they'll know the deployment worked",
+    "implementationDeadline": "string — date or quarter mentioned",
+    "buyerTeam": "string — the team driving procurement",
+    "constraints": "string — limits, blockers, dependencies",
+    "regulatoryContext": ["GDPR", "FCA", "HIPAA", ...]
   },
   "suggestedStakeholders": [
     { "name": "string", "role": "string", "team": "string", "concerns": ["string"] }
   ],
   "suggestedSystems": [
-    { "name": "string", "type": "string", "notes": "string" }
+    { "name": "string", "type": "crm|case_management|document_management|data_warehouse|ticketing|email|chat|core_system|custom|other", "notes": "string — auth, API status, integration constraints, version" }
+  ],
+  "suggestedDataSources": [
+    { "name": "string", "dataType": "documents|tickets|customer_records|transactions|contracts|messages|logs|other", "format": "pdf|docx|csv|xlsx|json|api|database|mixed|unknown", "notes": "string — volume, freshness, quality, access concerns" }
+  ],
+  "suggestedWorkflows": [
+    {
+      "name": "string — short step name",
+      "description": "string — what happens at this step",
+      "ownerTeam": "string — who does it",
+      "frequency": "daily|weekly|monthly|ad_hoc",
+      "manualEffort": "low|medium|high",
+      "painPoints": ["string — frustrations or inefficiencies mentioned"]
+    }
+  ],
+  "suggestedRisks": [
+    {
+      "title": "string — short risk name",
+      "description": "string — what could go wrong",
+      "category": "data_readiness|integration|security|stakeholder_alignment|operational_adoption|model_quality|timeline|legal_procurement|support_readiness",
+      "severity": "critical|high|medium|low",
+      "likelihood": "high|medium|low",
+      "mitigation": "string — mitigation idea if discussed"
+    }
   ],
   "summary": "One sentence describing what was extracted from these notes"
 }
 
-For system "type", use one of: crm, case_management, document_management, data_warehouse, ticketing, email, chat, core_system, custom, other.
-The "suggestedStakeholders" and "suggestedSystems" arrays may be empty if none are mentioned.
-Keep extracted text concise and factual — do not embellish or infer beyond what is stated.`;
+Guidelines:
+- For workflows: extract any process steps mentioned (e.g. "analyst reviews case", "supervisor signs off"). Aim for 3-8 steps if a workflow is described.
+- For risks: include risks the customer explicitly raised AND obvious risks implied by the context (e.g. if PII data is mentioned, flag a security/privacy risk).
+- For regulatory context: include any acronyms (GDPR, FCA, HIPAA, SOC2, FATF, etc.) mentioned.
+- Keep all extracted text concise and factual — do NOT embellish, infer beyond what is stated, or pad with generic content.
+- Empty arrays are fine; omit fields not mentioned rather than inserting placeholder strings.`;
 
 export async function POST(req: NextRequest) {
   let body: { notes: string; project: OnboardingProject };
@@ -65,7 +92,7 @@ export async function POST(req: NextRequest) {
         ],
         response_format: { type: "json_object" },
         temperature: 0.1,
-        max_tokens: 2000,
+        max_tokens: 4000,
       }),
     });
 

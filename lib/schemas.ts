@@ -33,6 +33,31 @@ const SystemSuggestionSchema = z.object({
   notes: z.string(),
 });
 
+const DataSourceSuggestionSchema = z.object({
+  name: z.string(),
+  dataType: z.string(),
+  format: z.string(),
+  notes: z.string(),
+});
+
+const WorkflowSuggestionSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  ownerTeam: z.string(),
+  frequency: z.string(),
+  manualEffort: z.string(),
+  painPoints: z.array(z.string()),
+});
+
+const RiskSuggestionSchema = z.object({
+  title: z.string(),
+  description: z.string(),
+  category: z.string(),
+  severity: z.string(),
+  likelihood: z.string(),
+  mitigation: z.string(),
+});
+
 const DiscoverySuggestionSchema = z.object({
   businessProblem: z.string().optional(),
   primaryUseCase: z.string().optional(),
@@ -42,12 +67,16 @@ const DiscoverySuggestionSchema = z.object({
   implementationDeadline: z.string().optional(),
   buyerTeam: z.string().optional(),
   constraints: z.string().optional(),
+  regulatoryContext: z.array(z.string()).optional(),
 }).optional();
 
 export const NotesExtractionResultSchema = z.object({
   discovery: DiscoverySuggestionSchema,
   suggestedStakeholders: z.array(StakeholderSuggestionSchema).optional(),
   suggestedSystems: z.array(SystemSuggestionSchema).optional(),
+  suggestedDataSources: z.array(DataSourceSuggestionSchema).optional(),
+  suggestedWorkflows: z.array(WorkflowSuggestionSchema).optional(),
+  suggestedRisks: z.array(RiskSuggestionSchema).optional(),
   summary: z.string(),
 });
 
