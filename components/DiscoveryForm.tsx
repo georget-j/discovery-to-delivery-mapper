@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -55,6 +55,7 @@ const SUCCESS_DEF_EXAMPLE = `By end of pilot (Q4 2026), 70% of standard-risk ale
 
 export function DiscoveryForm({ project, onUpdate }: Props) {
   const { customer, discovery } = project;
+  const saveState = useSaveIndicator(project.updatedAt);
 
   const setCustomer = useCallback(
     (patch: Partial<CustomerProfile>) => {
@@ -71,18 +72,30 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
   );
 
   // ── Completion status per section ──────────────────────────────────────────
-  const profileFields = [customer.companyName, customer.primaryUseCase, customer.businessProblem, customer.desiredOutcome];
+  // Profile = identity + framing. Primary Use Case moved to Discovery Call below
+  // since it's the engagement outcome, not a customer attribute.
+  const profileFields = [customer.companyName, customer.businessProblem, customer.desiredOutcome];
   const profileComplete = profileFields.filter(Boolean).length;
-  const discoveryFields = [discovery.buyerTeam, discovery.implementationDeadline, discovery.usersAffected, discovery.currentProcess, discovery.successDefinition];
+  const discoveryFields = [
+    customer.primaryUseCase, discovery.buyerTeam, discovery.implementationDeadline,
+    discovery.usersAffected, discovery.currentProcess, discovery.successDefinition,
+  ];
   const discoveryComplete = discoveryFields.filter(Boolean).length;
 
   return (
     <div className="space-y-5">
+      {/* Save indicator strip — sits above all sections so users know edits persist */}
+      <div className="flex items-center justify-between text-xs">
+        <p className="text-muted-foreground">All edits auto-save to your session.</p>
+        <SaveIndicator state={saveState} />
+      </div>
+
       <FieldGroup
         title="Customer Profile"
-        helper="Who they are and what business outcome they're chasing. This drives the executive summary and the deployment pack framing."
+        helper="Who they are and what they're trying to fix. Drives the executive summary, deployment pack framing, and the AI's tone of voice in every artifact."
         status={`${profileComplete}/${profileFields.length} filled`}
       >
+        <SubSectionHeader>Identity</SubSectionHeader>
         <div className="grid sm:grid-cols-2 gap-4">
           <FormField id="companyName" label="Company Name" required>
             <Input
@@ -120,19 +133,7 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
             </Select>
           </FormField>
 
-          <FormField id="urgency" label="Urgency" helper="How time-pressured is this deployment?">
-            <Select value={customer.urgency} onValueChange={(v) => setCustomer({ urgency: v as CustomerProfile["urgency"] })}>
-              <SelectTrigger id="urgency"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="low">Low</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-                <SelectItem value="critical">Critical</SelectItem>
-              </SelectContent>
-            </Select>
-          </FormField>
-
-          <FormField id="technicalMaturity" label="Technical Maturity" helper="How sophisticated is their engineering org?">
+          <FormField id="technicalMaturity" label="Technical Maturity" helper="How sophisticated their engineering org is.">
             <Select value={customer.technicalMaturity} onValueChange={(v) => setCustomer({ technicalMaturity: v as CustomerProfile["technicalMaturity"] })}>
               <SelectTrigger id="technicalMaturity"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -142,16 +143,9 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
               </SelectContent>
             </Select>
           </FormField>
-
-          <FormField id="primaryUseCase" label="Primary Use Case" helper="1 line. The single thing AI will do.">
-            <Input
-              id="primaryUseCase"
-              value={customer.primaryUseCase}
-              onChange={(e) => setCustomer({ primaryUseCase: e.target.value })}
-              placeholder="AML alert triage"
-            />
-          </FormField>
         </div>
+
+        <SubSectionHeader>Framing</SubSectionHeader>
 
         <FormField
           id="businessProblem"
@@ -171,7 +165,7 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
         <FormField
           id="desiredOutcome"
           label="Desired Outcome"
-          helper="What success looks like. Quantify where possible — time reduction, error rate, throughput."
+          helper="What success looks like, in their words. Quantify where possible — time reduction, error rate, throughput."
         >
           <Textarea
             id="desiredOutcome"
@@ -184,7 +178,7 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
 
         <FormField
           label="Regulatory Context"
-          helper="Type to add custom or click suggestions. Drives compliance requirements in the deployment pack."
+          helper="Type to add custom, or click suggestions. Drives compliance requirements and the security artifacts."
           optional
         >
           <ChipInput
@@ -199,16 +193,44 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
 
       <FieldGroup
         title="Discovery Call"
-        helper="What you learned in conversations with the customer. Feeds workflow mapping, risks, and pilot scoping."
+        helper="What you learned in conversations. Feeds workflow mapping, risk detection, and pilot scoping."
         status={`${discoveryComplete}/${discoveryFields.length} filled`}
       >
-        {/* Logical sub-section 1: the meeting context */}
-        <SubSectionHeader>Meeting context</SubSectionHeader>
+        <SubSectionHeader>Engagement context</SubSectionHeader>
         <div className="grid sm:grid-cols-2 gap-4">
           <FormField
+            id="primaryUseCase"
+            label="Primary Use Case"
+            helper="1 line. The single thing AI will do for them."
+          >
+            <Input
+              id="primaryUseCase"
+              value={customer.primaryUseCase}
+              onChange={(e) => setCustomer({ primaryUseCase: e.target.value })}
+              placeholder="AML alert triage"
+            />
+          </FormField>
+
+          <FormField
+            id="urgency"
+            label="Urgency"
+            helper="How time-pressured this is."
+          >
+            <Select value={customer.urgency} onValueChange={(v) => setCustomer({ urgency: v as CustomerProfile["urgency"] })}>
+              <SelectTrigger id="urgency"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="low">Low</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+                <SelectItem value="critical">Critical — board-level pressure</SelectItem>
+              </SelectContent>
+            </Select>
+          </FormField>
+
+          <FormField
             id="buyerTeam"
-            label="Buyer / Stakeholder Team"
-            helper="The team championing this internally — drives the conversation cadence."
+            label="Sponsoring Team"
+            helper="The department driving this internally. Name the individual sponsor in the Stakeholders section below."
           >
             <Input
               id="buyerTeam"
@@ -235,15 +257,15 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
 
           <FormField
             id="usersAffected"
-            label="Users Affected"
-            helper="Approximate headcount + roles. Drives pilot user selection."
+            label="Affected User Population"
+            helper="The headcount and roles in scope — a sizing figure, not a list of people. Add specific named people in Stakeholders below."
             optional
           >
             <Input
               id="usersAffected"
               value={discovery.usersAffected}
               onChange={(e) => setDiscovery({ usersAffected: e.target.value })}
-              placeholder="12 AML analysts, 3 supervisors"
+              placeholder="~12 AML analysts, 3 supervisors"
             />
           </FormField>
 
@@ -263,13 +285,12 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
           </FormField>
         </div>
 
-        {/* Logical sub-section 2: process + scope */}
         <SubSectionHeader>Process & scope</SubSectionHeader>
 
         <ExampleField
           id="currentProcess"
           label="Current Process"
-          helper="A short summary of how they work today, end-to-end. You'll map this in detail later on the Workflow tab — this is the elevator-pitch version."
+          helper="A short summary of how they work today, end-to-end. You'll map this step-by-step on the Workflow tab — this is the elevator-pitch version."
           example={CURRENT_PROCESS_EXAMPLE}
           required
         >
@@ -278,13 +299,13 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
             rows={5}
             value={discovery.currentProcess}
             onChange={(e) => setDiscovery({ currentProcess: e.target.value })}
-            placeholder="A few sentences, or 3–6 numbered steps. Click ‘See example’ above for a sample."
+            placeholder="A few sentences, or 3–6 numbered steps. Click ‘See example’ for a sample."
           />
         </ExampleField>
 
         <FormField
           label="Constraints"
-          helper="What bounds the solution space. Press Enter to add each constraint, or pick from suggestions."
+          helper="What bounds the solution space. Press Enter to add each, or pick from suggestions."
           optional
         >
           <ChipInput
@@ -298,13 +319,13 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
 
         <FormField
           label="Known Risks"
-          helper="What the customer or your team has already flagged. These flow into the Risk Register."
+          helper="Headline risks raised on the call. Detailed scoring, mitigation, and ownership live in the Risk Register tab — these flow through automatically."
           optional
         >
           <ChipInput
             value={toChips(discovery.knownRisks)}
             onChange={(v) => setDiscovery({ knownRisks: fromChips(v) })}
-            placeholder="Type a known risk and press Enter…"
+            placeholder="Type a headline risk and press Enter…"
             suggestions={KNOWN_RISK_SUGGESTIONS}
             ariaLabel="Known risks"
           />
@@ -328,7 +349,7 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
 
       <FieldGroup
         title="Stakeholders"
-        helper="Named people across executive sponsorship, technical ownership, and end-user roles. Required before pilot launch."
+        helper="Individual named people. Each one has a role, team, and influence level. Different from the Sponsoring Team field above (which is the department) and Affected User Population (which is a count)."
         status={`${project.stakeholders.length} added`}
       >
         <StakeholderEditor
@@ -340,13 +361,54 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
   );
 }
 
-// ── Small UI helpers ──────────────────────────────────────────────────────
+// ── Save indicator ────────────────────────────────────────────────────────
+
+type SaveState = "idle" | "saving" | "saved";
+
+function useSaveIndicator(updatedAt: string | undefined): SaveState {
+  const [state, setState] = useState<SaveState>("idle");
+  const initial = useRef(updatedAt);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (updatedAt === initial.current) return; // skip mount
+    setState("saved");
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setState("idle"), 1500);
+  }, [updatedAt]);
+
+  return state;
+}
+
+function SaveIndicator({ state }: { state: SaveState }) {
+  if (state === "saved") {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-emerald-700 text-xs">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+        Saved
+      </span>
+    );
+  }
+  if (state === "saving") {
+    return <span className="text-xs text-muted-foreground">Saving…</span>;
+  }
+  return <span className="inline-flex items-center gap-1.5 text-muted-foreground text-xs">
+    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40" />
+    Ready
+  </span>;
+}
+
+// ── Layout helpers ────────────────────────────────────────────────────────
 
 function SubSectionHeader({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70 mt-2 first:mt-0 -mb-1">
-      {children}
-    </h3>
+    <div className="flex items-center gap-2 pt-3 first:pt-0">
+      <span className="h-px flex-1 bg-border" />
+      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-0.5 rounded-full bg-muted/60">
+        {children}
+      </span>
+      <span className="h-px flex-1 bg-border" />
+    </div>
   );
 }
 
