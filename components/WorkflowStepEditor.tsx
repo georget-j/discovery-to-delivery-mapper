@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { FormField, ChipInput } from "@/components/ui/form-field";
 import { cn } from "@/lib/utils";
 import { generateId } from "@/lib/utils";
 import type { WorkflowStep, FutureState } from "@/lib/types";
@@ -52,17 +52,6 @@ function newStep(): WorkflowStep {
     automationPotential: "medium",
     futureState: "ai_assisted",
   };
-}
-
-function arrToStr(arr: string[]): string {
-  return arr.join(", ");
-}
-
-function strToArr(s: string): string[] {
-  return s
-    .split(",")
-    .map((v) => v.trim())
-    .filter(Boolean);
 }
 
 type StepRowProps = {
@@ -130,43 +119,60 @@ function StepRow({ step, index, onUpdate, onRemove }: StepRowProps) {
           <Separator />
           <div className="px-4 py-4 space-y-4">
             <div className="grid sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Owner Team</Label>
-                <Input value={step.ownerTeam} onChange={(e) => onUpdate({ ownerTeam: e.target.value })} placeholder="e.g. Compliance, Ops…" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Current System</Label>
-                <Input value={step.currentSystem} onChange={(e) => onUpdate({ currentSystem: e.target.value })} placeholder="e.g. Salesforce, manual…" />
-              </div>
+              <FormField label="Owner Team" helper="Who runs this step today.">
+                <Input value={step.ownerTeam} onChange={(e) => onUpdate({ ownerTeam: e.target.value })} placeholder="AML Analysts" />
+              </FormField>
+              <FormField label="Current System" helper="The tool used at this step.">
+                <Input value={step.currentSystem} onChange={(e) => onUpdate({ currentSystem: e.target.value })} placeholder="Actimize Case Manager" />
+              </FormField>
             </div>
 
-            <div className="space-y-1.5">
-              <Label>Description</Label>
-              <Textarea rows={2} value={step.description} onChange={(e) => onUpdate({ description: e.target.value })} placeholder="What happens in this step?" />
+            <FormField label="Description" helper="What actually happens. 1-2 sentences.">
+              <Textarea
+                rows={2}
+                value={step.description}
+                onChange={(e) => onUpdate({ description: e.target.value })}
+                placeholder="Analyst opens the case, reviews alert details, and decides whether to investigate or close."
+              />
+            </FormField>
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              <FormField label="Input Data" helper="Press Enter to add each item.">
+                <ChipInput
+                  value={step.inputData}
+                  onChange={(v) => onUpdate({ inputData: v })}
+                  placeholder="e.g. transaction history"
+                  ariaLabel="Input data"
+                />
+              </FormField>
+              <FormField label="Output Artefacts" helper="Press Enter to add each item.">
+                <ChipInput
+                  value={step.outputArtifact}
+                  onChange={(v) => onUpdate({ outputArtifact: v })}
+                  placeholder="e.g. case note"
+                  ariaLabel="Output artefacts"
+                />
+              </FormField>
+              <FormField label="Pain Points" helper="Frustrations, delays, manual rework.">
+                <ChipInput
+                  value={step.painPoints}
+                  onChange={(v) => onUpdate({ painPoints: v })}
+                  placeholder="e.g. context switching"
+                  ariaLabel="Pain points"
+                />
+              </FormField>
+              <FormField label="Failure Modes" helper="What can go wrong at this step.">
+                <ChipInput
+                  value={step.failureModes}
+                  onChange={(v) => onUpdate({ failureModes: v })}
+                  placeholder="e.g. missed escalation"
+                  ariaLabel="Failure modes"
+                />
+              </FormField>
             </div>
 
             <div className="grid sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Input Data <span className="text-muted-foreground">(comma-separated)</span></Label>
-                <Input value={arrToStr(step.inputData)} onChange={(e) => onUpdate({ inputData: strToArr(e.target.value) })} placeholder="customer records, alerts…" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Output Artefacts <span className="text-muted-foreground">(comma-separated)</span></Label>
-                <Input value={arrToStr(step.outputArtifact)} onChange={(e) => onUpdate({ outputArtifact: strToArr(e.target.value) })} placeholder="SAR filing, case note…" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Pain Points <span className="text-muted-foreground">(comma-separated)</span></Label>
-                <Input value={arrToStr(step.painPoints)} onChange={(e) => onUpdate({ painPoints: strToArr(e.target.value) })} placeholder="slow, error-prone…" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Failure Modes <span className="text-muted-foreground">(comma-separated)</span></Label>
-                <Input value={arrToStr(step.failureModes)} onChange={(e) => onUpdate({ failureModes: strToArr(e.target.value) })} placeholder="false negatives, missed…" />
-              </div>
-            </div>
-
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Manual Effort</Label>
+              <FormField label="Manual Effort" helper="How much human time per occurrence.">
                 <Select value={step.manualEffort} onValueChange={(v) => onUpdate({ manualEffort: v as WorkflowStep["manualEffort"] })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -175,9 +181,8 @@ function StepRow({ step, index, onUpdate, onRemove }: StepRowProps) {
                     <SelectItem value="high">High</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Frequency</Label>
+              </FormField>
+              <FormField label="Frequency" helper="How often this step runs.">
                 <Select value={step.frequency} onValueChange={(v) => onUpdate({ frequency: v as WorkflowStep["frequency"] })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -187,9 +192,8 @@ function StepRow({ step, index, onUpdate, onRemove }: StepRowProps) {
                     <SelectItem value="ad_hoc">Ad-hoc</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Automation Potential</Label>
+              </FormField>
+              <FormField label="Automation Potential" helper="How well-suited to AI assistance.">
                 <Select value={step.automationPotential} onValueChange={(v) => onUpdate({ automationPotential: v as WorkflowStep["automationPotential"] })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -198,9 +202,8 @@ function StepRow({ step, index, onUpdate, onRemove }: StepRowProps) {
                     <SelectItem value="high">High</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Future State</Label>
+              </FormField>
+              <FormField label="Future State" helper="Target role in the AI-enabled workflow.">
                 <Select value={step.futureState} onValueChange={(v) => onUpdate({ futureState: v as FutureState })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -210,7 +213,7 @@ function StepRow({ step, index, onUpdate, onRemove }: StepRowProps) {
                     <SelectItem value="requires_approval">Requires Approval</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
+              </FormField>
             </div>
           </div>
         </>

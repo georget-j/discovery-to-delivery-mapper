@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { FormField, ChipInput } from "@/components/ui/form-field";
 import { generateId } from "@/lib/utils";
 import type { PilotPlan, SuccessMetric } from "@/lib/types";
 
@@ -38,13 +39,6 @@ function blankMetric(): SuccessMetric {
     measurementMethod: "",
     owner: "",
   };
-}
-
-function listToStr(arr: string[]): string {
-  return arr.join("\n");
-}
-function strToList(s: string): string[] {
-  return s.split("\n").map((l) => l.trim()).filter(Boolean);
 }
 
 type MetricRowProps = {
@@ -106,17 +100,24 @@ export function PilotPlanBuilder({ plan, workflowNames, onChange }: Props) {
       {/* Overview */}
       <section className="space-y-4">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Overview</h2>
-        <div className="space-y-1.5">
-          <Label>Pilot Objective</Label>
-          <Textarea rows={2} value={p.objective} onChange={(e) => set({ objective: e.target.value })} placeholder="What is the primary goal of this pilot?" />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Scope</Label>
-          <Textarea rows={2} value={p.scope} onChange={(e) => set({ scope: e.target.value })} placeholder="Which teams, regions, or use cases are in scope for the pilot?" />
-        </div>
+        <FormField label="Pilot Objective" helper="1 sentence. The single goal that defines pilot success." required>
+          <Textarea
+            rows={2}
+            value={p.objective}
+            onChange={(e) => set({ objective: e.target.value })}
+            placeholder="Validate that AI-drafted case briefs reduce AML triage time by 60% without increasing false negatives."
+          />
+        </FormField>
+        <FormField label="Scope" helper="Which teams, regions, or use cases are in.">
+          <Textarea
+            rows={2}
+            value={p.scope}
+            onChange={(e) => set({ scope: e.target.value })}
+            placeholder="London-based AML team. Standard-risk alerts only — high-risk and SAR cases excluded from pilot."
+          />
+        </FormField>
         <div className="grid sm:grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <Label>Duration (weeks)</Label>
+          <FormField label="Duration (weeks)" helper="Typical range: 4–12 weeks.">
             <Input
               type="number"
               min={1}
@@ -124,16 +125,15 @@ export function PilotPlanBuilder({ plan, workflowNames, onChange }: Props) {
               value={p.durationWeeks}
               onChange={(e) => set({ durationWeeks: parseInt(e.target.value) || 4 })}
             />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Pilot Users <span className="text-muted-foreground text-xs">(one per line)</span></Label>
-            <Textarea
-              rows={3}
-              value={listToStr(p.pilotUsers)}
-              onChange={(e) => set({ pilotUsers: strToList(e.target.value) })}
-              placeholder="Alice Chen — AML Analyst&#10;Bob Kumar — Compliance Lead"
+          </FormField>
+          <FormField label="Pilot Users" helper="Press Enter to add each user. Include name and role.">
+            <ChipInput
+              value={p.pilotUsers}
+              onChange={(v) => set({ pilotUsers: v })}
+              placeholder="e.g. Alice Chen — AML Analyst"
+              ariaLabel="Pilot users"
             />
-          </div>
+          </FormField>
         </div>
       </section>
 
@@ -143,14 +143,22 @@ export function PilotPlanBuilder({ plan, workflowNames, onChange }: Props) {
       <section className="space-y-4">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Baseline & Target</h2>
         <div className="grid sm:grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <Label>Baseline Measurement</Label>
-            <Textarea rows={2} value={p.baselineMeasurement} onChange={(e) => set({ baselineMeasurement: e.target.value })} placeholder="Current performance before AI — quantify where possible." />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Target Outcome</Label>
-            <Textarea rows={2} value={p.targetOutcome} onChange={(e) => set({ targetOutcome: e.target.value })} placeholder="Expected performance after AI deployment." />
-          </div>
+          <FormField label="Baseline Measurement" helper="Quantify today's performance. Numbers make the pilot defensible.">
+            <Textarea
+              rows={2}
+              value={p.baselineMeasurement}
+              onChange={(e) => set({ baselineMeasurement: e.target.value })}
+              placeholder="Average 4 hours per case. ~30 cases/analyst/week. ~12% escalation rate."
+            />
+          </FormField>
+          <FormField label="Target Outcome" helper="What you expect to see post-AI.">
+            <Textarea
+              rows={2}
+              value={p.targetOutcome}
+              onChange={(e) => set({ targetOutcome: e.target.value })}
+              placeholder="Under 45 minutes per case. ~80 cases/analyst/week. Escalation rate ±2pp vs baseline."
+            />
+          </FormField>
         </div>
       </section>
 
@@ -160,14 +168,23 @@ export function PilotPlanBuilder({ plan, workflowNames, onChange }: Props) {
       <section className="space-y-4">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Workflow Scope</h2>
         <div className="grid sm:grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <Label>Included Workflows <span className="text-muted-foreground text-xs">(one per line)</span></Label>
-            <Textarea rows={4} value={listToStr(p.includedWorkflows)} onChange={(e) => set({ includedWorkflows: strToList(e.target.value) })} placeholder="Transaction monitoring review&#10;Alert triage" />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Excluded Workflows <span className="text-muted-foreground text-xs">(one per line)</span></Label>
-            <Textarea rows={4} value={listToStr(p.excludedWorkflows)} onChange={(e) => set({ excludedWorkflows: strToList(e.target.value) })} placeholder="SAR filing (excluded — manual review required by regulation)" />
-          </div>
+          <FormField label="Included Workflows" helper="Press Enter to add each. Pulled from your Workflow tab.">
+            <ChipInput
+              value={p.includedWorkflows}
+              onChange={(v) => set({ includedWorkflows: v })}
+              placeholder="e.g. Alert intake"
+              suggestions={workflowNames}
+              ariaLabel="Included workflows"
+            />
+          </FormField>
+          <FormField label="Excluded Workflows" helper="Workflows out of scope for the pilot.">
+            <ChipInput
+              value={p.excludedWorkflows}
+              onChange={(v) => set({ excludedWorkflows: v })}
+              placeholder="e.g. SAR filing"
+              ariaLabel="Excluded workflows"
+            />
+          </FormField>
         </div>
       </section>
 
@@ -181,7 +198,7 @@ export function PilotPlanBuilder({ plan, workflowNames, onChange }: Props) {
         </div>
         {p.successMetrics.length === 0 && (
           <div className="rounded-lg border border-dashed px-6 py-8 text-center text-sm text-muted-foreground">
-            No success metrics defined. Add at least one measurable metric for pilot sign-off.
+            No success metrics defined yet. Add at least one measurable metric so the pilot has clear sign-off criteria.
           </div>
         )}
         {p.successMetrics.map((m) => (
@@ -202,24 +219,22 @@ export function PilotPlanBuilder({ plan, workflowNames, onChange }: Props) {
       <section className="space-y-4">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Launch & Rollback Criteria</h2>
         <div className="grid sm:grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <Label>Launch Criteria <span className="text-muted-foreground text-xs">(one per line)</span></Label>
-            <Textarea
-              rows={5}
-              value={listToStr(p.launchCriteria)}
-              onChange={(e) => set({ launchCriteria: strToList(e.target.value) })}
-              placeholder="Accuracy ≥ 85% on test set&#10;DPA signed&#10;Security review passed&#10;Training completed for all pilot users"
+          <FormField label="Launch Criteria" helper="Conditions that must be met before pilot starts. Press Enter to add each.">
+            <ChipInput
+              value={p.launchCriteria}
+              onChange={(v) => set({ launchCriteria: v })}
+              placeholder="e.g. Accuracy ≥ 85% on test set"
+              ariaLabel="Launch criteria"
             />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Rollback Criteria <span className="text-muted-foreground text-xs">(one per line)</span></Label>
-            <Textarea
-              rows={5}
-              value={listToStr(p.rollbackCriteria)}
-              onChange={(e) => set({ rollbackCriteria: strToList(e.target.value) })}
-              placeholder="False positive rate exceeds 20%&#10;System unavailability > 4 hours&#10;User satisfaction drops below 6/10"
+          </FormField>
+          <FormField label="Rollback Criteria" helper="Triggers that pause or end the pilot. Press Enter to add each.">
+            <ChipInput
+              value={p.rollbackCriteria}
+              onChange={(v) => set({ rollbackCriteria: v })}
+              placeholder="e.g. False negative rate > 5%"
+              ariaLabel="Rollback criteria"
             />
-          </div>
+          </FormField>
         </div>
       </section>
     </div>
