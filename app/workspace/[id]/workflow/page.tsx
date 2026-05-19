@@ -5,6 +5,7 @@ import { WorkflowStepEditor } from "@/components/WorkflowStepEditor";
 import { Separator } from "@/components/ui/separator";
 import { CurrentStateWorkflowMap } from "@/components/visualisations/current-state-workflow/CurrentStateWorkflowMap";
 import { FutureStateAIWorkflowMap } from "@/components/visualisations/future-state-workflow/FutureStateAIWorkflowMap";
+import { PageNav } from "@/components/PageNav";
 
 export default function WorkflowPage() {
   const { project, loading, updateProject } = useWorkspace();
@@ -45,6 +46,8 @@ export default function WorkflowPage() {
         <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Future-State AI Workflow Map</h2>
         <FutureStateAIWorkflowMap />
       </div>
+
+      <PageNav />
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { PilotPlanBuilder } from "@/components/PilotPlanBuilder";
+import { PageNav } from "@/components/PageNav";
 import { cn } from "@/lib/utils";
 import type { PilotPlan } from "@/lib/types";
 
@@ -98,6 +99,8 @@ export default function PilotPage() {
         workflowNames={workflowNames}
         onChange={(pilotPlan: PilotPlan) => updateProject({ pilotPlan })}
       />
+
+      <PageNav />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { cn } from "@/lib/utils";
 import { assembleOnboardingPack, downloadMarkdown } from "@/lib/markdown-export";
+import { PageNav } from "@/components/PageNav";
 import type { GeneratedArtifacts } from "@/lib/types";
 
 type Tab = keyof GeneratedArtifacts;
@@ -172,6 +173,8 @@ export default function OutputsPage() {
             Click &ldquo;Generate Outputs&rdquo; to produce all 15 onboarding artifacts. Works with or without an OpenAI API key.
           </div>
         )}
+
+        <PageNav />
       </div>
 
       {hasOutputs && (

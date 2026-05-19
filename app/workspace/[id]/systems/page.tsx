@@ -2,6 +2,7 @@
 
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { SystemsDataSourceEditor } from "@/components/SystemsDataSourceEditor";
+import { PageNav } from "@/components/PageNav";
 
 export default function SystemsPage() {
   const { project, loading, updateProject } = useWorkspace();
@@ -24,6 +25,8 @@ export default function SystemsPage() {
         onSystemsChange={(systems) => updateProject({ systems })}
         onDataSourcesChange={(dataSources) => updateProject({ dataSources })}
       />
+
+      <PageNav />
     </div>
   );
 }

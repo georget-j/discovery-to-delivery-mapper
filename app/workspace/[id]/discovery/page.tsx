@@ -2,6 +2,7 @@
 
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { DiscoveryForm } from "@/components/DiscoveryForm";
+import { PageNav } from "@/components/PageNav";
 
 export default function DiscoveryPage() {
   const { project, loading, updateProject } = useWorkspace();
@@ -18,6 +19,7 @@ export default function DiscoveryPage() {
         </p>
       </div>
       <DiscoveryForm project={project} onUpdate={updateProject} />
+      <PageNav />
     </div>
   );
 }

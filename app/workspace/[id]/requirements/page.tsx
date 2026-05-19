@@ -8,6 +8,7 @@ import { AddRequirementForm } from "@/components/AddRequirementForm";
 import { Separator } from "@/components/ui/separator";
 import { generateRequirements } from "@/lib/requirements-engine";
 import { detectMissingInfo } from "@/lib/missing-info-engine";
+import { PageNav } from "@/components/PageNav";
 import type { Requirement } from "@/lib/types";
 
 export default function RequirementsPage() {
@@ -93,6 +94,8 @@ export default function RequirementsPage() {
         </div>
         <MissingInfoLog items={missingInfo} />
       </section>
+
+      <PageNav />
     </div>
   );
 }

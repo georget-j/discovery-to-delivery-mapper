@@ -1,5 +1,6 @@
 import { WorkspaceProvider } from "@/components/WorkspaceProvider";
 import { WorkspaceSidebar } from "@/components/WorkspaceSidebar";
+import { JourneyBar } from "@/components/JourneyBar";
 
 export default function WorkspaceLayout({
   children,
@@ -8,8 +9,6 @@ export default function WorkspaceLayout({
   children: React.ReactNode;
   params: Promise<{ id: string }>;
 }) {
-  // params is a Promise in Next.js 15 — unwrap synchronously via use() in a client component
-  // For the layout, pass the id via WorkspaceProvider which handles async
   return (
     <WorkspaceLayoutInner params={params}>
       {children}
@@ -27,10 +26,13 @@ async function WorkspaceLayoutInner({
   const { id } = await params;
   return (
     <WorkspaceProvider id={id}>
-      <div className="flex flex-1 min-h-0" style={{ height: "calc(100vh - 3.5rem)" }}>
-        <WorkspaceSidebar />
-        <div className="flex-1 overflow-y-auto">
-          {children}
+      <div className="flex flex-col" style={{ height: "calc(100vh - 3.5rem)" }}>
+        <JourneyBar />
+        <div className="flex flex-1 min-h-0">
+          <WorkspaceSidebar />
+          <div className="flex-1 overflow-y-auto">
+            {children}
+          </div>
         </div>
       </div>
     </WorkspaceProvider>

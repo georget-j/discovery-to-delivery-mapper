@@ -5,6 +5,7 @@ import { useWorkspace } from "@/components/WorkspaceProvider";
 import { RiskRegister } from "@/components/RiskRegister";
 import { AddRiskForm } from "@/components/AddRiskForm";
 import { generateRisks } from "@/lib/risk-engine";
+import { PageNav } from "@/components/PageNav";
 import type { DeploymentRisk, RiskStatus } from "@/lib/types";
 
 export default function RisksPage() {
@@ -73,6 +74,8 @@ export default function RisksPage() {
         onStatusChange={handleStatusChange}
         onDelete={handleDeleteRisk}
       />
+
+      <PageNav />
     </div>
   );
 }
