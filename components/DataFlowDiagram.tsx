@@ -50,16 +50,25 @@ export function DataFlowDiagram() {
             How Everything Connects
           </h2>
           <p className="text-[11px] text-muted-foreground/80 mt-0.5">
-            Raw inputs become structured design, which derives requirements + risks, which ship as the deployment pack.
+            Raw inputs become structured design, which derives requirements +
+            risks, which ship as the deployment pack.
           </p>
         </div>
-        <p className="text-xs text-muted-foreground">Live — updates as you edit any tab</p>
+        <p className="text-xs text-muted-foreground">
+          Live — updates as you edit any tab
+        </p>
       </div>
 
       <div className="rounded-lg border bg-muted/10 p-5">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-stretch">
           {/* Column 1: Raw inputs */}
-          <Column projectId={project.id} title="Raw Inputs" subtitle="What you capture" colorClass="bg-blue-500" textColorClass="text-blue-700">
+          <Column
+            projectId={project.id}
+            title="Raw Inputs"
+            subtitle="What you capture"
+            colorClass="bg-blue-500"
+            textColorClass="text-blue-700"
+          >
             <FlowCard
               href={`/workspace/${project.id}/discovery`}
               label="Discovery"
@@ -83,17 +92,34 @@ export function DataFlowDiagram() {
           <Arrow />
 
           {/* Column 2: Structured design */}
-          <Column projectId={project.id} title="Structured Design" subtitle="Maps + lists" colorClass="bg-violet-500" textColorClass="text-violet-700">
+          <Column
+            projectId={project.id}
+            title="Structured Design"
+            subtitle="Maps + lists"
+            colorClass="bg-violet-500"
+            textColorClass="text-violet-700"
+          >
             <FlowCard
               href={`/workspace/${project.id}/workflow`}
               label={`${inputs.workflows} workflow step${inputs.workflows !== 1 ? "s" : ""}`}
               detail={
-                derived.currentMap && derived.futureMap ? "2 maps generated"
-                  : derived.currentMap ? "Current-state mapped"
-                    : derived.futureMap ? "Future-state mapped"
-                      : inputs.workflows > 0 ? "Add visual map" : "No steps yet"
+                derived.currentMap && derived.futureMap
+                  ? "2 maps generated"
+                  : derived.currentMap
+                    ? "Current-state mapped"
+                    : derived.futureMap
+                      ? "Future-state mapped"
+                      : inputs.workflows > 0
+                        ? "Add visual map"
+                        : "No steps yet"
               }
-              tone={derived.currentMap && derived.futureMap ? "ok" : inputs.workflows > 0 ? "info" : "warn"}
+              tone={
+                derived.currentMap && derived.futureMap
+                  ? "ok"
+                  : inputs.workflows > 0
+                    ? "info"
+                    : "warn"
+              }
             />
             <FlowCard
               href={`/workspace/${project.id}/systems`}
@@ -106,23 +132,41 @@ export function DataFlowDiagram() {
           <Arrow />
 
           {/* Column 3: Derived intelligence */}
-          <Column projectId={project.id} title="Derived Intelligence" subtitle="Auto-generated from above" colorClass="bg-amber-500" textColorClass="text-amber-700">
+          <Column
+            projectId={project.id}
+            title="Derived Intelligence"
+            subtitle="Auto-generated from above"
+            colorClass="bg-amber-500"
+            textColorClass="text-amber-700"
+          >
             <FlowCard
               href={`/workspace/${project.id}/requirements`}
               label={`${derived.requirementsAuto + derived.requirementsManual} requirement${derived.requirementsAuto + derived.requirementsManual !== 1 ? "s" : ""}`}
-              detail={derived.requirementsAuto > 0 ? `${derived.requirementsAuto} auto + ${derived.requirementsManual} custom` : "Add inputs to auto-generate"}
+              detail={
+                derived.requirementsAuto > 0
+                  ? `${derived.requirementsAuto} auto + ${derived.requirementsManual} custom`
+                  : "Add inputs to auto-generate"
+              }
               tone={derived.requirementsAuto > 0 ? "ok" : "warn"}
             />
             <FlowCard
               href={`/workspace/${project.id}/risks`}
               label={`${derived.risksTotal} risk${derived.risksTotal !== 1 ? "s" : ""}`}
-              detail={derived.risksAuto > 0 ? `${derived.risksAuto} engine-detected` : "Add inputs to detect risks"}
+              detail={
+                derived.risksAuto > 0
+                  ? `${derived.risksAuto} engine-detected`
+                  : "Add inputs to detect risks"
+              }
               tone={derived.risksTotal > 0 ? "ok" : "warn"}
             />
             <FlowCard
               href={`/workspace/${project.id}/requirements`}
               label={`${derived.missingInfoItems} open question${derived.missingInfoItems !== 1 ? "s" : ""}`}
-              detail={derived.missingInfoItems === 0 ? "All resolved" : "Needs attention"}
+              detail={
+                derived.missingInfoItems === 0
+                  ? "All resolved"
+                  : "Needs attention"
+              }
               tone={derived.missingInfoItems === 0 ? "ok" : "warn"}
             />
           </Column>
@@ -130,7 +174,13 @@ export function DataFlowDiagram() {
           <Arrow />
 
           {/* Column 4: Deployment pack */}
-          <Column projectId={project.id} title="Deployment Pack" subtitle="What you ship" colorClass="bg-emerald-500" textColorClass="text-emerald-700">
+          <Column
+            projectId={project.id}
+            title="Deployment Pack"
+            subtitle="What you ship"
+            colorClass="bg-emerald-500"
+            textColorClass="text-emerald-700"
+          >
             <FlowCard
               href={`/workspace/${project.id}/pilot`}
               label="Pilot plan"
@@ -172,7 +222,14 @@ function Column({
     <div className="space-y-2">
       <div className="flex items-center gap-2">
         <span className={cn("w-2 h-2 rounded-full shrink-0", colorClass)} />
-        <p className={cn("text-[10px] font-bold uppercase tracking-wider", textColorClass)}>{title}</p>
+        <p
+          className={cn(
+            "text-[10px] font-bold uppercase tracking-wider",
+            textColorClass,
+          )}
+        >
+          {title}
+        </p>
       </div>
       <p className="text-[10px] text-muted-foreground -mt-1 ml-4">{subtitle}</p>
       <div className="space-y-1.5 pt-1">{children}</div>
@@ -182,8 +239,15 @@ function Column({
 
 function Arrow() {
   return (
-    <div className="hidden md:flex items-center justify-center -mx-2">
-      <div className="text-muted-foreground/40 text-2xl select-none">→</div>
+    <div className="flex items-center justify-center md:-mx-2" aria-hidden>
+      {/* Right arrow on desktop (horizontal flow) */}
+      <span className="hidden md:inline text-muted-foreground/40 text-2xl select-none">
+        →
+      </span>
+      {/* Down arrow on mobile (vertical flow) */}
+      <span className="md:hidden text-muted-foreground/40 text-xl select-none -my-1">
+        ↓
+      </span>
     </div>
   );
 }
@@ -200,15 +264,15 @@ function FlowCard({
   tone: "ok" | "warn" | "info" | "neutral";
 }) {
   const toneStyles = {
-    ok:      "bg-background border-emerald-200",
-    warn:    "bg-background border-amber-200",
-    info:    "bg-background border-blue-200",
+    ok: "bg-background border-emerald-200",
+    warn: "bg-background border-amber-200",
+    info: "bg-background border-blue-200",
     neutral: "bg-background border-border",
   };
   const detailColor = {
-    ok:      "text-emerald-700",
-    warn:    "text-amber-700",
-    info:    "text-blue-700",
+    ok: "text-emerald-700",
+    warn: "text-amber-700",
+    info: "text-blue-700",
     neutral: "text-muted-foreground",
   };
   return (
@@ -216,11 +280,13 @@ function FlowCard({
       href={href}
       className={cn(
         "block rounded-md border px-2.5 py-2 text-xs hover:shadow-sm transition-all",
-        toneStyles[tone]
+        toneStyles[tone],
       )}
     >
       <p className="font-medium leading-tight">{label}</p>
-      <p className={cn("text-[10px] leading-tight mt-0.5", detailColor[tone])}>{detail}</p>
+      <p className={cn("text-[10px] leading-tight mt-0.5", detailColor[tone])}>
+        {detail}
+      </p>
     </Link>
   );
 }

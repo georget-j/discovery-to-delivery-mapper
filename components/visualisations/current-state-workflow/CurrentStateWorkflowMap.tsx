@@ -6,7 +6,10 @@ import { VisualisationFrame } from "../shared/VisualisationFrame";
 import { StaleBanner } from "../shared/StaleBanner";
 import { SourceBadge } from "../shared/SourceBadge";
 import { downloadText } from "../shared/export-helpers";
-import { CanvasContextMenu, type ContextMenuItem } from "../shared/CanvasContextMenu";
+import {
+  CanvasContextMenu,
+  type ContextMenuItem,
+} from "../shared/CanvasContextMenu";
 import { useUndoRedo } from "../shared/useUndoRedo";
 import { useCanvasShortcuts } from "../shared/useCanvasShortcuts";
 import { WorkflowCanvas } from "./WorkflowCanvas";
@@ -31,7 +34,11 @@ export function CurrentStateWorkflowMap() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [multiSelectIds, setMultiSelectIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId: string | null } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    nodeId: string | null;
+  } | null>(null);
 
   const map = project?.visualisations?.currentStateWorkflowMap ?? null;
 
@@ -45,7 +52,7 @@ export function CurrentStateWorkflowMap() {
         },
       });
     },
-    [project, updateProject]
+    [project, updateProject],
   );
 
   const { undo, redo, canUndo, canRedo } = useUndoRedo<MapType>(map, persist);
@@ -55,11 +62,14 @@ export function CurrentStateWorkflowMap() {
     setGenerating(true);
     setError(null);
     try {
-      const res = await fetch("/api/generate/visualisations/current-state-workflow", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ project }),
-      });
+      const res = await fetch(
+        "/api/generate/visualisations/current-state-workflow",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ project }),
+        },
+      );
       const data = await res.json();
       if (!data.map) {
         setError("Generation failed. Please try again.");
@@ -77,10 +87,13 @@ export function CurrentStateWorkflowMap() {
     (type: WorkflowNodeType, atPos?: { x: number; y: number }) => {
       if (!map) return;
       const laneId =
-        type === "system_step" ? "lane_systems"
-        : type === "risk" || type === "missing_info" ? "lane_notes"
-        : type === "decision" ? "lane_compliance"
-        : "lane_operator";
+        type === "system_step"
+          ? "lane_systems"
+          : type === "risk" || type === "missing_info"
+            ? "lane_notes"
+            : type === "decision"
+              ? "lane_compliance"
+              : "lane_operator";
       const y = atPos?.y ?? CURRENT_LANE_Y[laneId];
       const x = atPos?.x ?? 200 + (map.nodes.length % 6) * 240;
       const node = newBlankNode(type, laneId, { x, y });
@@ -92,7 +105,7 @@ export function CurrentStateWorkflowMap() {
       });
       setSelectedNodeId(node.id);
     },
-    [map, persist]
+    [map, persist],
   );
 
   const handleUpdateNode = useCallback(
@@ -105,7 +118,7 @@ export function CurrentStateWorkflowMap() {
         updatedAt: new Date().toISOString(),
       });
     },
-    [map, persist]
+    [map, persist],
   );
 
   const handleDeleteNode = useCallback(
@@ -120,7 +133,7 @@ export function CurrentStateWorkflowMap() {
       });
       setSelectedNodeId(null);
     },
-    [map, persist]
+    [map, persist],
   );
 
   const handleDuplicateNode = useCallback(
@@ -142,7 +155,7 @@ export function CurrentStateWorkflowMap() {
       });
       setSelectedNodeId(dup.id);
     },
-    [map, persist]
+    [map, persist],
   );
 
   const handleDeleteSelected = useCallback(() => {
@@ -193,21 +206,31 @@ export function CurrentStateWorkflowMap() {
       persist({
         ...map,
         nodes: map.nodes.map((n) =>
-          ids.has(n.id) ? { ...n, position: { x: n.position.x + dx, y: n.position.y + dy } } : n
+          ids.has(n.id)
+            ? { ...n, position: { x: n.position.x + dx, y: n.position.y + dy } }
+            : n,
         ),
         source: "manual",
         updatedAt: new Date().toISOString(),
       });
     },
-    [map, multiSelectIds, selectedNodeId, persist]
+    [map, multiSelectIds, selectedNodeId, persist],
   );
 
   const handleAutoLayout = useCallback(() => {
     if (!map || map.nodes.length === 0) return;
-    const positions = layoutNodesInLanes(map.nodes, map.edges, CURRENT_LANE_Y, map.lanes);
+    const positions = layoutNodesInLanes(
+      map.nodes,
+      map.edges,
+      CURRENT_LANE_Y,
+      map.lanes,
+    );
     persist({
       ...map,
-      nodes: map.nodes.map((n) => ({ ...n, position: positions[n.id] ?? n.position })),
+      nodes: map.nodes.map((n) => ({
+        ...n,
+        position: positions[n.id] ?? n.position,
+      })),
       source: "manual",
       updatedAt: new Date().toISOString(),
     });
@@ -228,7 +251,9 @@ export function CurrentStateWorkflowMap() {
       const newRisk = {
         id: generateId(),
         title: node.title,
-        description: node.description ?? `Risk identified at "${node.title}" in the current-state workflow.`,
+        description:
+          node.description ??
+          `Risk identified at "${node.title}" in the current-state workflow.`,
         category: "operational_adoption" as const,
         severity: "medium" as const,
         likelihood: "medium" as const,
@@ -240,32 +265,46 @@ export function CurrentStateWorkflowMap() {
       };
       updateProject({ risks: [...project.risks, newRisk] });
     },
-    [project, updateProject]
+    [project, updateProject],
   );
 
   const handleExportMermaid = useCallback(() => {
     if (!map || !project) return;
     const mmd = currentStateToMermaid(map);
-    const slug = project.customer.companyName.toLowerCase().replace(/[^a-z0-9]/g, "-");
+    const slug = project.customer.companyName
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "-");
     downloadText(mmd, `${slug}-current-state-workflow.mmd`, "text/plain");
   }, [map, project]);
 
   const handleExportJson = useCallback(() => {
     if (!map || !project) return;
     const json = JSON.stringify(map, null, 2);
-    const slug = project.customer.companyName.toLowerCase().replace(/[^a-z0-9]/g, "-");
-    downloadText(json, `${slug}-current-state-workflow.json`, "application/json");
+    const slug = project.customer.companyName
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "-");
+    downloadText(
+      json,
+      `${slug}-current-state-workflow.json`,
+      "application/json",
+    );
   }, [map, project]);
 
-  useCanvasShortcuts({
-    onUndo: undo,
-    onRedo: redo,
-    onDuplicate: handleDuplicateSelected,
-    onDelete: handleDeleteSelected,
-    onAutoLayout: handleAutoLayout,
-    onNudge: handleNudgeSelected,
-    onEscape: () => { setSelectedNodeId(null); setContextMenu(null); },
-  }, !!map);
+  useCanvasShortcuts(
+    {
+      onUndo: undo,
+      onRedo: redo,
+      onDuplicate: handleDuplicateSelected,
+      onDelete: handleDeleteSelected,
+      onAutoLayout: handleAutoLayout,
+      onNudge: handleNudgeSelected,
+      onEscape: () => {
+        setSelectedNodeId(null);
+        setContextMenu(null);
+      },
+    },
+    !!map,
+  );
 
   const selectedNode = map?.nodes.find((n) => n.id === selectedNodeId) ?? null;
 
@@ -278,42 +317,92 @@ export function CurrentStateWorkflowMap() {
   }, [map, project]);
 
   // Context menu items
-  const nodeContextItems: ContextMenuItem[] = contextMenu?.nodeId ? [
-    { type: "item", label: "Duplicate", shortcut: "⌘D", onClick: () => handleDuplicateNode(contextMenu.nodeId!) },
-    { type: "item", label: "Edit title", onClick: () => {
-      setSelectedNodeId(contextMenu.nodeId);
-      // Inline edit is triggered by double-click; nudge user to do that.
-      // Could also trigger via custom event in the future.
-    }},
-    { type: "separator" },
-    {
-      type: "item",
-      label: "Convert to risk →",
-      onClick: () => {
-        const n = map?.nodes.find((x) => x.id === contextMenu.nodeId);
-        if (n) handleConvertToRisk(n);
-      },
-    },
-    { type: "separator" },
-    { type: "item", label: "Delete", shortcut: "⌫", danger: true, onClick: () => handleDeleteNode(contextMenu.nodeId!) },
-  ] : [];
+  const nodeContextItems: ContextMenuItem[] = contextMenu?.nodeId
+    ? [
+        {
+          type: "item",
+          label: "Duplicate",
+          shortcut: "⌘D",
+          onClick: () => handleDuplicateNode(contextMenu.nodeId!),
+        },
+        {
+          type: "item",
+          label: "Edit title",
+          onClick: () => {
+            setSelectedNodeId(contextMenu.nodeId);
+            // Inline edit is triggered by double-click; nudge user to do that.
+            // Could also trigger via custom event in the future.
+          },
+        },
+        { type: "separator" },
+        {
+          type: "item",
+          label: "Convert to risk →",
+          onClick: () => {
+            const n = map?.nodes.find((x) => x.id === contextMenu.nodeId);
+            if (n) handleConvertToRisk(n);
+          },
+        },
+        { type: "separator" },
+        {
+          type: "item",
+          label: "Delete",
+          shortcut: "⌫",
+          danger: true,
+          onClick: () => handleDeleteNode(contextMenu.nodeId!),
+        },
+      ]
+    : [];
 
   const paneContextItems: ContextMenuItem[] = [
     {
       type: "submenu",
       label: "Add node here",
       items: [
-        { type: "item", label: "Human step",   onClick: () => handleAddNode("human_step") },
-        { type: "item", label: "System step",  onClick: () => handleAddNode("system_step") },
-        { type: "item", label: "Decision",     onClick: () => handleAddNode("decision") },
-        { type: "item", label: "Risk",         onClick: () => handleAddNode("risk") },
-        { type: "item", label: "Missing info", onClick: () => handleAddNode("missing_info") },
+        {
+          type: "item",
+          label: "Human step",
+          onClick: () => handleAddNode("human_step"),
+        },
+        {
+          type: "item",
+          label: "System step",
+          onClick: () => handleAddNode("system_step"),
+        },
+        {
+          type: "item",
+          label: "Decision",
+          onClick: () => handleAddNode("decision"),
+        },
+        { type: "item", label: "Risk", onClick: () => handleAddNode("risk") },
+        {
+          type: "item",
+          label: "Missing info",
+          onClick: () => handleAddNode("missing_info"),
+        },
       ],
     },
     { type: "separator" },
-    { type: "item", label: "Auto-layout (tidy)", shortcut: "⌘L", onClick: handleAutoLayout },
-    { type: "item", label: "Undo", shortcut: "⌘Z", onClick: undo, disabled: !canUndo },
-    { type: "item", label: "Redo", shortcut: "⌘⇧Z", onClick: redo, disabled: !canRedo },
+    {
+      type: "item",
+      label: "Auto-layout (tidy)",
+      shortcut: "⌘L",
+      onClick: handleAutoLayout,
+    },
+    {
+      type: "item",
+      label: "Undo",
+      shortcut: "⌘Z",
+      onClick: undo,
+      disabled: !canUndo,
+    },
+    {
+      type: "item",
+      label: "Redo",
+      shortcut: "⌘⇧Z",
+      onClick: redo,
+      disabled: !canRedo,
+    },
   ];
 
   return (
@@ -324,7 +413,12 @@ export function CurrentStateWorkflowMap() {
         titleBadge={map ? <SourceBadge source={map.source} /> : null}
         banner={
           map ? (
-            <StaleBanner stale={stale} generating={generating} onSync={handleGenerate} variant="current" />
+            <StaleBanner
+              stale={stale}
+              generating={generating}
+              onSync={handleGenerate}
+              variant="current"
+            />
           ) : null
         }
         toolbar={
@@ -352,8 +446,12 @@ export function CurrentStateWorkflowMap() {
               onSelectNode={setSelectedNodeId}
               selectedNodeId={selectedNodeId}
               onMultiSelectChange={setMultiSelectIds}
-              onNodeContextMenu={(nodeId, x, y) => setContextMenu({ nodeId, x, y })}
-              onPaneContextMenu={(x, y) => setContextMenu({ nodeId: null, x, y })}
+              onNodeContextMenu={(nodeId, x, y) =>
+                setContextMenu({ nodeId, x, y })
+              }
+              onPaneContextMenu={(x, y) =>
+                setContextMenu({ nodeId: null, x, y })
+              }
             />
           ) : (
             <div className="h-full flex items-center justify-center px-8">
@@ -362,8 +460,13 @@ export function CurrentStateWorkflowMap() {
                 title="No current-state map yet"
                 body={
                   <>
-                    Builds an interactive swimlane map from your workflow steps and systems.
-                    {error && <span className="block mt-1 text-destructive">{error}</span>}
+                    Builds an interactive swimlane map from your workflow steps
+                    and systems.
+                    {error && (
+                      <span className="block mt-1 text-destructive">
+                        {error}
+                      </span>
+                    )}
                   </>
                 }
                 tone="prominent"
@@ -391,6 +494,10 @@ export function CurrentStateWorkflowMap() {
             />
           ) : undefined
         }
+        inspectorOpen={!!selectedNodeId}
+        onInspectorOpenChange={(open) => {
+          if (!open) setSelectedNodeId(null);
+        }}
         legend={map ? <WorkflowLegend /> : undefined}
       />
 

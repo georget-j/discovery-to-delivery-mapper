@@ -1,16 +1,21 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
+import { Sheet } from "@/components/ui/sheet";
 
 type Props = {
   title: string;
   subtitle?: string;
-  titleBadge?: ReactNode;   // small badge in the title row (e.g. SourceBadge)
+  titleBadge?: ReactNode; // small badge in the title row (e.g. SourceBadge)
   toolbar?: ReactNode;
-  banner?: ReactNode;       // sits between title row and canvas (e.g. StaleBanner)
+  banner?: ReactNode; // sits between title row and canvas (e.g. StaleBanner)
   canvas: ReactNode;
   inspector?: ReactNode;
   legend?: ReactNode;
+  // Mobile-only: controls whether the inspector renders open in its bottom-sheet.
+  // Typically wired to !!selectedNodeId by the consumer.
+  inspectorOpen?: boolean;
+  onInspectorOpenChange?: (next: boolean) => void;
 };
 
 export function VisualisationFrame({
@@ -22,37 +27,118 @@ export function VisualisationFrame({
   canvas,
   inspector,
   legend,
+  inspectorOpen = false,
+  onInspectorOpenChange,
 }: Props) {
+  const [toolsOpen, setToolsOpen] = useState(false);
+
   return (
     <div className="rounded-lg border bg-background overflow-hidden">
-      <div className="flex items-start justify-between gap-4 border-b px-4 py-3">
-        <div className="min-w-0">
+      <div className="flex items-start justify-between gap-4 border-b px-4 py-3 flex-wrap sm:flex-nowrap">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-semibold leading-tight">{title}</h3>
             {titleBadge}
           </div>
           {subtitle && (
-            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{subtitle}</p>
+            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed hidden sm:block">
+              {subtitle}
+            </p>
           )}
         </div>
-        {toolbar && <div className="flex items-center gap-2 shrink-0">{toolbar}</div>}
+        {toolbar && (
+          <>
+            {/* Desktop: toolbar inline */}
+            <div className="hidden md:flex items-center gap-2 shrink-0">
+              {toolbar}
+            </div>
+            {/* Mobile: hamburger that opens the toolbar in a bottom Sheet */}
+            <button
+              type="button"
+              onClick={() => setToolsOpen(true)}
+              className="md:hidden text-xs px-3 py-1.5 rounded-md border border-border bg-background hover:bg-muted/40 transition-colors shrink-0"
+            >
+              Tools ▾
+            </button>
+          </>
+        )}
       </div>
 
       {banner && (
         <div className="border-b px-4 py-2 bg-amber-50/50">{banner}</div>
       )}
 
-      <div className="relative flex" style={{ height: 640 }}>
+      <div
+        className="relative flex"
+        style={{ height: "min(640px, calc(100dvh - 14rem))" }}
+      >
         <div className="flex-1 relative bg-muted/10">{canvas}</div>
         {inspector && (
-          <div className="w-72 shrink-0 border-l bg-background overflow-y-auto">
+          <div className="hidden md:flex flex-col w-72 shrink-0 border-l bg-background overflow-y-auto">
             {inspector}
           </div>
         )}
       </div>
 
       {legend && (
-        <div className="border-t bg-muted/20 px-4 py-2">{legend}</div>
+        <div className="border-t bg-muted/20 px-4 py-2 hidden md:block">
+          {legend}
+        </div>
+      )}
+
+      {/* Mobile inspector — bottom sheet */}
+      {inspector && onInspectorOpenChange && (
+        <Sheet
+          open={inspectorOpen}
+          onOpenChange={onInspectorOpenChange}
+          side="bottom"
+          ariaLabel="Node inspector"
+          className="md:hidden"
+        >
+          <div className="flex items-center justify-between px-4 py-3 border-b">
+            <p className="text-sm font-semibold">Inspector</p>
+            <button
+              type="button"
+              onClick={() => onInspectorOpenChange(false)}
+              className="text-xs px-2 py-1 rounded hover:bg-muted/50"
+              aria-label="Close inspector"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
+            {inspector}
+          </div>
+        </Sheet>
+      )}
+
+      {/* Mobile toolbar — bottom sheet */}
+      {toolbar && (
+        <Sheet
+          open={toolsOpen}
+          onOpenChange={setToolsOpen}
+          side="bottom"
+          ariaLabel="Canvas tools"
+          className="md:hidden"
+        >
+          <div className="flex items-center justify-between px-4 py-3 border-b">
+            <p className="text-sm font-semibold">Tools</p>
+            <button
+              type="button"
+              onClick={() => setToolsOpen(false)}
+              className="text-xs px-2 py-1 rounded hover:bg-muted/50"
+              aria-label="Close tools"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] flex flex-wrap gap-2">
+            {toolbar}
+          </div>
+          {legend && (
+            <div className="border-t bg-muted/20 px-4 py-3">{legend}</div>
+          )}
+        </Sheet>
       )}
     </div>
   );

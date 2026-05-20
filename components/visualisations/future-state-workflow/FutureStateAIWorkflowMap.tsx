@@ -6,7 +6,10 @@ import { VisualisationFrame } from "../shared/VisualisationFrame";
 import { StaleBanner } from "../shared/StaleBanner";
 import { SourceBadge } from "../shared/SourceBadge";
 import { downloadText } from "../shared/export-helpers";
-import { CanvasContextMenu, type ContextMenuItem } from "../shared/CanvasContextMenu";
+import {
+  CanvasContextMenu,
+  type ContextMenuItem,
+} from "../shared/CanvasContextMenu";
 import { useUndoRedo } from "../shared/useUndoRedo";
 import { useCanvasShortcuts } from "../shared/useCanvasShortcuts";
 import { FutureWorkflowCanvas } from "./FutureWorkflowCanvas";
@@ -33,7 +36,11 @@ export function FutureStateAIWorkflowMap() {
   const [multiSelectIds, setMultiSelectIds] = useState<string[]>([]);
   const [comparing, setComparing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId: string | null } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    nodeId: string | null;
+  } | null>(null);
 
   const map = project?.visualisations?.futureStateAIWorkflowMap ?? null;
   const currentMap = project?.visualisations?.currentStateWorkflowMap;
@@ -48,7 +55,7 @@ export function FutureStateAIWorkflowMap() {
         },
       });
     },
-    [project, updateProject]
+    [project, updateProject],
   );
 
   const { undo, redo, canUndo, canRedo } = useUndoRedo<MapType>(map, persist);
@@ -58,11 +65,14 @@ export function FutureStateAIWorkflowMap() {
     setGenerating(true);
     setError(null);
     try {
-      const res = await fetch("/api/generate/visualisations/future-state-workflow", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ project, currentStateMapId: currentMap?.id }),
-      });
+      const res = await fetch(
+        "/api/generate/visualisations/future-state-workflow",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ project, currentStateMapId: currentMap?.id }),
+        },
+      );
       const data = await res.json();
       if (!data.map) {
         setError("Generation failed. Please try again.");
@@ -80,12 +90,17 @@ export function FutureStateAIWorkflowMap() {
     (type: FutureWorkflowNodeType) => {
       if (!map) return;
       const laneId =
-        type === "ai_assist" || type === "ai_agent" ? "lane_ai"
-        : type === "system_action" || type === "data_retrieval" ? "lane_systems"
-        : type === "guardrail" ? "lane_guardrails"
-        : type === "approval" ? "lane_compliance"
-        : type === "monitoring" || type === "audit_log" ? "lane_monitoring"
-        : "lane_human";
+        type === "ai_assist" || type === "ai_agent"
+          ? "lane_ai"
+          : type === "system_action" || type === "data_retrieval"
+            ? "lane_systems"
+            : type === "guardrail"
+              ? "lane_guardrails"
+              : type === "approval"
+                ? "lane_compliance"
+                : type === "monitoring" || type === "audit_log"
+                  ? "lane_monitoring"
+                  : "lane_human";
       const y = FUTURE_LANE_Y[laneId];
       const x = 200 + (map.nodes.length % 6) * 240;
       const node = newBlankFutureNode(type, laneId, { x, y });
@@ -97,7 +112,7 @@ export function FutureStateAIWorkflowMap() {
       });
       setSelectedNodeId(node.id);
     },
-    [map, persist]
+    [map, persist],
   );
 
   const handleUpdateNode = useCallback(
@@ -110,7 +125,7 @@ export function FutureStateAIWorkflowMap() {
         updatedAt: new Date().toISOString(),
       });
     },
-    [map, persist]
+    [map, persist],
   );
 
   const handleDeleteNode = useCallback(
@@ -125,7 +140,7 @@ export function FutureStateAIWorkflowMap() {
       });
       setSelectedNodeId(null);
     },
-    [map, persist]
+    [map, persist],
   );
 
   const handleDuplicateNode = useCallback(
@@ -147,7 +162,7 @@ export function FutureStateAIWorkflowMap() {
       });
       setSelectedNodeId(dup.id);
     },
-    [map, persist]
+    [map, persist],
   );
 
   const handleDeleteSelected = useCallback(() => {
@@ -198,21 +213,31 @@ export function FutureStateAIWorkflowMap() {
       persist({
         ...map,
         nodes: map.nodes.map((n) =>
-          ids.has(n.id) ? { ...n, position: { x: n.position.x + dx, y: n.position.y + dy } } : n
+          ids.has(n.id)
+            ? { ...n, position: { x: n.position.x + dx, y: n.position.y + dy } }
+            : n,
         ),
         source: "manual",
         updatedAt: new Date().toISOString(),
       });
     },
-    [map, multiSelectIds, selectedNodeId, persist]
+    [map, multiSelectIds, selectedNodeId, persist],
   );
 
   const handleAutoLayout = useCallback(() => {
     if (!map || map.nodes.length === 0) return;
-    const positions = layoutNodesInLanes(map.nodes, map.edges, FUTURE_LANE_Y, map.lanes);
+    const positions = layoutNodesInLanes(
+      map.nodes,
+      map.edges,
+      FUTURE_LANE_Y,
+      map.lanes,
+    );
     persist({
       ...map,
-      nodes: map.nodes.map((n) => ({ ...n, position: positions[n.id] ?? n.position })),
+      nodes: map.nodes.map((n) => ({
+        ...n,
+        position: positions[n.id] ?? n.position,
+      })),
       source: "manual",
       updatedAt: new Date().toISOString(),
     });
@@ -233,7 +258,9 @@ export function FutureStateAIWorkflowMap() {
       const newReq = {
         id: generateId(),
         title: node.title,
-        description: node.description ?? `Requirement derived from future-state workflow node: ${node.title}`,
+        description:
+          node.description ??
+          `Requirement derived from future-state workflow node: ${node.title}`,
         category: "functional" as const,
         priority: "must_have" as const,
         source: "generated" as const,
@@ -242,32 +269,46 @@ export function FutureStateAIWorkflowMap() {
       };
       updateProject({ requirements: [...project.requirements, newReq] });
     },
-    [project, updateProject]
+    [project, updateProject],
   );
 
   const handleExportMermaid = useCallback(() => {
     if (!map || !project) return;
     const mmd = futureStateToMermaid(map);
-    const slug = project.customer.companyName.toLowerCase().replace(/[^a-z0-9]/g, "-");
+    const slug = project.customer.companyName
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "-");
     downloadText(mmd, `${slug}-future-state-ai-workflow.mmd`, "text/plain");
   }, [map, project]);
 
   const handleExportJson = useCallback(() => {
     if (!map || !project) return;
     const json = JSON.stringify(map, null, 2);
-    const slug = project.customer.companyName.toLowerCase().replace(/[^a-z0-9]/g, "-");
-    downloadText(json, `${slug}-future-state-ai-workflow.json`, "application/json");
+    const slug = project.customer.companyName
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "-");
+    downloadText(
+      json,
+      `${slug}-future-state-ai-workflow.json`,
+      "application/json",
+    );
   }, [map, project]);
 
-  useCanvasShortcuts({
-    onUndo: undo,
-    onRedo: redo,
-    onDuplicate: handleDuplicateSelected,
-    onDelete: handleDeleteSelected,
-    onAutoLayout: handleAutoLayout,
-    onNudge: handleNudgeSelected,
-    onEscape: () => { setSelectedNodeId(null); setContextMenu(null); },
-  }, !!map);
+  useCanvasShortcuts(
+    {
+      onUndo: undo,
+      onRedo: redo,
+      onDuplicate: handleDuplicateSelected,
+      onDelete: handleDeleteSelected,
+      onAutoLayout: handleAutoLayout,
+      onNudge: handleNudgeSelected,
+      onEscape: () => {
+        setSelectedNodeId(null);
+        setContextMenu(null);
+      },
+    },
+    !!map,
+  );
 
   const selectedNode = map?.nodes.find((n) => n.id === selectedNodeId) ?? null;
 
@@ -277,39 +318,97 @@ export function FutureStateAIWorkflowMap() {
     return map.derivedFromHash !== hashWorkflows(project.workflows);
   }, [map, project]);
 
-  const nodeContextItems: ContextMenuItem[] = contextMenu?.nodeId ? [
-    { type: "item", label: "Duplicate", shortcut: "⌘D", onClick: () => handleDuplicateNode(contextMenu.nodeId!) },
-    { type: "separator" },
-    {
-      type: "item",
-      label: "Convert to requirement →",
-      onClick: () => {
-        const n = map?.nodes.find((x) => x.id === contextMenu.nodeId);
-        if (n) handleConvertToRequirement(n);
-      },
-    },
-    { type: "separator" },
-    { type: "item", label: "Delete", shortcut: "⌫", danger: true, onClick: () => handleDeleteNode(contextMenu.nodeId!) },
-  ] : [];
+  const nodeContextItems: ContextMenuItem[] = contextMenu?.nodeId
+    ? [
+        {
+          type: "item",
+          label: "Duplicate",
+          shortcut: "⌘D",
+          onClick: () => handleDuplicateNode(contextMenu.nodeId!),
+        },
+        { type: "separator" },
+        {
+          type: "item",
+          label: "Convert to requirement →",
+          onClick: () => {
+            const n = map?.nodes.find((x) => x.id === contextMenu.nodeId);
+            if (n) handleConvertToRequirement(n);
+          },
+        },
+        { type: "separator" },
+        {
+          type: "item",
+          label: "Delete",
+          shortcut: "⌫",
+          danger: true,
+          onClick: () => handleDeleteNode(contextMenu.nodeId!),
+        },
+      ]
+    : [];
 
   const paneContextItems: ContextMenuItem[] = [
     {
       type: "submenu",
       label: "Add node here",
       items: [
-        { type: "item", label: "AI assist",      onClick: () => handleAddNode("ai_assist") },
-        { type: "item", label: "AI agent",       onClick: () => handleAddNode("ai_agent") },
-        { type: "item", label: "Human action",   onClick: () => handleAddNode("human_action") },
-        { type: "item", label: "Guardrail",      onClick: () => handleAddNode("guardrail") },
-        { type: "item", label: "Decision gate",  onClick: () => handleAddNode("decision_gate") },
-        { type: "item", label: "Monitoring",     onClick: () => handleAddNode("monitoring") },
-        { type: "item", label: "Audit log",      onClick: () => handleAddNode("audit_log") },
+        {
+          type: "item",
+          label: "AI assist",
+          onClick: () => handleAddNode("ai_assist"),
+        },
+        {
+          type: "item",
+          label: "AI agent",
+          onClick: () => handleAddNode("ai_agent"),
+        },
+        {
+          type: "item",
+          label: "Human action",
+          onClick: () => handleAddNode("human_action"),
+        },
+        {
+          type: "item",
+          label: "Guardrail",
+          onClick: () => handleAddNode("guardrail"),
+        },
+        {
+          type: "item",
+          label: "Decision gate",
+          onClick: () => handleAddNode("decision_gate"),
+        },
+        {
+          type: "item",
+          label: "Monitoring",
+          onClick: () => handleAddNode("monitoring"),
+        },
+        {
+          type: "item",
+          label: "Audit log",
+          onClick: () => handleAddNode("audit_log"),
+        },
       ],
     },
     { type: "separator" },
-    { type: "item", label: "Auto-layout (tidy)", shortcut: "⌘L", onClick: handleAutoLayout },
-    { type: "item", label: "Undo", shortcut: "⌘Z", onClick: undo, disabled: !canUndo },
-    { type: "item", label: "Redo", shortcut: "⌘⇧Z", onClick: redo, disabled: !canRedo },
+    {
+      type: "item",
+      label: "Auto-layout (tidy)",
+      shortcut: "⌘L",
+      onClick: handleAutoLayout,
+    },
+    {
+      type: "item",
+      label: "Undo",
+      shortcut: "⌘Z",
+      onClick: undo,
+      disabled: !canUndo,
+    },
+    {
+      type: "item",
+      label: "Redo",
+      shortcut: "⌘⇧Z",
+      onClick: redo,
+      disabled: !canRedo,
+    },
   ];
 
   return (
@@ -320,7 +419,12 @@ export function FutureStateAIWorkflowMap() {
         titleBadge={map ? <SourceBadge source={map.source} /> : null}
         banner={
           map ? (
-            <StaleBanner stale={stale} generating={generating} onSync={handleGenerate} variant="future" />
+            <StaleBanner
+              stale={stale}
+              generating={generating}
+              onSync={handleGenerate}
+              variant="future"
+            />
           ) : null
         }
         toolbar={
@@ -351,8 +455,12 @@ export function FutureStateAIWorkflowMap() {
               onSelectNode={setSelectedNodeId}
               selectedNodeId={selectedNodeId}
               onMultiSelectChange={setMultiSelectIds}
-              onNodeContextMenu={(nodeId, x, y) => setContextMenu({ nodeId, x, y })}
-              onPaneContextMenu={(x, y) => setContextMenu({ nodeId: null, x, y })}
+              onNodeContextMenu={(nodeId, x, y) =>
+                setContextMenu({ nodeId, x, y })
+              }
+              onPaneContextMenu={(x, y) =>
+                setContextMenu({ nodeId: null, x, y })
+              }
             />
           ) : (
             <div className="h-full flex items-center justify-center px-8">
@@ -361,11 +469,19 @@ export function FutureStateAIWorkflowMap() {
                 title="No future-state map yet"
                 body={
                   <>
-                    Designs the AI-enabled workflow from your current-state map + project context (guardrails, monitoring, human approvals).
+                    Designs the AI-enabled workflow from your current-state map
+                    + project context (guardrails, monitoring, human approvals).
                     {!currentMap && (
-                      <span className="block mt-1 text-amber-700">Tip: generate the Current-State map first for a richer design.</span>
+                      <span className="block mt-1 text-amber-700">
+                        Tip: generate the Current-State map first for a richer
+                        design.
+                      </span>
                     )}
-                    {error && <span className="block mt-1 text-destructive">{error}</span>}
+                    {error && (
+                      <span className="block mt-1 text-destructive">
+                        {error}
+                      </span>
+                    )}
                   </>
                 }
                 tone="prominent"
@@ -393,6 +509,10 @@ export function FutureStateAIWorkflowMap() {
             />
           ) : undefined
         }
+        inspectorOpen={!!selectedNodeId}
+        onInspectorOpenChange={(open) => {
+          if (!open) setSelectedNodeId(null);
+        }}
         legend={map ? <FutureWorkflowLegend /> : undefined}
       />
 

@@ -128,3 +128,12 @@
     @apply font-sans;
   }
 }
+
+@layer utilities {
+  /* Pads the bottom edge by the iOS home-indicator safe area, used by
+     bottom-anchored Sheets and toasts. Falls back to 0 when the inset env
+     isn't supported. */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
