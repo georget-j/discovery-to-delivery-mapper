@@ -13,17 +13,23 @@ export function AppHeader() {
 
   return (
     <header className="border-b border-border bg-background">
-      <div className="mx-auto max-w-7xl px-6 flex h-14 items-center gap-8">
-        <Link href="/" className="flex items-center gap-2 font-semibold text-sm">
+      <div className="mx-auto max-w-7xl px-3 sm:px-6 flex h-14 items-center gap-3 sm:gap-8">
+        <Link
+          href="/"
+          className="flex items-center gap-2 font-semibold text-sm shrink-0"
+        >
           <span className="text-primary">⬡</span>
-          <span>Onboarding Simulator</span>
+          <span className="hidden xs:inline sm:inline">
+            Onboarding Simulator
+          </span>
+          <span className="xs:hidden sm:hidden">Simulator</span>
         </Link>
         <nav className="flex items-center gap-1">
           {nav.map(({ href, label }) => (
             <Link
               key={href}
               href={href}
-              className={`px-3 py-1.5 rounded-md text-sm transition-colors ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-md text-sm transition-colors ${
                 pathname === href
                   ? "bg-muted text-foreground font-medium"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
@@ -34,7 +40,7 @@ export function AppHeader() {
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-3">
-          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+          <span className="hidden sm:inline text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
             Portfolio Demo
           </span>
         </div>
