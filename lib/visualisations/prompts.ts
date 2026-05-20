@@ -1,10 +1,16 @@
 import type { OnboardingProject } from "../types";
 
+// Bump when prompt body changes — used as part of stored-map metadata so we
+// can invalidate cached outputs after a meaningful prompt edit.
+export const WORKFLOW_PROMPT_VERSION = "2";
+
 const SYSTEM_PROMPT_BASE = `You are an expert forward-deployed AI engineer producing structured visualisation data for an enterprise AI onboarding tool.
 
 You return valid JSON conforming to the schema described in the user message. You never include markdown, prose, or explanation outside the JSON object.
 
-When generating visualisations, you draw on the customer context provided to produce specific, named nodes (not generic placeholders). You always include assumptions for anything that was inferred rather than directly stated.`;
+You only use facts present in the project context — never invent customer system names, workflow steps, or stakeholders. When you infer something not directly stated, record it in the "assumptions" array.
+
+When generating visualisations, produce specific, named nodes (not generic placeholders).`;
 
 function serialiseProjectForViz(project: OnboardingProject): string {
   return JSON.stringify({
@@ -27,21 +33,22 @@ export function buildCurrentStateWorkflowPrompt(project: OnboardingProject): { s
   return {
     system: `${SYSTEM_PROMPT_BASE}
 
-This visualisation describes the customer's workflow **as it operates today**. You MUST NOT propose AI assistance, automation, or future-state changes — that is a separate visualisation.
+This visualisation describes the customer's workflow as it operates today. You MUST NOT propose AI assistance, automation, or future-state changes — that is a separate visualisation.
 
 Capture: actors, systems, manual steps, decisions, handoffs, data inputs/outputs, bottlenecks, risks, and missing information.`,
 
     user: `Generate a current-state workflow map for the customer below.
 
-PROJECT CONTEXT:
+PROJECT CONTEXT (the ONLY facts you may use):
 ${serialiseProjectForViz(project)}
 
-Return a JSON object with exactly this shape:
+Return a JSON object with this shape. Field semantics are described in the comments; do NOT include the comments themselves in your output.
+
 {
-  "id": string,                  // any unique slug
+  "id": "<unique slug>",
   "projectId": "${project.id}",
-  "title": string,               // e.g. "Current-State Workflow Map — <Customer> <Process>"
-  "lanes": [                     // 3-5 swimlanes; use these unless customer context demands different ones
+  "title": "Current-State Workflow Map — <Customer> <Process>",
+  "lanes": [
     { "id": "lane_operator",   "title": "Operator",   "description": "Human work" },
     { "id": "lane_systems",    "title": "Systems",    "description": "Current tools" },
     { "id": "lane_compliance", "title": "Compliance", "description": "Review / audit" },
@@ -49,30 +56,34 @@ Return a JSON object with exactly this shape:
   ],
   "nodes": [
     {
-      "id": string,
-      "type": "human_step" | "system_step" | "decision" | "handoff" | "delay" | "risk" | "missing_info" | "data_object",
-      "laneId": string,          // must match a lane id above
-      "title": string,
-      "description": string,
-      "owner": string,           // who does this step
-      "systems": string[],       // systems used at this step
-      "painPoints": string[],
-      "risks": string[],
-      "position": { "x": number, "y": number }   // layout left-to-right; x increases by ~240px per step, y matches lane
+      "id": "<unique slug>",
+      "type": "human_step|system_step|decision|handoff|delay|risk|missing_info|data_object",
+      "laneId": "<must match a lane id above>",
+      "title": "<short label>",
+      "description": "<one sentence>",
+      "owner": "<who runs this step>",
+      "systems": ["<systems used>"],
+      "painPoints": ["<frustrations>"],
+      "risks": ["<what can go wrong>"],
+      "position": { "x": 0, "y": 0 }
     }
   ],
   "edges": [
-    { "id": string, "source": string, "target": string, "label": string, "style": "solid" | "dashed" }
+    { "id": "<slug>", "source": "<node id>", "target": "<node id>", "label": "<optional>", "style": "solid|dashed" }
   ],
-  "assumptions": string[],
-  "generatedFromSourceIds": [],
-  "source": "ai",
-  "updatedAt": "${new Date().toISOString()}"
+  "assumptions": ["<anything inferred rather than directly stated>"],
+  "generatedFromSourceIds": []
 }
 
-Lane y-coordinates: lane_operator y=80, lane_systems y=240, lane_compliance y=400, lane_notes y=560.
-Aim for 6-10 nodes total. Connect them sequentially with edges. Use "dashed" style for exception/escalation paths.
-Include 2-3 "risk" or "missing_info" nodes in the FDE Notes lane to highlight bottlenecks and unresolved questions.`,
+LAYOUT RULES
+- Lane y-coordinates: lane_operator y=80, lane_systems y=240, lane_compliance y=400, lane_notes y=560.
+- Node x increases by ~240 per step, starting at x=80.
+
+CONTENT RULES
+- 6–10 nodes total.
+- Connect them sequentially with solid edges; use "dashed" for exception or escalation paths.
+- Include 2–3 "risk" or "missing_info" nodes in the FDE Notes lane.
+- If the project workflows array is empty, produce a baseline 3-step illustrative flow and add an assumption noting that no concrete workflow was captured.`,
   };
 }
 
@@ -87,7 +98,7 @@ export function buildFutureStateAIWorkflowPrompt(
   return {
     system: `${SYSTEM_PROMPT_BASE}
 
-This visualisation describes the **proposed AI-enabled operating model**. You must:
+This visualisation describes the proposed AI-enabled operating model. You must:
 - Show exactly where AI assists, drafts, retrieves, recommends, or validates
 - Show where humans remain accountable and where approval gates exist
 - Make guardrails, low-confidence escalation, audit logging, and monitoring visible
@@ -96,7 +107,7 @@ This visualisation describes the **proposed AI-enabled operating model**. You mu
 
     user: `Generate a future-state AI workflow map for the customer below.
 
-PROJECT CONTEXT:
+PROJECT CONTEXT (the ONLY facts you may use):
 ${serialiseProjectForViz(project)}
 
 ${currentStateMap ? `BASED ON CURRENT-STATE MAP:
@@ -104,49 +115,53 @@ ${JSON.stringify(currentStateMap, null, 2)}
 
 For each AI/human/system node, set sourceCurrentStateNodeIds to reference the current-state node(s) it replaces or evolves.
 
-` : ""}Return a JSON object with exactly this shape:
+` : ""}Return a JSON object with this shape. Do NOT include comments in your output.
+
 {
-  "id": string,
-  "projectId": "${project.id}",
-  ${currentStateMap ? `"basedOnCurrentStateMapId": "${currentStateMap.id}",` : ""}
-  "title": string,
+  "id": "<unique slug>",
+  "projectId": "${project.id}",${currentStateMap ? `\n  "basedOnCurrentStateMapId": "${currentStateMap.id}",` : ""}
+  "title": "Future-State AI Workflow Map — <Customer> <Process>",
   "lanes": [
-    { "id": "lane_human",       "title": "Human",       "description": "Human decision" },
-    { "id": "lane_ai",          "title": "AI Assistant", "description": "Summarise / recommend" },
+    { "id": "lane_human",       "title": "Human",         "description": "Human decision" },
+    { "id": "lane_ai",          "title": "AI Assistant",  "description": "Summarise / recommend" },
     { "id": "lane_systems",     "title": "Systems & Data", "description": "APIs / retrieval" },
-    { "id": "lane_guardrails",  "title": "Guardrails",  "description": "Policy / confidence" },
-    { "id": "lane_compliance",  "title": "Compliance",  "description": "Audit / supervisor" },
-    { "id": "lane_monitoring",  "title": "Monitoring",  "description": "Telemetry / feedback" }
+    { "id": "lane_guardrails",  "title": "Guardrails",    "description": "Policy / confidence" },
+    { "id": "lane_compliance",  "title": "Compliance",    "description": "Audit / supervisor" },
+    { "id": "lane_monitoring",  "title": "Monitoring",    "description": "Telemetry / feedback" }
   ],
   "nodes": [
     {
-      "id": string,
-      "type": "human_action" | "ai_assist" | "ai_agent" | "system_action" | "data_retrieval" | "guardrail" | "decision_gate" | "approval" | "monitoring" | "audit_log" | "exception_path",
-      "laneId": string,
-      "title": string,
-      "description": string,
-      "aiRole": string,            // only for ai_assist / ai_agent nodes
-      "automationLevel": "suggest_only" | "draft_only" | "human_approval_required" | "autonomous_with_guardrails",
-      "guardrails": string[],
-      "requiredHumanApproval": boolean,
-      "auditEvents": string[],
-      "metrics": string[],
-      "sourceCurrentStateNodeIds": string[],
-      "position": { "x": number, "y": number }
+      "id": "<slug>",
+      "type": "human_action|ai_assist|ai_agent|system_action|data_retrieval|guardrail|decision_gate|approval|monitoring|audit_log|exception_path",
+      "laneId": "<lane id>",
+      "title": "<short label>",
+      "description": "<one sentence>",
+      "aiRole": "<only for ai_assist / ai_agent>",
+      "automationLevel": "suggest_only|draft_only|human_approval_required|autonomous_with_guardrails",
+      "guardrails": ["<policy / check>"],
+      "requiredHumanApproval": true,
+      "auditEvents": ["<what gets logged>"],
+      "metrics": ["<what gets measured>"],
+      "sourceCurrentStateNodeIds": ["<current-state node ids this evolves>"],
+      "position": { "x": 0, "y": 0 }
     }
   ],
   "edges": [
-    { "id": string, "source": string, "target": string, "label": string, "style": "solid" | "dashed" }
+    { "id": "<slug>", "source": "<node id>", "target": "<node id>", "label": "<optional>", "style": "solid|dashed" }
   ],
-  "expectedBenefits": string[],
-  "newRisksIntroduced": string[],
-  "assumptions": string[],
-  "source": "ai",
-  "updatedAt": "${new Date().toISOString()}"
+  "expectedBenefits": ["<concrete benefit>"],
+  "newRisksIntroduced": ["<risk this design creates>"],
+  "assumptions": ["<anything inferred>"]
 }
 
-Lane y-coordinates: lane_human y=80, lane_ai y=200, lane_systems y=320, lane_guardrails y=440, lane_compliance y=560, lane_monitoring y=680.
-Aim for 8-12 nodes total. Always include at least one guardrail node, one monitoring node, and one audit_log node.
-For regulated/high-risk industries (e.g. finance, healthcare, legal), set requiredHumanApproval: true on any ai_assist / ai_agent node touching sensitive decisions, and route low-confidence cases via an exception_path edge (dashed) to a human reviewer.`,
+LAYOUT RULES
+- Lane y-coordinates: lane_human y=80, lane_ai y=200, lane_systems y=320, lane_guardrails y=440, lane_compliance y=560, lane_monitoring y=680.
+- Node x increases by ~240 per logical step.
+
+CONTENT RULES
+- 8–12 nodes total.
+- Always include at least one guardrail node, one monitoring node, and one audit_log node.
+- For regulated or high-risk industries (finance, healthcare, legal), set requiredHumanApproval: true on any ai_assist or ai_agent node touching sensitive decisions, and route low-confidence cases via an exception_path edge (dashed) to a human reviewer.
+- expectedBenefits and newRisksIntroduced each need 2–4 specific items (no generic statements).`,
   };
 }

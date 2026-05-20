@@ -2,69 +2,61 @@ import { NextRequest, NextResponse } from "next/server";
 import type { OnboardingProject } from "@/lib/types";
 import { NotesExtractionResultSchema } from "@/lib/schemas";
 
+// Bump when the prompt body changes meaningfully — read by no consumers today
+// but lets us version stored extractions later.
+export const EXTRACTION_PROMPT_VERSION = "2";
+
 const EXTRACTION_PROMPT = `You are an expert at extracting structured information from unstructured meeting notes, discovery call transcripts, and customer documents for an AI onboarding tool.
 
-Given raw input, extract everything you can identify across discovery, design, and planning artifacts. Return JSON. Only include fields where you have reasonable confidence the value is present — omit anything not mentioned (do NOT invent details).
+Given raw input, extract everything you can identify across discovery, design, and planning artifacts. Return a JSON object. Only include fields where you have reasonable confidence the value is present — omit anything not mentioned. NEVER invent details, names, dates, or numbers not present in the input.
 
-Return a JSON object with this exact structure:
-{
-  "discovery": {
-    "businessProblem": "string — the core business problem in their words",
-    "primaryUseCase": "string — what the AI will do",
-    "desiredOutcome": "string — measurable improvement target",
-    "currentProcess": "string — how they handle this today",
-    "successDefinition": "string — how they'll know the deployment worked",
-    "implementationDeadline": "string — date or quarter mentioned",
-    "buyerTeam": "string — the team driving procurement",
-    "constraints": "string — limits, blockers, dependencies",
-    "regulatoryContext": ["GDPR", "FCA", "HIPAA", ...]
-  },
-  "suggestedStakeholders": [
-    { "name": "string", "role": "string", "team": "string", "concerns": ["string"] }
-  ],
-  "suggestedSystems": [
-    { "name": "string", "type": "crm|case_management|document_management|data_warehouse|ticketing|email|chat|core_system|custom|other", "notes": "string — auth, API status, integration constraints, version" }
-  ],
-  "suggestedDataSources": [
-    { "name": "string", "dataType": "documents|tickets|customer_records|transactions|contracts|messages|logs|other", "format": "pdf|docx|csv|xlsx|json|api|database|mixed|unknown", "notes": "string — volume, freshness, quality, access concerns" }
-  ],
-  "suggestedWorkflows": [
-    {
-      "name": "string — short step name",
-      "description": "string — what happens at this step",
-      "ownerTeam": "string — who does it",
-      "frequency": "daily|weekly|monthly|ad_hoc",
-      "manualEffort": "low|medium|high",
-      "painPoints": ["string — frustrations or inefficiencies mentioned"]
-    }
-  ],
-  "suggestedRisks": [
-    {
-      "title": "string — short risk name",
-      "description": "string — what could go wrong",
-      "category": "data_readiness|integration|security|stakeholder_alignment|operational_adoption|model_quality|timeline|legal_procurement|support_readiness",
-      "severity": "critical|high|medium|low",
-      "likelihood": "high|medium|low",
-      "mitigation": "string — mitigation idea if discussed"
-    }
-  ],
-  "suggestedActionItems": [
-    {
-      "title": "string — what needs to be done, imperative voice (e.g. 'Send DPA template to legal')",
-      "assignee": "string — name of the person or team responsible (often a stakeholder mentioned in the notes)",
-      "dueDate": "string — ISO date YYYY-MM-DD if a specific date was given, OR a quarter like 'Q3 2026', OR omit if no due date was discussed",
-      "urgency": "high|medium|low"
-    }
-  ],
-  "summary": "One sentence describing what was extracted from these notes"
-}
+OUTPUT SHAPE — return a JSON object with these top-level keys (all optional except summary):
 
-Guidelines:
-- For workflows: extract any process steps mentioned (e.g. "analyst reviews case", "supervisor signs off"). Aim for 3-8 steps if a workflow is described.
-- For risks: include risks the customer explicitly raised AND obvious risks implied by the context (e.g. if PII data is mentioned, flag a security/privacy risk).
-- For regulatory context: include any acronyms (GDPR, FCA, HIPAA, SOC2, FATF, etc.) mentioned.
-- For action items: extract any explicit follow-ups, commitments, or "X to do Y by Z". Phrases like "we'll send", "Sarah will", "by next Tuesday", "next steps", "action item" are strong signals. Each item must have a title and an assignee — if the assignee isn't clear, infer from context (the team they're on, or "Customer" / "Our team"). Only include the dueDate if a specific date or quarter was mentioned.
-- Keep all extracted text concise and factual — do NOT embellish, infer beyond what is stated, or pad with generic content.
+\`discovery\` — object with one or more of:
+  - businessProblem: the core business problem in the customer's own words
+  - primaryUseCase: what the AI will do
+  - desiredOutcome: measurable improvement target
+  - currentProcess: how they handle this today
+  - successDefinition: how they'll know the deployment worked
+  - implementationDeadline: a date or quarter mentioned (e.g. "Q3 2026" or "2026-09-30")
+  - buyerTeam: the team driving procurement
+  - constraints: limits, blockers, dependencies
+  - regulatoryContext: array of acronyms mentioned (e.g. ["GDPR", "FCA", "HIPAA"])
+
+\`suggestedStakeholders\` — array of: { name, role, team, concerns: string[] }
+
+\`suggestedSystems\` — array of: { name, type, notes }
+  - type ∈ {crm, case_management, document_management, data_warehouse, ticketing, email, chat, core_system, custom, other}
+  - notes: auth, API status, integration constraints, version
+
+\`suggestedDataSources\` — array of: { name, dataType, format, notes }
+  - dataType ∈ {documents, tickets, customer_records, transactions, contracts, messages, logs, other}
+  - format ∈ {pdf, docx, csv, xlsx, json, api, database, mixed, unknown}
+  - notes: volume, freshness, quality, access concerns
+
+\`suggestedWorkflows\` — array of: { name, description, ownerTeam, frequency, manualEffort, painPoints: string[] }
+  - frequency ∈ {daily, weekly, monthly, ad_hoc}
+  - manualEffort ∈ {low, medium, high}
+
+\`suggestedRisks\` — array of: { title, description, category, severity, likelihood, mitigation }
+  - category ∈ {data_readiness, integration, security, stakeholder_alignment, operational_adoption, model_quality, timeline, legal_procurement, support_readiness}
+  - severity ∈ {critical, high, medium, low}
+  - likelihood ∈ {high, medium, low}
+
+\`suggestedActionItems\` — array of: { title, assignee, dueDate?, urgency }
+  - title: imperative voice (e.g. "Send DPA template to legal")
+  - assignee: a person or team name
+  - dueDate: ISO date YYYY-MM-DD, or a quarter ("Q3 2026"), or omit if not stated
+  - urgency ∈ {high, medium, low}
+
+\`summary\` — REQUIRED. One sentence (≤200 chars) describing what was extracted.
+
+GUIDELINES
+- For workflows: extract any process steps mentioned ("analyst reviews case", "supervisor signs off"). 3–8 steps if a workflow is described.
+- For risks: include explicit + obvious-implied risks (e.g. PII mentioned → flag security/privacy risk).
+- For regulatory context: include acronyms (GDPR, FCA, HIPAA, SOC2, FATF, MiFID, DORA, PSD2).
+- For action items: signal phrases include "we'll send", "Sarah will", "by next Tuesday", "next steps", "action item". Every item needs a title and assignee — infer from team context if the assignee isn't named. Only include dueDate if explicitly mentioned.
+- Concise and factual. No embellishment, no inference beyond what's stated, no generic padding.
 - Empty arrays are fine; omit fields not mentioned rather than inserting placeholder strings.`;
 
 export async function POST(req: NextRequest) {
