@@ -2,6 +2,8 @@
 
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { toast } from "@/lib/toast";
+import { assembleScopedPack, type PackScope } from "@/lib/markdown-export";
 import type { OnboardingProject } from "@/lib/types";
 import {
   getArtifactReadiness,
@@ -169,6 +171,23 @@ export function PackOverview({ project, onPickArtifact, generatedAt, source, sta
   );
 }
 
+async function copyScopedPack(project: OnboardingProject, scope: PackScope, label: string) {
+  try {
+    const md = assembleScopedPack(project, scope);
+    await navigator.clipboard.writeText(md);
+    toast.success(`${label} copied to clipboard`, { description: `${md.length.toLocaleString()} characters` });
+  } catch {
+    toast.error("Could not copy — clipboard access denied?");
+  }
+}
+
+const SCOPE_FOR_BUNDLE: Record<string, PackScope | null> = {
+  "Customer-Facing": "customer",
+  "Internal": "internal",
+  "Technical": "technical",
+  "Product": null, // single artifact, no dedicated scope
+};
+
 function BundleCard({
   bundle, project, onPick,
 }: {
@@ -176,6 +195,7 @@ function BundleCard({
   project: OnboardingProject;
   onPick: (key: ArtifactKey) => void;
 }) {
+  const scope = SCOPE_FOR_BUNDLE[bundle.label];
   const readinesses = bundle.keys.map((k) => getArtifactReadiness(project, k));
   const rich = readinesses.filter((r) => r === "rich").length;
   const usable = readinesses.filter((r) => r === "usable").length;
@@ -221,13 +241,25 @@ function BundleCard({
         {empty > 0 && <span className="text-red-700">· {empty} empty</span>}
       </div>
 
-      <button
-        type="button"
-        onClick={() => onPick(bundle.keys[0])}
-        className="w-full text-xs font-medium px-3 py-1.5 rounded-md bg-foreground/90 text-background hover:bg-foreground transition-colors"
-      >
-        Read this pack →
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => onPick(bundle.keys[0])}
+          className="flex-1 text-xs font-medium px-3 py-1.5 rounded-md bg-foreground/90 text-background hover:bg-foreground transition-colors"
+        >
+          Read this pack →
+        </button>
+        {scope && (
+          <button
+            type="button"
+            onClick={() => copyScopedPack(project, scope, bundle.label + " pack")}
+            className="text-xs px-2.5 py-1.5 rounded-md border border-border bg-background hover:bg-muted/50 transition-colors"
+            title="Copy markdown to clipboard"
+          >
+            Copy
+          </button>
+        )}
+      </div>
     </article>
   );
 }

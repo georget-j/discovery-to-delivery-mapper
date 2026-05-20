@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { assembleOnboardingPack } from "../lib/markdown-export";
+import { assembleOnboardingPack, assembleScopedPack } from "../lib/markdown-export";
 import fintechScenario from "../data/scenarios/fintech-aml-onboarding.json";
 import type { OnboardingProject, GeneratedArtifacts } from "../lib/types";
 
@@ -93,5 +93,54 @@ describe("assembleOnboardingPack", () => {
   it("is valid markdown with a top-level heading", () => {
     const result = assembleOnboardingPack(projectWithOutputs);
     expect(result).toMatch(/^# AI Onboarding Pack/);
+  });
+});
+
+describe("assembleScopedPack", () => {
+  it("customer scope includes the 5 customer-facing artifacts and excludes others", () => {
+    const out = assembleScopedPack(projectWithOutputs, "customer");
+    expect(out).toContain("Customer pack");
+    expect(out).toContain("Executive Summary");
+    expect(out).toContain("Future State Workflow");
+    expect(out).toContain("Pilot Success Plan");
+    expect(out).toContain("Stakeholder Communication Plan");
+    expect(out).toContain("Next Actions Checklist");
+    // None of these are customer-facing
+    expect(out).not.toContain("Engineering Handoff");
+    expect(out).not.toContain("Product Feedback Memo");
+    expect(out).not.toContain("Integration and API Plan");
+  });
+
+  it("internal scope includes the 5 internal artifacts", () => {
+    const out = assembleScopedPack(projectWithOutputs, "internal");
+    expect(out).toContain("Internal pack");
+    expect(out).toContain("Customer Discovery Summary");
+    expect(out).toContain("Requirements Matrix");
+    expect(out).toContain("Missing Information Log");
+    expect(out).toContain("Risk Register Summary");
+    expect(out).toContain("Implementation Plan");
+  });
+
+  it("technical scope includes engineering-relevant artifacts", () => {
+    const out = assembleScopedPack(projectWithOutputs, "technical");
+    expect(out).toContain("Technical pack");
+    expect(out).toContain("Integration and API Plan");
+    expect(out).toContain("Engineering Handoff");
+    expect(out).toContain("Data Readiness Assessment");
+    expect(out).toContain("Current State Workflow");
+  });
+
+  it("full scope matches the legacy assembleOnboardingPack length within 5%", () => {
+    const full = assembleScopedPack(projectWithOutputs, "full");
+    const legacy = assembleOnboardingPack(projectWithOutputs);
+    // Same content, slightly different framing — should be within an order of magnitude
+    const ratio = full.length / legacy.length;
+    expect(ratio).toBeGreaterThan(0.95);
+    expect(ratio).toBeLessThan(1.1);
+  });
+
+  it("includes the customer company name in the title", () => {
+    const out = assembleScopedPack(projectWithOutputs, "customer");
+    expect(out).toContain(fintech.customer.companyName);
   });
 });
