@@ -10,9 +10,10 @@ import { PageNav } from "@/components/PageNav";
 import { StaleArtifactsBanner } from "@/components/outputs/StaleArtifactsBanner";
 import { ArtifactSourcesPanel } from "@/components/outputs/ArtifactSourcesPanel";
 import { CoverageMatrix } from "@/components/outputs/CoverageMatrix";
+import { PackOverview } from "@/components/outputs/PackOverview";
 import { SourceChip } from "@/components/outputs/SourceChip";
 import { hashGenerationInputs } from "@/lib/artifact-helpers";
-import type { ArtifactKey } from "@/lib/artifact-sources";
+import { getArtifactReadiness, type ArtifactKey } from "@/lib/artifact-sources";
 
 // Transform plain text children inside markdown nodes — split any [N] tokens
 // out as <SourceChip n={N} /> components, leaving everything else as text.
@@ -38,7 +39,14 @@ function renderChildrenWithChips(children: ReactNode, onChipClick: () => void): 
 }
 
 type Tab = ArtifactKey;
-type ViewMode = "artifact" | "matrix";
+type ViewMode = "overview" | "artifact" | "matrix";
+
+const READINESS_DOT: Record<"rich" | "usable" | "thin" | "empty", string> = {
+  rich: "bg-emerald-500",
+  usable: "bg-amber-500",
+  thin: "bg-muted-foreground/40",
+  empty: "bg-red-500",
+};
 
 type TabMeta = {
   key: Tab;
@@ -97,7 +105,7 @@ const ALL_TABS: TabMeta[] = GROUPS.flatMap((g) => g.tabs);
 export default function OutputsPage() {
   const { project, loading, updateProject } = useWorkspace();
   const [activeTab, setActiveTab] = useState<Tab>("executiveSummary");
-  const [viewMode, setViewMode] = useState<ViewMode>("artifact");
+  const [viewMode, setViewMode] = useState<ViewMode>("overview");
   const [generating, setGenerating] = useState(false);
   const [source, setSource] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -246,7 +254,19 @@ export default function OutputsPage() {
           {/* Sidebar */}
           <div className="w-52 shrink-0 border-r overflow-y-auto py-2">
             {/* View mode at top */}
-            <div className="px-2 pb-2 border-b mb-1">
+            <div className="px-2 pb-2 border-b mb-1 space-y-1">
+              <button
+                type="button"
+                onClick={() => setViewMode("overview")}
+                className={cn(
+                  "w-full text-left px-3 py-1.5 text-sm rounded-md transition-colors flex items-center gap-2",
+                  viewMode === "overview"
+                    ? "bg-muted text-foreground font-medium"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                )}
+              >
+                <span>📦</span> Pack Overview
+              </button>
               <button
                 type="button"
                 onClick={() => setViewMode("matrix")}
@@ -266,27 +286,42 @@ export default function OutputsPage() {
                 <p className="px-3 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
                   {group.label}
                 </p>
-                {group.tabs.map((tab) => (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => { setActiveTab(tab.key); setViewMode("artifact"); }}
-                    className={cn(
-                      "w-full text-left px-3 py-1.5 text-sm transition-colors leading-snug",
-                      viewMode === "artifact" && activeTab === tab.key
-                        ? "bg-muted text-foreground font-medium"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                    )}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+                {group.tabs.map((tab) => {
+                  const readiness = getArtifactReadiness(project, tab.key);
+                  return (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => { setActiveTab(tab.key); setViewMode("artifact"); }}
+                      className={cn(
+                        "w-full text-left px-3 py-1.5 text-sm transition-colors leading-snug flex items-center gap-2",
+                        viewMode === "artifact" && activeTab === tab.key
+                          ? "bg-muted text-foreground font-medium"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                      )}
+                      title={`${tab.label} — ${readiness} inputs`}
+                    >
+                      <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", READINESS_DOT[readiness])} aria-hidden />
+                      <span className="truncate">{tab.label}</span>
+                    </button>
+                  );
+                })}
               </div>
             ))}
           </div>
 
           {/* Content */}
-          {viewMode === "matrix" ? (
+          {viewMode === "overview" ? (
+            <div className="flex-1 overflow-y-auto bg-muted/20">
+              <PackOverview
+                project={project}
+                onPickArtifact={(key) => { setActiveTab(key); setViewMode("artifact"); }}
+                generatedAt={project.outputs?.generatedAt}
+                source={source}
+                stale={stale}
+              />
+            </div>
+          ) : viewMode === "matrix" ? (
             <div className="flex-1 overflow-y-auto bg-muted/20">
               <div className="px-8 py-6 max-w-6xl mx-auto">
                 <CoverageMatrix

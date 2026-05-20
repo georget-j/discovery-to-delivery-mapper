@@ -3,6 +3,7 @@ import { listScenarios } from "../lib/scenarios";
 import {
   computeArtifactSources,
   coverageCell,
+  getArtifactReadiness,
   ARTIFACT_KEYS_ORDERED,
   ARTIFACT_LABELS,
 } from "../lib/artifact-sources";
@@ -93,6 +94,39 @@ describe("coverageCell", () => {
     const cell = coverageCell(fintech, "integrationAndApiPlan", "stakeholders");
     expect(cell.strength).toBe("none");
     expect(cell.count).toBe(0);
+  });
+});
+
+// ── getArtifactReadiness ───────────────────────────────────────────────────
+
+describe("getArtifactReadiness", () => {
+  it("returns 'rich' or 'usable' for executiveSummary on the populated fintech scenario", () => {
+    const r = getArtifactReadiness(fintech, "executiveSummary");
+    expect(r === "rich" || r === "usable").toBe(true);
+  });
+
+  it("downgrades from 'rich' towards 'thin' / 'empty' as inputs are stripped", () => {
+    const richest = getArtifactReadiness(fintech, "executiveSummary");
+    // Remove every list input + clear most string discovery fields; expect at
+    // least one step lower on the rich→empty ladder than the populated baseline.
+    const stripped: OnboardingProject = {
+      ...fintech,
+      workflows: [], systems: [], dataSources: [], stakeholders: [], risks: [],
+      customer: { ...fintech.customer, regulatoryContext: [] },
+      pilotPlan: null,
+    };
+    const after = getArtifactReadiness(stripped, "executiveSummary");
+    const order: Record<string, number> = { rich: 3, usable: 2, thin: 1, empty: 0 };
+    expect(order[after]).toBeLessThan(order[richest]);
+  });
+
+  it("returns one of the 4 enum values for every artifact key across every scenario", () => {
+    for (const scenario of scenarios) {
+      for (const key of ARTIFACT_KEYS_ORDERED) {
+        const r = getArtifactReadiness(scenario, key);
+        expect(["rich", "usable", "thin", "empty"]).toContain(r);
+      }
+    }
   });
 });
 

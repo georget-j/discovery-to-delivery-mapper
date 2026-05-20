@@ -315,6 +315,18 @@ const REF_TO_CATEGORY: Record<SourceRef["type"], CoverageInputCategory> = {
   regulatory_context: "regulatory",
 };
 
+// Per-artifact readiness — based on how many input refs feed it. Used in the
+// Outputs sidebar to flag thin artifacts at a glance.
+export type ArtifactReadiness = "rich" | "usable" | "thin" | "empty";
+
+export function getArtifactReadiness(project: OnboardingProject, key: ArtifactKey): ArtifactReadiness {
+  const n = computeArtifactSources(project, key).inputs.length;
+  if (n === 0) return "empty";
+  if (n <= 3) return "thin";
+  if (n <= 9) return "usable";
+  return "rich";
+}
+
 // Coverage cell: does this input category feed this artifact?
 export type CoverageStrength = "solid" | "hollow" | "none";
 
