@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import type { OnboardingProject } from "@/lib/types";
 import { loadProject, saveProject } from "@/lib/project-store";
 import { loadScenario } from "@/lib/scenarios";
+import { usePhaseCompletionCelebration } from "./usePhaseCompletionCelebration";
 
 type WorkspaceContextValue = {
   project: OnboardingProject | null;
@@ -48,6 +49,9 @@ export function WorkspaceProvider({ id, children }: { id: string; children: Reac
       return updated;
     });
   }, []);
+
+  // Fires a one-shot toast when a phase transitions to fully complete.
+  usePhaseCompletionCelebration(project);
 
   return (
     <WorkspaceContext.Provider value={{ project, loading, updateProject }}>

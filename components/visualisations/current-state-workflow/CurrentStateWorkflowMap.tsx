@@ -17,6 +17,7 @@ import { newBlankNode, CURRENT_LANE_Y } from "./workflowUtils";
 import { currentStateToMermaid } from "@/lib/visualisations/mermaid-export";
 import { layoutNodesInLanes } from "@/lib/visualisations/auto-layout";
 import { hashWorkflows } from "@/lib/visualisations/workflow-helpers";
+import { EmptyState } from "@/components/ui/empty-state";
 import type {
   CurrentStateWorkflowMap as MapType,
   WorkflowNode,
@@ -355,11 +356,28 @@ export function CurrentStateWorkflowMap() {
               onPaneContextMenu={(x, y) => setContextMenu({ nodeId: null, x, y })}
             />
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-center px-8 space-y-3">
-              <p className="text-sm text-muted-foreground max-w-md">
-                No current-state map yet. Click <strong className="text-foreground">AI Generate</strong> to build one from your workflow steps and systems.
-              </p>
-              {error && <p className="text-xs text-destructive">{error}</p>}
+            <div className="h-full flex items-center justify-center px-8">
+              <EmptyState
+                icon="🗺"
+                title="No current-state map yet"
+                body={
+                  <>
+                    Builds an interactive swimlane map from your workflow steps and systems.
+                    {error && <span className="block mt-1 text-destructive">{error}</span>}
+                  </>
+                }
+                tone="prominent"
+                cta={
+                  <button
+                    type="button"
+                    onClick={handleGenerate}
+                    disabled={generating}
+                    className="text-sm px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors font-medium"
+                  >
+                    {generating ? "Generating…" : "✨ Generate map"}
+                  </button>
+                }
+              />
             </div>
           )
         }

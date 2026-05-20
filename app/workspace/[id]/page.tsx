@@ -11,6 +11,7 @@ import { JourneyOverview } from "@/components/JourneyOverview";
 import { DataFlowDiagram } from "@/components/DataFlowDiagram";
 import { SessionLog } from "@/components/SessionLog";
 import { ActionItems } from "@/components/ActionItems";
+import { FirstRunHint } from "@/components/FirstRunHint";
 import type { MissingInfoItem, MissingInfoOwner } from "@/lib/types";
 
 const SEVERITY_COLOR: Record<string, string> = {
@@ -141,6 +142,8 @@ export default function WorkspaceDashboard() {
 
   return (
     <div className="p-8 space-y-8 max-w-6xl">
+      <FirstRunHint />
+
       {/* Header */}
       <div className="space-y-2">
         <div className="flex items-center gap-2 flex-wrap">

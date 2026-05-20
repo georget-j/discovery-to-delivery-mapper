@@ -2,6 +2,7 @@
 
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { DiscoveryForm } from "@/components/DiscoveryForm";
+import { DiscoveryCompletenessStrip } from "@/components/DiscoveryCompletenessStrip";
 import { PageNav } from "@/components/PageNav";
 
 export default function DiscoveryPage() {
@@ -18,6 +19,7 @@ export default function DiscoveryPage() {
           Who they are, what they're trying to fix, and what was said in the discovery call. Feeds every downstream artifact.
         </p>
       </div>
+      <DiscoveryCompletenessStrip />
       <DiscoveryForm project={project} onUpdate={updateProject} />
       <PageNav />
     </div>
