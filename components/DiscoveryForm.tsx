@@ -3,18 +3,64 @@
 import { useCallback, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { FormField, ChipInput, FieldGroup } from "@/components/ui/form-field";
-import { useSaveIndicator, SaveIndicator } from "@/components/ui/save-indicator";
+import {
+  useSaveIndicator,
+  SaveIndicator,
+} from "@/components/ui/save-indicator";
 import { StakeholderEditor } from "@/components/StakeholderEditor";
-import type { OnboardingProject, CustomerProfile, DiscoveryInput, Stakeholder } from "@/lib/types";
+import type {
+  OnboardingProject,
+  CustomerProfile,
+  DiscoveryInput,
+  Stakeholder,
+} from "@/lib/types";
 
 type Props = {
   project: OnboardingProject;
   onUpdate: (patch: Partial<OnboardingProject>) => void;
 };
 
-const REGULATORY_SUGGESTIONS = ["FCA", "FATF", "GDPR", "PSD2", "ISO 13849", "SRA", "ICO", "HIPAA", "SOC 2", "DORA", "MiFID II"];
+const REGULATORY_SUGGESTIONS = [
+  "FCA",
+  "FATF",
+  "GDPR",
+  "PSD2",
+  "ISO 13849",
+  "SRA",
+  "ICO",
+  "HIPAA",
+  "SOC 2",
+  "DORA",
+  "MiFID II",
+];
+
+// Per-industry "first-pass" regulatory suggestions. Surfaced ahead of the
+// generic list so the user gets a sensible starting point without typing.
+const INDUSTRY_REGULATORY_HINTS: Record<string, string[]> = {
+  fintech: ["FCA", "FATF", "PSD2", "MiFID II", "DORA", "GDPR"],
+  legaltech: ["SRA", "GDPR", "ICO", "SOC 2"],
+  healthcare: ["HIPAA", "GDPR", "ISO 13485", "SOC 2"],
+  insurance: ["FCA", "GDPR", "DORA", "SOC 2"],
+  industrial: ["ISO 13849", "ISO 27001", "CE marking"],
+  enterprise_saas: ["SOC 2", "GDPR", "ISO 27001"],
+  public_sector: ["GDPR", "ICO", "FOI Act"],
+  other: [],
+};
+
+function rankedRegulatorySuggestions(industry: string): string[] {
+  const head = INDUSTRY_REGULATORY_HINTS[industry] ?? [];
+  const seen = new Set(head);
+  const tail = REGULATORY_SUGGESTIONS.filter((s) => !seen.has(s));
+  return [...head, ...tail];
+}
 
 const CONSTRAINT_SUGGESTIONS = [
   "DPA required before data transfer",
@@ -42,7 +88,12 @@ const KNOWN_RISK_SUGGESTIONS = [
 // Newline-separated so existing consumers (artifact templates, missing-info
 // engine that does .includes("dpa")) still read these as readable strings.
 const toChips = (s: string): string[] =>
-  s ? s.split(/\r?\n/).map((v) => v.trim()).filter(Boolean) : [];
+  s
+    ? s
+        .split(/\r?\n/)
+        .map((v) => v.trim())
+        .filter(Boolean)
+    : [];
 const fromChips = (arr: string[]): string => arr.join("\n");
 
 const CURRENT_PROCESS_EXAMPLE = `1. Transaction monitoring tool fires alert → analyst opens case in Actimize
@@ -62,24 +113,32 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
     (patch: Partial<CustomerProfile>) => {
       onUpdate({ customer: { ...customer, ...patch } });
     },
-    [customer, onUpdate]
+    [customer, onUpdate],
   );
 
   const setDiscovery = useCallback(
     (patch: Partial<DiscoveryInput>) => {
       onUpdate({ discovery: { ...discovery, ...patch } });
     },
-    [discovery, onUpdate]
+    [discovery, onUpdate],
   );
 
   // ── Completion status per section ──────────────────────────────────────────
   // Profile = identity + framing. Primary Use Case moved to Discovery Call below
   // since it's the engagement outcome, not a customer attribute.
-  const profileFields = [customer.companyName, customer.businessProblem, customer.desiredOutcome];
+  const profileFields = [
+    customer.companyName,
+    customer.businessProblem,
+    customer.desiredOutcome,
+  ];
   const profileComplete = profileFields.filter(Boolean).length;
   const discoveryFields = [
-    customer.primaryUseCase, discovery.buyerTeam, discovery.implementationDeadline,
-    discovery.usersAffected, discovery.currentProcess, discovery.successDefinition,
+    customer.primaryUseCase,
+    discovery.buyerTeam,
+    discovery.implementationDeadline,
+    discovery.usersAffected,
+    discovery.currentProcess,
+    discovery.successDefinition,
   ];
   const discoveryComplete = discoveryFields.filter(Boolean).length;
 
@@ -87,7 +146,9 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
     <div className="space-y-5">
       {/* Save indicator strip — sits above all sections so users know edits persist */}
       <div className="flex items-center justify-between text-xs">
-        <p className="text-muted-foreground">All edits auto-save to your session.</p>
+        <p className="text-muted-foreground">
+          All edits auto-save to your session.
+        </p>
         <SaveIndicator state={saveState} />
       </div>
 
@@ -108,8 +169,15 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
           </FormField>
 
           <FormField id="industry" label="Industry">
-            <Select value={customer.industry} onValueChange={(v) => setCustomer({ industry: v as CustomerProfile["industry"] })}>
-              <SelectTrigger id="industry"><SelectValue /></SelectTrigger>
+            <Select
+              value={customer.industry}
+              onValueChange={(v) =>
+                setCustomer({ industry: v as CustomerProfile["industry"] })
+              }
+            >
+              <SelectTrigger id="industry">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="fintech">Fintech</SelectItem>
                 <SelectItem value="legaltech">Legaltech</SelectItem>
@@ -124,8 +192,17 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
           </FormField>
 
           <FormField id="companySize" label="Company Size">
-            <Select value={customer.companySize} onValueChange={(v) => setCustomer({ companySize: v as CustomerProfile["companySize"] })}>
-              <SelectTrigger id="companySize"><SelectValue /></SelectTrigger>
+            <Select
+              value={customer.companySize}
+              onValueChange={(v) =>
+                setCustomer({
+                  companySize: v as CustomerProfile["companySize"],
+                })
+              }
+            >
+              <SelectTrigger id="companySize">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="startup">Startup</SelectItem>
                 <SelectItem value="mid_market">Mid-Market</SelectItem>
@@ -134,9 +211,22 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
             </Select>
           </FormField>
 
-          <FormField id="technicalMaturity" label="Technical Maturity" helper="How sophisticated their engineering org is.">
-            <Select value={customer.technicalMaturity} onValueChange={(v) => setCustomer({ technicalMaturity: v as CustomerProfile["technicalMaturity"] })}>
-              <SelectTrigger id="technicalMaturity"><SelectValue /></SelectTrigger>
+          <FormField
+            id="technicalMaturity"
+            label="Technical Maturity"
+            helper="How sophisticated their engineering org is."
+          >
+            <Select
+              value={customer.technicalMaturity}
+              onValueChange={(v) =>
+                setCustomer({
+                  technicalMaturity: v as CustomerProfile["technicalMaturity"],
+                })
+              }
+            >
+              <SelectTrigger id="technicalMaturity">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="low">Low</SelectItem>
                 <SelectItem value="medium">Medium</SelectItem>
@@ -186,7 +276,9 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
             value={customer.regulatoryContext ?? []}
             onChange={(next) => setCustomer({ regulatoryContext: next })}
             placeholder="Type a regulation and press Enter…"
-            suggestions={REGULATORY_SUGGESTIONS}
+            suggestions={rankedRegulatorySuggestions(
+              customer.industry ?? "other",
+            )}
             ariaLabel="Regulatory context"
           />
         </FormField>
@@ -217,13 +309,22 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
             label="Urgency"
             helper="How time-pressured this is."
           >
-            <Select value={customer.urgency} onValueChange={(v) => setCustomer({ urgency: v as CustomerProfile["urgency"] })}>
-              <SelectTrigger id="urgency"><SelectValue /></SelectTrigger>
+            <Select
+              value={customer.urgency}
+              onValueChange={(v) =>
+                setCustomer({ urgency: v as CustomerProfile["urgency"] })
+              }
+            >
+              <SelectTrigger id="urgency">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="low">Low</SelectItem>
                 <SelectItem value="medium">Medium</SelectItem>
                 <SelectItem value="high">High</SelectItem>
-                <SelectItem value="critical">Critical — board-level pressure</SelectItem>
+                <SelectItem value="critical">
+                  Critical — board-level pressure
+                </SelectItem>
               </SelectContent>
             </Select>
           </FormField>
@@ -251,7 +352,9 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
               id="implementationDeadline"
               type="text"
               value={discovery.implementationDeadline}
-              onChange={(e) => setDiscovery({ implementationDeadline: e.target.value })}
+              onChange={(e) =>
+                setDiscovery({ implementationDeadline: e.target.value })
+              }
               placeholder="Q3 2026"
             />
           </FormField>
@@ -275,12 +378,25 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
             label="Overall Risk Level"
             helper="Your gut-feel given regulated data, change scope, and customer maturity."
           >
-            <Select value={discovery.riskLevel} onValueChange={(v) => setDiscovery({ riskLevel: v as DiscoveryInput["riskLevel"] })}>
-              <SelectTrigger id="riskLevel"><SelectValue /></SelectTrigger>
+            <Select
+              value={discovery.riskLevel}
+              onValueChange={(v) =>
+                setDiscovery({ riskLevel: v as DiscoveryInput["riskLevel"] })
+              }
+            >
+              <SelectTrigger id="riskLevel">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
-                <SelectItem value="low">Low — straightforward deployment</SelectItem>
-                <SelectItem value="medium">Medium — typical enterprise risk</SelectItem>
-                <SelectItem value="high">High — regulated data or critical workflow</SelectItem>
+                <SelectItem value="low">
+                  Low — straightforward deployment
+                </SelectItem>
+                <SelectItem value="medium">
+                  Medium — typical enterprise risk
+                </SelectItem>
+                <SelectItem value="high">
+                  High — regulated data or critical workflow
+                </SelectItem>
               </SelectContent>
             </Select>
           </FormField>
@@ -342,7 +458,9 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
             id="successDefinition"
             rows={3}
             value={discovery.successDefinition}
-            onChange={(e) => setDiscovery({ successDefinition: e.target.value })}
+            onChange={(e) =>
+              setDiscovery({ successDefinition: e.target.value })
+            }
             placeholder="By [date], [metric] will [direction] from [baseline] to [target]. Click ‘See example’ for a sample."
           />
         </ExampleField>
@@ -380,7 +498,12 @@ function SubSectionHeader({ children }: { children: React.ReactNode }) {
 // in a read-only block above the input. Reduces blank-page anxiety without
 // committing the example as the actual value.
 function ExampleField({
-  id, label, helper, example, required, children,
+  id,
+  label,
+  helper,
+  example,
+  required,
+  children,
 }: {
   id?: string;
   label: string;
@@ -408,13 +531,17 @@ function ExampleField({
       <FormField id={id} label={label} required={required} helper="">
         {showExample && (
           <div className="rounded-md border border-dashed bg-muted/30 px-3 py-2 mb-2 text-xs text-muted-foreground whitespace-pre-line leading-relaxed">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold block mb-1">Example</span>
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold block mb-1">
+              Example
+            </span>
             {example}
           </div>
         )}
         {children}
       </FormField>
-      <p className="text-[11px] text-muted-foreground/80 leading-relaxed">{helperWithToggle}</p>
+      <p className="text-[11px] text-muted-foreground/80 leading-relaxed">
+        {helperWithToggle}
+      </p>
     </div>
   );
 }

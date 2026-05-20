@@ -153,8 +153,9 @@ function SystemRow({ system, onUpdate, onRemove }: SystemRowProps) {
 
   return (
     <div
+      id={system.id}
       className={cn(
-        "rounded-lg border bg-background",
+        "rounded-lg border bg-background scroll-mt-20",
         apiFlag && "border-orange-200 bg-orange-50/30",
         open && "ring-1 ring-primary/20",
       )}
@@ -435,8 +436,9 @@ function DataSourceRow({ source, onUpdate, onRemove }: DataSourceRowProps) {
 
   return (
     <div
+      id={source.id}
       className={cn(
-        "rounded-lg border bg-background",
+        "rounded-lg border bg-background scroll-mt-20",
         blocked && "border-red-200 bg-red-50/30",
         open && "ring-1 ring-primary/20",
       )}

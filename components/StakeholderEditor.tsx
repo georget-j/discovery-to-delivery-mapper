@@ -203,8 +203,9 @@ function StakeholderRow({
 
   return (
     <div
+      id={s.id}
       className={cn(
-        "rounded-lg border bg-background",
+        "rounded-lg border bg-background scroll-mt-20",
         open && "ring-1 ring-primary/20",
       )}
     >

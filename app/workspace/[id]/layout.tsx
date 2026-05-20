@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { WorkspaceProvider } from "@/components/WorkspaceProvider";
 import { WorkspaceSidebar } from "@/components/WorkspaceSidebar";
 import { JourneyBar } from "@/components/JourneyBar";
+import { CommandPalette } from "@/components/CommandPalette";
+import { GuidedTour } from "@/components/GuidedTour";
 import { loadScenario } from "@/lib/scenarios";
 
 export async function generateMetadata({
@@ -39,6 +41,8 @@ export default async function WorkspaceLayout({
           <div className="flex-1 overflow-y-auto">{children}</div>
         </div>
       </div>
+      <CommandPalette projectId={id} />
+      <GuidedTour projectId={id} />
     </WorkspaceProvider>
   );
 }

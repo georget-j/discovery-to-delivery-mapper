@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { FormField, ChipInput } from "@/components/ui/form-field";
 import { cn, generateId } from "@/lib/utils";
 import { toast } from "@/lib/toast";
+import { NotesDiffPanel, type RowId } from "@/components/NotesDiffPanel";
 import type {
   DiscoverySession,
   ActionItem,
@@ -209,250 +210,275 @@ export function SessionEditor({
     }
   };
 
-  const handleApplyAll = useCallback(() => {
-    if (!suggestions || !project) return;
-    const applied: string[] = [];
+  const handleApplySelected = useCallback(
+    (selected: Set<RowId>) => {
+      if (!suggestions || !project) return;
+      const applied: string[] = [];
+      const isPicked = (id: RowId) => selected.has(id);
 
-    // Patch built up across the apply phases — single updateProject() call.
-    const patch: Partial<OnboardingProject> = {};
+      // Patch built up across the apply phases — single updateProject() call.
+      const patch: Partial<OnboardingProject> = {};
 
-    // ── Discovery fields + customer profile ────────────────────────────
-    if (suggestions.discovery) {
-      const {
-        businessProblem,
-        primaryUseCase,
-        desiredOutcome,
-        regulatoryContext,
-        ...discoveryPatch
-      } = suggestions.discovery;
-      const customerHasUpdates =
-        businessProblem ||
-        primaryUseCase ||
-        desiredOutcome ||
-        (regulatoryContext && regulatoryContext.length);
-      if (customerHasUpdates) {
-        patch.customer = {
-          ...project.customer,
-          ...(businessProblem ? { businessProblem } : {}),
-          ...(primaryUseCase ? { primaryUseCase } : {}),
-          ...(desiredOutcome ? { desiredOutcome } : {}),
-          ...(regulatoryContext && regulatoryContext.length
-            ? {
-                regulatoryContext: Array.from(
-                  new Set([
-                    ...(project.customer.regulatoryContext ?? []),
-                    ...regulatoryContext,
-                  ]),
-                ),
-              }
-            : {}),
-        };
-        if (businessProblem) applied.push("Business problem");
-        if (primaryUseCase) applied.push("Primary use case");
-        if (desiredOutcome) applied.push("Desired outcome");
-        if (regulatoryContext?.length)
-          applied.push(
-            `${regulatoryContext.length} regulatory tag${regulatoryContext.length !== 1 ? "s" : ""}`,
-          );
+      // ── Discovery fields + customer profile ────────────────────────────
+      if (suggestions.discovery) {
+        const customerPatch: Record<string, unknown> = {};
+        const discoveryPatch: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(suggestions.discovery)) {
+          if (!isPicked(`discovery:${key}` as RowId)) continue;
+          if (Array.isArray(value) ? value.length === 0 : !value) continue;
+          if (
+            key === "businessProblem" ||
+            key === "primaryUseCase" ||
+            key === "desiredOutcome"
+          ) {
+            customerPatch[key] = value;
+            applied.push(`Customer · ${key}`);
+          } else if (key === "regulatoryContext" && Array.isArray(value)) {
+            customerPatch.regulatoryContext = Array.from(
+              new Set([
+                ...(project.customer.regulatoryContext ?? []),
+                ...(value as string[]),
+              ]),
+            );
+            applied.push(
+              `${value.length} regulatory tag${value.length !== 1 ? "s" : ""}`,
+            );
+          } else {
+            discoveryPatch[key] = value;
+            applied.push(`Discovery · ${key}`);
+          }
+        }
+        if (Object.keys(customerPatch).length > 0) {
+          patch.customer = { ...project.customer, ...customerPatch };
+        }
+        if (Object.keys(discoveryPatch).length > 0) {
+          patch.discovery = { ...project.discovery, ...discoveryPatch };
+        }
       }
-      const filteredDiscovery = Object.fromEntries(
-        Object.entries(discoveryPatch).filter(([, v]) => v),
+
+      // ── Stakeholders ───────────────────────────────────────────────────
+      const existingStakeholderNames = new Set(
+        project.stakeholders.map((s) => s.name.toLowerCase()),
       );
-      if (Object.keys(filteredDiscovery).length > 0) {
-        patch.discovery = { ...project.discovery, ...filteredDiscovery };
+      const newStakeholders: Stakeholder[] = (
+        suggestions.suggestedStakeholders ?? []
+      )
+        .map((s, idx) => ({ s, idx }))
+        .filter(
+          ({ s, idx }) =>
+            isPicked(`stakeholder:${idx}` as RowId) &&
+            !existingStakeholderNames.has(s.name.toLowerCase()),
+        )
+        .map(({ s }) => ({
+          id: generateId(),
+          name: s.name,
+          role: s.role,
+          team: s.team,
+          influence: "medium",
+          involvement: "end_user",
+          concerns: s.concerns ?? [],
+          requiredActions: [],
+        }));
+      if (newStakeholders.length > 0) {
+        patch.stakeholders = [...project.stakeholders, ...newStakeholders];
         applied.push(
-          `${Object.keys(filteredDiscovery).length} discovery field${Object.keys(filteredDiscovery).length !== 1 ? "s" : ""}`,
+          `${newStakeholders.length} stakeholder${newStakeholders.length !== 1 ? "s" : ""}`,
         );
       }
-    }
 
-    // ── Stakeholders ───────────────────────────────────────────────────
-    const existingStakeholderNames = new Set(
-      project.stakeholders.map((s) => s.name.toLowerCase()),
-    );
-    const newStakeholders: Stakeholder[] = (
-      suggestions.suggestedStakeholders ?? []
-    )
-      .filter((s) => !existingStakeholderNames.has(s.name.toLowerCase()))
-      .map((s) => ({
-        id: generateId(),
-        name: s.name,
-        role: s.role,
-        team: s.team,
-        influence: "medium",
-        involvement: "end_user",
-        concerns: s.concerns ?? [],
-        requiredActions: [],
-      }));
-    if (newStakeholders.length > 0) {
-      patch.stakeholders = [...project.stakeholders, ...newStakeholders];
-      applied.push(
-        `${newStakeholders.length} stakeholder${newStakeholders.length !== 1 ? "s" : ""}`,
+      // ── Workflows ───────────────────────────────────────────────────────
+      const existingWfNames = new Set(
+        project.workflows.map((w) => w.name.toLowerCase()),
       );
-    }
+      const newWorkflows: WorkflowStep[] = (
+        suggestions.suggestedWorkflows ?? []
+      )
+        .map((w, idx) => ({ w, idx }))
+        .filter(
+          ({ w, idx }) =>
+            isPicked(`workflow:${idx}` as RowId) &&
+            !existingWfNames.has(w.name.toLowerCase()),
+        )
+        .map(({ w }) => ({
+          id: generateId(),
+          name: w.name,
+          description: w.description,
+          ownerTeam: w.ownerTeam,
+          currentSystem: "",
+          inputData: [],
+          outputArtifact: [],
+          painPoints: w.painPoints ?? [],
+          manualEffort: pick<ManualEffort>(
+            w.manualEffort,
+            MANUAL_EFFORTS,
+            "medium",
+          ),
+          frequency: pick<Frequency>(w.frequency, FREQUENCIES, "ad_hoc"),
+          failureModes: [],
+          automationPotential: "medium",
+          futureState: "ai_assisted",
+        }));
+      if (newWorkflows.length > 0) {
+        patch.workflows = [...project.workflows, ...newWorkflows];
+        applied.push(
+          `${newWorkflows.length} workflow step${newWorkflows.length !== 1 ? "s" : ""}`,
+        );
+      }
 
-    // ── Workflows ───────────────────────────────────────────────────────
-    const existingWfNames = new Set(
-      project.workflows.map((w) => w.name.toLowerCase()),
-    );
-    const newWorkflows: WorkflowStep[] = (suggestions.suggestedWorkflows ?? [])
-      .filter((w) => !existingWfNames.has(w.name.toLowerCase()))
-      .map((w) => ({
-        id: generateId(),
-        name: w.name,
-        description: w.description,
-        ownerTeam: w.ownerTeam,
-        currentSystem: "",
-        inputData: [],
-        outputArtifact: [],
-        painPoints: w.painPoints ?? [],
-        manualEffort: pick<ManualEffort>(
-          w.manualEffort,
-          MANUAL_EFFORTS,
-          "medium",
-        ),
-        frequency: pick<Frequency>(w.frequency, FREQUENCIES, "ad_hoc"),
-        failureModes: [],
-        automationPotential: "medium",
-        futureState: "ai_assisted",
-      }));
-    if (newWorkflows.length > 0) {
-      patch.workflows = [...project.workflows, ...newWorkflows];
-      applied.push(
-        `${newWorkflows.length} workflow step${newWorkflows.length !== 1 ? "s" : ""}`,
+      // ── Systems ─────────────────────────────────────────────────────────
+      const existingSysNames = new Set(
+        project.systems.map((s) => s.name.toLowerCase()),
       );
-    }
+      const newSystems: CustomerSystem[] = (suggestions.suggestedSystems ?? [])
+        .map((s, idx) => ({ s, idx }))
+        .filter(
+          ({ s, idx }) =>
+            isPicked(`system:${idx}` as RowId) &&
+            !existingSysNames.has(s.name.toLowerCase()),
+        )
+        .map(({ s }) => ({
+          id: generateId(),
+          name: s.name,
+          type: pick<SystemType>(s.type, SYSTEM_TYPES, "other"),
+          owner: "",
+          accessMethod: "unknown",
+          apiAvailable: "unknown",
+          authenticationMethod: "",
+          dataSensitivity: "low",
+          integrationComplexity: "medium",
+          notes: s.notes ?? "",
+        }));
+      if (newSystems.length > 0) {
+        patch.systems = [...project.systems, ...newSystems];
+        applied.push(
+          `${newSystems.length} system${newSystems.length !== 1 ? "s" : ""}`,
+        );
+      }
 
-    // ── Systems ─────────────────────────────────────────────────────────
-    const existingSysNames = new Set(
-      project.systems.map((s) => s.name.toLowerCase()),
-    );
-    const newSystems: CustomerSystem[] = (suggestions.suggestedSystems ?? [])
-      .filter((s) => !existingSysNames.has(s.name.toLowerCase()))
-      .map((s) => ({
-        id: generateId(),
-        name: s.name,
-        type: pick<SystemType>(s.type, SYSTEM_TYPES, "other"),
-        owner: "",
-        accessMethod: "unknown",
-        apiAvailable: "unknown",
-        authenticationMethod: "",
-        dataSensitivity: "low",
-        integrationComplexity: "medium",
-        notes: s.notes ?? "",
-      }));
-    if (newSystems.length > 0) {
-      patch.systems = [...project.systems, ...newSystems];
-      applied.push(
-        `${newSystems.length} system${newSystems.length !== 1 ? "s" : ""}`,
+      // ── Data sources ────────────────────────────────────────────────────
+      const existingSrcNames = new Set(
+        project.dataSources.map((d) => d.name.toLowerCase()),
       );
-    }
+      const newSources: DataSource[] = (suggestions.suggestedDataSources ?? [])
+        .map((d, idx) => ({ d, idx }))
+        .filter(
+          ({ d, idx }) =>
+            isPicked(`dataSource:${idx}` as RowId) &&
+            !existingSrcNames.has(d.name.toLowerCase()),
+        )
+        .map(({ d }) => ({
+          id: generateId(),
+          name: d.name,
+          sourceSystem: "",
+          dataType: pick<DataType>(d.dataType, DATA_TYPES, "other"),
+          format: pick<DataFormat>(d.format, DATA_FORMATS, "unknown"),
+          quality: "unknown",
+          volumeEstimate: "",
+          updateFrequency: "",
+          pii: "unknown",
+          accessStatus: "unknown",
+          openQuestions: d.notes ? [d.notes] : [],
+        }));
+      if (newSources.length > 0) {
+        patch.dataSources = [...project.dataSources, ...newSources];
+        applied.push(
+          `${newSources.length} data source${newSources.length !== 1 ? "s" : ""}`,
+        );
+      }
 
-    // ── Data sources ────────────────────────────────────────────────────
-    const existingSrcNames = new Set(
-      project.dataSources.map((d) => d.name.toLowerCase()),
-    );
-    const newSources: DataSource[] = (suggestions.suggestedDataSources ?? [])
-      .filter((d) => !existingSrcNames.has(d.name.toLowerCase()))
-      .map((d) => ({
-        id: generateId(),
-        name: d.name,
-        sourceSystem: "",
-        dataType: pick<DataType>(d.dataType, DATA_TYPES, "other"),
-        format: pick<DataFormat>(d.format, DATA_FORMATS, "unknown"),
-        quality: "unknown",
-        volumeEstimate: "",
-        updateFrequency: "",
-        pii: "unknown",
-        accessStatus: "unknown",
-        openQuestions: d.notes ? [d.notes] : [],
-      }));
-    if (newSources.length > 0) {
-      patch.dataSources = [...project.dataSources, ...newSources];
-      applied.push(
-        `${newSources.length} data source${newSources.length !== 1 ? "s" : ""}`,
+      // ── Risks ───────────────────────────────────────────────────────────
+      const existingRiskTitles = new Set(
+        project.risks.map((r) => r.title.toLowerCase()),
       );
-    }
+      const newRisks: DeploymentRisk[] = (suggestions.suggestedRisks ?? [])
+        .map((rk, idx) => ({ rk, idx }))
+        .filter(
+          ({ rk, idx }) =>
+            isPicked(`risk:${idx}` as RowId) &&
+            !existingRiskTitles.has(rk.title.toLowerCase()),
+        )
+        .map(({ rk }) => ({
+          id: generateId(),
+          title: rk.title,
+          description: rk.description,
+          category: pick<RiskCategory>(
+            rk.category,
+            RISK_CATEGORIES,
+            "operational_adoption",
+          ),
+          severity: pick<RiskSeverity>(rk.severity, RISK_SEVERITIES, "medium"),
+          likelihood: pick<RiskLikelihood>(
+            rk.likelihood,
+            RISK_LIKELIHOODS,
+            "medium",
+          ),
+          owner: "",
+          mitigation: rk.mitigation ?? "",
+          escalationTrigger: "",
+          status: "open",
+          source: "manual",
+          sourceRefs: [
+            {
+              type: "session",
+              refId: session.id,
+              label: session.title || "Discovery session",
+            },
+          ],
+        }));
+      if (newRisks.length > 0) {
+        patch.risks = [...project.risks, ...newRisks];
+        applied.push(
+          `${newRisks.length} risk${newRisks.length !== 1 ? "s" : ""}`,
+        );
+      }
 
-    // ── Risks ───────────────────────────────────────────────────────────
-    const existingRiskTitles = new Set(
-      project.risks.map((r) => r.title.toLowerCase()),
-    );
-    const newRisks: DeploymentRisk[] = (suggestions.suggestedRisks ?? [])
-      .filter((rk) => !existingRiskTitles.has(rk.title.toLowerCase()))
-      .map((rk) => ({
-        id: generateId(),
-        title: rk.title,
-        description: rk.description,
-        category: pick<RiskCategory>(
-          rk.category,
-          RISK_CATEGORIES,
-          "operational_adoption",
-        ),
-        severity: pick<RiskSeverity>(rk.severity, RISK_SEVERITIES, "medium"),
-        likelihood: pick<RiskLikelihood>(
-          rk.likelihood,
-          RISK_LIKELIHOODS,
-          "medium",
-        ),
-        owner: "",
-        mitigation: rk.mitigation ?? "",
-        escalationTrigger: "",
-        status: "open",
-        source: "manual",
-        sourceRefs: [
-          {
-            type: "session",
-            refId: session.id,
-            label: session.title || "Discovery session",
-          },
-        ],
-      }));
-    if (newRisks.length > 0) {
-      patch.risks = [...project.risks, ...newRisks];
-      applied.push(
-        `${newRisks.length} risk${newRisks.length !== 1 ? "s" : ""}`,
+      // ── Action items — attached to the session, not the project ────────
+      const existingItemTitles = new Set(
+        session.actionItems.map((a) => a.title.toLowerCase()),
       );
-    }
+      const newActionItems: ActionItem[] = (
+        suggestions.suggestedActionItems ?? []
+      )
+        .map((a, idx) => ({ a, idx }))
+        .filter(
+          ({ a, idx }) =>
+            isPicked(`actionItem:${idx}` as RowId) &&
+            !existingItemTitles.has(a.title.toLowerCase()),
+        )
+        .map(({ a }) => ({
+          id: generateId(),
+          title: a.title,
+          assignee: a.assignee || "Unassigned",
+          dueDate: a.dueDate,
+          urgency: pick<ActionItemUrgency>(a.urgency, URGENCIES, "medium"),
+          status: "open" as const,
+          sessionId: session.id,
+          createdAt: new Date().toISOString(),
+        }));
+      if (newActionItems.length > 0) {
+        applied.push(
+          `${newActionItems.length} action item${newActionItems.length !== 1 ? "s" : ""}`,
+        );
+        onChange({
+          ...session,
+          actionItems: [...session.actionItems, ...newActionItems],
+        });
+      }
 
-    // ── Action items — attached to the session, not the project ────────
-    const existingItemTitles = new Set(
-      session.actionItems.map((a) => a.title.toLowerCase()),
-    );
-    const newActionItems: ActionItem[] = (
-      suggestions.suggestedActionItems ?? []
-    )
-      .filter((a) => !existingItemTitles.has(a.title.toLowerCase()))
-      .map((a) => ({
-        id: generateId(),
-        title: a.title,
-        assignee: a.assignee || "Unassigned",
-        dueDate: a.dueDate,
-        urgency: pick<ActionItemUrgency>(a.urgency, URGENCIES, "medium"),
-        status: "open" as const,
-        sessionId: session.id,
-        createdAt: new Date().toISOString(),
-      }));
-    if (newActionItems.length > 0) {
-      applied.push(
-        `${newActionItems.length} action item${newActionItems.length !== 1 ? "s" : ""}`,
-      );
-      onChange({
-        ...session,
-        actionItems: [...session.actionItems, ...newActionItems],
-      });
-    }
+      if (Object.keys(patch).length > 0) {
+        updateProject(patch);
+      }
 
-    if (Object.keys(patch).length > 0) {
-      updateProject(patch);
-    }
-
-    setLastApplied(applied);
-    setSuggestions(null);
-    if (applied.length > 0) {
-      toast.success("Applied to project", { description: applied.join(" · ") });
-    }
-  }, [suggestions, project, session, onChange, updateProject]);
+      setLastApplied(applied);
+      setSuggestions(null);
+      if (applied.length > 0) {
+        toast.success("Applied to project", {
+          description: applied.join(" · "),
+        });
+      }
+    },
+    [suggestions, project, session, onChange, updateProject],
+  );
 
   // ── Manual action item ops on this session ─────────────────────────────
   const addActionItem = () => {
@@ -617,27 +643,13 @@ export function SessionEditor({
             </div>
           )}
 
-          {suggestions && (
-            <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Ready to apply
-                  </p>
-                  <p className="text-xs text-muted-foreground/80 mt-0.5 italic">
-                    {suggestions.summary}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleApplyAll}
-                  className="text-xs px-3 py-1.5 rounded-md bg-foreground text-background hover:bg-foreground/90 transition-colors font-medium shrink-0"
-                >
-                  Apply all →
-                </button>
-              </div>
-              <SuggestionSummary suggestions={suggestions} />
-            </div>
+          {suggestions && project && (
+            <NotesDiffPanel
+              suggestions={suggestions}
+              project={project}
+              onCancel={() => setSuggestions(null)}
+              onApply={handleApplySelected}
+            />
           )}
 
           {/* Action items section (per-session, always visible) */}

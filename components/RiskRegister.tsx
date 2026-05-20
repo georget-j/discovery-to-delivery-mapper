@@ -257,6 +257,9 @@ function RiskRow({ risk, onStatusChange, onDelete }: RiskRowProps) {
                   · {risk.owner}
                 </span>
               )}
+              {risk.sourceRefs && risk.sourceRefs.length > 0 && (
+                <EvidenceTrail refs={risk.sourceRefs} compact max={3} />
+              )}
             </div>
           )}
         </div>
