@@ -1,4 +1,9 @@
-import type { OnboardingProject, Requirement, RequirementCategory, RequirementPriority } from "./types";
+import type {
+  OnboardingProject,
+  Requirement,
+  RequirementCategory,
+  RequirementPriority,
+} from "./types";
 import { generateId } from "./utils";
 
 function req(
@@ -6,7 +11,7 @@ function req(
   description: string,
   category: RequirementCategory,
   priority: RequirementPriority,
-  overrides?: Partial<Requirement>
+  overrides?: Partial<Requirement>,
 ): Requirement {
   return {
     id: generateId(),
@@ -21,7 +26,9 @@ function req(
   };
 }
 
-export function generateRequirements(project: OnboardingProject): Requirement[] {
+export function generateRequirements(
+  project: OnboardingProject,
+): Requirement[] {
   const results: Requirement[] = [];
 
   // ── Functional: high-automation-potential workflow steps ──────────────────
@@ -33,8 +40,13 @@ export function generateRequirements(project: OnboardingProject): Requirement[] 
           `Workflow step "${step.name}" (owner: ${step.ownerTeam || "unknown"}) has high automation potential and should be a primary AI use case in scope.`,
           "functional",
           "must_have",
-          { sourceRefs: [{ type: "workflow_step", refId: step.id, label: step.name }] }
-        )
+          {
+            sourceRefs: [
+              { type: "workflow_step", refId: step.id, label: step.name },
+            ],
+            rationale: `Workflow step "${step.name}" is tagged automation potential = high.`,
+          },
+        ),
       );
     }
   }
@@ -48,8 +60,14 @@ export function generateRequirements(project: OnboardingProject): Requirement[] 
           `${system.name} has no available API. A custom connector, CSV-based pipeline, or manual upload workflow must be scoped before go-live.`,
           "integration",
           "must_have",
-          { source: "technical_scoping", sourceRefs: [{ type: "system", refId: system.id, label: system.name }] }
-        )
+          {
+            source: "technical_scoping",
+            sourceRefs: [
+              { type: "system", refId: system.id, label: system.name },
+            ],
+            rationale: `${system.name} is flagged as having no API in the Systems tab.`,
+          },
+        ),
       );
     }
     if (system.accessMethod === "unknown") {
@@ -59,8 +77,15 @@ export function generateRequirements(project: OnboardingProject): Requirement[] 
           `Access method for ${system.name} is unknown. Must be resolved during technical scoping before integration design can begin.`,
           "integration",
           "must_have",
-          { source: "technical_scoping", status: "needs_validation", sourceRefs: [{ type: "system", refId: system.id, label: system.name }] }
-        )
+          {
+            source: "technical_scoping",
+            status: "needs_validation",
+            sourceRefs: [
+              { type: "system", refId: system.id, label: system.name },
+            ],
+            rationale: `${system.name} has access method = unknown in the Systems tab.`,
+          },
+        ),
       );
     }
   }
@@ -74,8 +99,14 @@ export function generateRequirements(project: OnboardingProject): Requirement[] 
           `${source.name} is rated poor quality. A data cleansing, labelling, or enrichment programme is required before model training or inference can proceed.`,
           "data",
           "must_have",
-          { source: "workflow_mapping", sourceRefs: [{ type: "data_source", refId: source.id, label: source.name }] }
-        )
+          {
+            source: "workflow_mapping",
+            sourceRefs: [
+              { type: "data_source", refId: source.id, label: source.name },
+            ],
+            rationale: `${source.name} has data quality = poor in the Systems tab.`,
+          },
+        ),
       );
     }
     if (source.quality === "mixed") {
@@ -85,8 +116,14 @@ export function generateRequirements(project: OnboardingProject): Requirement[] 
           `${source.name} is rated mixed quality. A data quality assessment should be completed and documented before go-live.`,
           "data",
           "should_have",
-          { source: "workflow_mapping", sourceRefs: [{ type: "data_source", refId: source.id, label: source.name }] }
-        )
+          {
+            source: "workflow_mapping",
+            sourceRefs: [
+              { type: "data_source", refId: source.id, label: source.name },
+            ],
+            rationale: `${source.name} has data quality = mixed in the Systems tab.`,
+          },
+        ),
       );
     }
 
@@ -98,8 +135,16 @@ export function generateRequirements(project: OnboardingProject): Requirement[] 
           `${source.name} contains PII. Data retention, masking, access controls, and deletion procedures must be documented and approved before processing begins.`,
           "security",
           "must_have",
-          { source: "security_review", owner: "shared", status: "needs_validation", sourceRefs: [{ type: "data_source", refId: source.id, label: source.name }] }
-        )
+          {
+            source: "security_review",
+            owner: "shared",
+            status: "needs_validation",
+            sourceRefs: [
+              { type: "data_source", refId: source.id, label: source.name },
+            ],
+            rationale: `${source.name} is flagged as containing PII.`,
+          },
+        ),
       );
     }
   }
@@ -114,15 +159,23 @@ export function generateRequirements(project: OnboardingProject): Requirement[] 
         "compliance",
         "must_have",
         {
-          source: "customer_discovery", owner: "shared", status: "needs_validation",
-          sourceRefs: project.customer.regulatoryContext.map((r) => ({ type: "regulatory_context" as const, refId: r, label: r })),
-        }
-      )
+          source: "customer_discovery",
+          owner: "shared",
+          status: "needs_validation",
+          sourceRefs: project.customer.regulatoryContext.map((r) => ({
+            type: "regulatory_context" as const,
+            refId: r,
+            label: r,
+          })),
+        },
+      ),
     );
   }
 
   // ── Security: regulated data sensitivity ─────────────────────────────────
-  const hasRegulatedSystem = project.systems.some((s) => s.dataSensitivity === "regulated");
+  const hasRegulatedSystem = project.systems.some(
+    (s) => s.dataSensitivity === "regulated",
+  );
   if (hasRegulatedSystem) {
     results.push(
       req(
@@ -130,8 +183,12 @@ export function generateRequirements(project: OnboardingProject): Requirement[] 
         "One or more systems handle regulated data. Encryption at rest and in transit, access logging, and DLP controls must be in place before go-live.",
         "security",
         "must_have",
-        { source: "security_review", owner: "startup", status: "needs_validation" }
-      )
+        {
+          source: "security_review",
+          owner: "startup",
+          status: "needs_validation",
+        },
+      ),
     );
     results.push(
       req(
@@ -139,8 +196,12 @@ export function generateRequirements(project: OnboardingProject): Requirement[] 
         "Regulated data requires a signed DPA between the customer and the AI vendor before any data is transferred or processed.",
         "compliance",
         "must_have",
-        { source: "security_review", owner: "shared", status: "needs_validation" }
-      )
+        {
+          source: "security_review",
+          owner: "shared",
+          status: "needs_validation",
+        },
+      ),
     );
   }
 
@@ -152,8 +213,8 @@ export function generateRequirements(project: OnboardingProject): Requirement[] 
         "Customer technical maturity is low. Structured onboarding sessions, runbooks, and an escalation path are required to achieve self-sufficiency.",
         "change_management",
         "must_have",
-        { source: "customer_discovery", owner: "startup" }
-      )
+        { source: "customer_discovery", owner: "startup" },
+      ),
     );
   }
 
@@ -164,8 +225,8 @@ export function generateRequirements(project: OnboardingProject): Requirement[] 
       "Customer must have a dedicated escalation path (Slack channel, named CSM) during the pilot period to accelerate issue resolution.",
       "support",
       "should_have",
-      { source: "customer_discovery", owner: "startup" }
-    )
+      { source: "customer_discovery", owner: "startup" },
+    ),
   );
 
   // ── Reporting ─────────────────────────────────────────────────────────────
@@ -175,8 +236,8 @@ export function generateRequirements(project: OnboardingProject): Requirement[] 
       "Weekly reporting on model accuracy, throughput, error rates, and user adoption must be available throughout the pilot.",
       "reporting",
       "should_have",
-      { source: "customer_discovery", owner: "startup" }
-    )
+      { source: "customer_discovery", owner: "startup" },
+    ),
   );
 
   // ── Fintech-specific ─────────────────────────────────────────────────────
@@ -187,8 +248,12 @@ export function generateRequirements(project: OnboardingProject): Requirement[] 
         "All AI decisions must be explainable in plain language for regulator requests. Confidence scores and top contributing factors must be logged with each decision.",
         "compliance",
         "must_have",
-        { source: "customer_discovery", owner: "startup", status: "needs_validation" }
-      )
+        {
+          source: "customer_discovery",
+          owner: "startup",
+          status: "needs_validation",
+        },
+      ),
     );
     results.push(
       req(
@@ -196,8 +261,8 @@ export function generateRequirements(project: OnboardingProject): Requirement[] 
         "Every AI recommendation or action must produce an immutable audit record including input, output, model version, and approving user (if required).",
         "functional",
         "must_have",
-        { source: "customer_discovery", owner: "startup" }
-      )
+        { source: "customer_discovery", owner: "startup" },
+      ),
     );
   }
 
@@ -209,8 +274,12 @@ export function generateRequirements(project: OnboardingProject): Requirement[] 
         "All AI-generated legal content must cite source documents. A hallucination detection layer or human review gate is required before outputs reach clients.",
         "functional",
         "must_have",
-        { source: "customer_discovery", owner: "startup", status: "needs_validation" }
-      )
+        {
+          source: "customer_discovery",
+          owner: "startup",
+          status: "needs_validation",
+        },
+      ),
     );
     results.push(
       req(
@@ -218,8 +287,12 @@ export function generateRequirements(project: OnboardingProject): Requirement[] 
         "Data handling must preserve attorney-client privilege. No privileged communications may be used for model training without explicit consent.",
         "compliance",
         "must_have",
-        { source: "customer_discovery", owner: "shared", status: "needs_validation" }
-      )
+        {
+          source: "customer_discovery",
+          owner: "shared",
+          status: "needs_validation",
+        },
+      ),
     );
   }
 

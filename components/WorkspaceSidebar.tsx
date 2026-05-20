@@ -122,7 +122,12 @@ function PhaseGroup({
             {phase.label}
           </p>
         </div>
-        <span className="text-[10px] text-muted-foreground/60">
+        <span
+          className="text-[10px] text-muted-foreground/60 cursor-help"
+          title={progress.checks
+            .map((c) => `${c.done ? "✓" : "✗"} ${c.label}`)
+            .join("\n")}
+        >
           {progress.done}/{progress.total}
         </span>
       </div>

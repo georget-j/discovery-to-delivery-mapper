@@ -6,7 +6,7 @@ import type { OnboardingProject } from "./types";
 export type PhaseId = "discover" | "design" | "plan" | "deliver";
 
 export type Tab = {
-  href: string;       // relative path under /workspace/[id]
+  href: string; // relative path under /workspace/[id]
   label: string;
   description: string;
 };
@@ -18,12 +18,12 @@ export type Phase = {
   tagline: string;
   description: string;
   color: {
-    text: string;     // text-{color}-700
-    bg: string;       // bg-{color}-100
+    text: string; // text-{color}-700
+    bg: string; // bg-{color}-100
     bgSubtle: string; // bg-{color}-50
-    border: string;   // border-{color}-300
-    ring: string;     // ring-{color}-400
-    accent: string;   // bg-{color}-500 (for solid dots / steppers)
+    border: string; // border-{color}-300
+    ring: string; // ring-{color}-400
+    accent: string; // bg-{color}-500 (for solid dots / steppers)
   };
   tabs: Tab[];
 };
@@ -34,7 +34,8 @@ export const PHASES: Phase[] = [
     number: 1,
     label: "Discover",
     tagline: "Understand the customer",
-    description: "Capture customer context, business problem, stakeholders, and meeting notes.",
+    description:
+      "Capture customer context, business problem, stakeholders, and meeting notes.",
     color: {
       text: "text-blue-700",
       bg: "bg-blue-100",
@@ -44,8 +45,16 @@ export const PHASES: Phase[] = [
       accent: "bg-blue-500",
     },
     tabs: [
-      { href: "",           label: "Overview",  description: "Project at a glance, open actions, and notes" },
-      { href: "/discovery", label: "Discovery", description: "Customer profile, discovery call, and stakeholders" },
+      {
+        href: "",
+        label: "Overview",
+        description: "Project at a glance, open actions, and notes",
+      },
+      {
+        href: "/discovery",
+        label: "Discovery",
+        description: "Customer profile, discovery call, and stakeholders",
+      },
     ],
   },
   {
@@ -53,7 +62,8 @@ export const PHASES: Phase[] = [
     number: 2,
     label: "Design",
     tagline: "Map the solution",
-    description: "Map current + future workflows, document systems and data, and capture requirements.",
+    description:
+      "Map current + future workflows, document systems and data, and capture requirements.",
     color: {
       text: "text-violet-700",
       bg: "bg-violet-100",
@@ -63,9 +73,21 @@ export const PHASES: Phase[] = [
       accent: "bg-violet-500",
     },
     tabs: [
-      { href: "/workflow",     label: "Workflows",     description: "Current-state + future-state workflow maps" },
-      { href: "/systems",      label: "Systems & Data", description: "Customer systems and data sources to integrate" },
-      { href: "/requirements", label: "Requirements",  description: "Functional, technical, and compliance requirements" },
+      {
+        href: "/workflow",
+        label: "Workflows",
+        description: "Current-state + future-state workflow maps",
+      },
+      {
+        href: "/systems",
+        label: "Systems & Data",
+        description: "Customer systems and data sources to integrate",
+      },
+      {
+        href: "/requirements",
+        label: "Requirements",
+        description: "Functional, technical, and compliance requirements",
+      },
     ],
   },
   {
@@ -73,7 +95,8 @@ export const PHASES: Phase[] = [
     number: 3,
     label: "Plan",
     tagline: "De-risk and pilot",
-    description: "Identify deployment risks and design a pilot with clear success metrics.",
+    description:
+      "Identify deployment risks and design a pilot with clear success metrics.",
     color: {
       text: "text-amber-700",
       bg: "bg-amber-100",
@@ -83,8 +106,18 @@ export const PHASES: Phase[] = [
       accent: "bg-amber-500",
     },
     tabs: [
-      { href: "/risks", label: "Risks",      description: "Deployment risks with severity, likelihood, and mitigation" },
-      { href: "/pilot", label: "Pilot Plan", description: "Pilot scope, users, metrics, and launch/rollback criteria" },
+      {
+        href: "/risks",
+        label: "Risks",
+        description:
+          "Deployment risks with severity, likelihood, and mitigation",
+      },
+      {
+        href: "/pilot",
+        label: "Pilot Plan",
+        description:
+          "Pilot scope, users, metrics, and launch/rollback criteria",
+      },
     ],
   },
   {
@@ -92,7 +125,8 @@ export const PHASES: Phase[] = [
     number: 4,
     label: "Deliver",
     tagline: "Ship the deployment pack",
-    description: "Generate and export the client-facing deployment pack and engineering handoff.",
+    description:
+      "Generate and export the client-facing deployment pack and engineering handoff.",
     color: {
       text: "text-emerald-700",
       bg: "bg-emerald-100",
@@ -102,7 +136,11 @@ export const PHASES: Phase[] = [
       accent: "bg-emerald-500",
     },
     tabs: [
-      { href: "/outputs", label: "Outputs", description: "Generate the 15 onboarding artifacts and export the pack" },
+      {
+        href: "/outputs",
+        label: "Outputs",
+        description: "Generate the 15 onboarding artifacts and export the pack",
+      },
     ],
   },
 ];
@@ -133,7 +171,10 @@ export function getTabForPath(pathname: string, projectId: string): Tab {
 }
 
 // Prev/next navigation across the full journey.
-export function getPrevNext(pathname: string, projectId: string): {
+export function getPrevNext(
+  pathname: string,
+  projectId: string,
+): {
   prev: { tab: Tab; phase: Phase } | null;
   next: { tab: Tab; phase: Phase } | null;
 } {
@@ -150,13 +191,22 @@ export function getPrevNext(pathname: string, projectId: string): {
 // Phase completion logic
 // ────────────────────────────────────────────────────────────
 
-export function isPhaseComplete(project: OnboardingProject | null, phaseId: PhaseId): boolean {
+export function isPhaseComplete(
+  project: OnboardingProject | null,
+  phaseId: PhaseId,
+): boolean {
   if (!project) return false;
   switch (phaseId) {
     case "discover":
-      return !!project.discovery.currentProcess && project.stakeholders.length > 0;
+      return (
+        !!project.discovery.currentProcess && project.stakeholders.length > 0
+      );
     case "design":
-      return project.workflows.length > 0 && project.systems.length > 0 && project.requirements.length > 0;
+      return (
+        project.workflows.length > 0 &&
+        project.systems.length > 0 &&
+        project.requirements.length > 0
+      );
     case "plan":
       return project.risks.length > 0 && !!project.pilotPlan?.objective;
     case "deliver":
@@ -164,24 +214,55 @@ export function isPhaseComplete(project: OnboardingProject | null, phaseId: Phas
   }
 }
 
-export function phaseProgress(project: OnboardingProject | null, phaseId: PhaseId): { done: number; total: number } {
-  if (!project) return { done: 0, total: 1 };
-  switch (phaseId) {
-    case "discover": {
-      const checks = [!!project.discovery.currentProcess, project.stakeholders.length > 0];
-      return { done: checks.filter(Boolean).length, total: checks.length };
-    }
-    case "design": {
-      const checks = [project.workflows.length > 0, project.systems.length > 0, project.requirements.length > 0];
-      return { done: checks.filter(Boolean).length, total: checks.length };
-    }
-    case "plan": {
-      const checks = [project.risks.length > 0, !!project.pilotPlan?.objective];
-      return { done: checks.filter(Boolean).length, total: checks.length };
-    }
-    case "deliver": {
-      const checks = [!!project.outputs?.executiveSummary];
-      return { done: checks.filter(Boolean).length, total: checks.length };
-    }
-  }
+export type PhaseCheck = { label: string; done: boolean };
+
+export type PhaseProgress = {
+  done: number;
+  total: number;
+  checks: PhaseCheck[];
+};
+
+export function phaseProgress(
+  project: OnboardingProject | null,
+  phaseId: PhaseId,
+): PhaseProgress {
+  if (!project)
+    return {
+      done: 0,
+      total: 1,
+      checks: [{ label: "Project loaded", done: false }],
+    };
+  const byPhase: Record<PhaseId, PhaseCheck[]> = {
+    discover: [
+      {
+        label: "Current process documented",
+        done: !!project.discovery.currentProcess,
+      },
+      {
+        label: "Stakeholders identified",
+        done: project.stakeholders.length > 0,
+      },
+    ],
+    design: [
+      { label: "Workflow steps captured", done: project.workflows.length > 0 },
+      { label: "Systems documented", done: project.systems.length > 0 },
+      { label: "Requirements captured", done: project.requirements.length > 0 },
+    ],
+    plan: [
+      { label: "Risks identified", done: project.risks.length > 0 },
+      { label: "Pilot objective set", done: !!project.pilotPlan?.objective },
+    ],
+    deliver: [
+      {
+        label: "Executive summary generated",
+        done: !!project.outputs?.executiveSummary,
+      },
+    ],
+  };
+  const checks = byPhase[phaseId];
+  return {
+    done: checks.filter((c) => c.done).length,
+    total: checks.length,
+    checks,
+  };
 }

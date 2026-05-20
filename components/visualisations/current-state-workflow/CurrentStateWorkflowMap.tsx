@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { VisualisationFrame } from "../shared/VisualisationFrame";
 import { StaleBanner } from "../shared/StaleBanner";
@@ -29,7 +29,7 @@ import type {
 import { generateId } from "@/lib/utils";
 
 export function CurrentStateWorkflowMap() {
-  const { project, updateProject } = useWorkspace();
+  const { project, updateProject, syncRequests } = useWorkspace();
   const [generating, setGenerating] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [multiSelectIds, setMultiSelectIds] = useState<string[]>([]);
@@ -57,6 +57,10 @@ export function CurrentStateWorkflowMap() {
 
   const { undo, redo, canUndo, canRedo } = useUndoRedo<MapType>(map, persist);
 
+  // Watch for external sync requests (e.g. from the WorkflowTabs Stale badge).
+  // The ref tracks the last counter we acted on so we ignore the mount value.
+  const lastSyncSeen = useRef(syncRequests.current);
+
   const handleGenerate = useCallback(async () => {
     if (!project) return;
     setGenerating(true);
@@ -82,6 +86,13 @@ export function CurrentStateWorkflowMap() {
       setGenerating(false);
     }
   }, [project, persist]);
+
+  useEffect(() => {
+    if (syncRequests.current !== lastSyncSeen.current && !generating) {
+      lastSyncSeen.current = syncRequests.current;
+      void handleGenerate();
+    }
+  }, [syncRequests.current, generating, handleGenerate]);
 
   const handleAddNode = useCallback(
     (type: WorkflowNodeType, atPos?: { x: number; y: number }) => {

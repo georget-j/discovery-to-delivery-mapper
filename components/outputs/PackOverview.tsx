@@ -10,6 +10,11 @@ import {
   type ArtifactKey,
   type ArtifactReadiness,
 } from "@/lib/artifact-sources";
+import {
+  READINESS_LABEL,
+  READINESS_DOT,
+  readinessTooltip,
+} from "@/lib/readiness";
 
 // One audience bundle: 4 of these render across the page.
 type Bundle = {
@@ -69,20 +74,6 @@ const SUGGESTED_READ_ORDER: ArtifactKey[] = [
   "riskRegisterSummary",
 ];
 
-const READINESS_LABEL: Record<ArtifactReadiness, string> = {
-  rich: "Rich",
-  usable: "Usable",
-  thin: "Thin",
-  empty: "No inputs",
-};
-
-const READINESS_DOT: Record<ArtifactReadiness, string> = {
-  rich: "bg-emerald-500",
-  usable: "bg-amber-500",
-  thin: "bg-muted-foreground/40",
-  empty: "bg-red-500",
-};
-
 type Props = {
   project: OnboardingProject;
   onPickArtifact: (key: ArtifactKey) => void;
@@ -91,10 +82,19 @@ type Props = {
   stale: boolean;
 };
 
-export function PackOverview({ project, onPickArtifact, generatedAt, source, stale }: Props) {
+export function PackOverview({
+  project,
+  onPickArtifact,
+  generatedAt,
+  source,
+  stale,
+}: Props) {
   // Group readiness counts. Used both in the top strip and per-card.
   const counts = useMemo(() => {
-    const result = { rich: 0, usable: 0, thin: 0, empty: 0 } as Record<ArtifactReadiness, number>;
+    const result = { rich: 0, usable: 0, thin: 0, empty: 0 } as Record<
+      ArtifactReadiness,
+      number
+    >;
     for (const bundle of BUNDLES) {
       for (const key of bundle.keys) {
         result[getArtifactReadiness(project, key)] += 1;
@@ -104,9 +104,11 @@ export function PackOverview({ project, onPickArtifact, generatedAt, source, sta
   }, [project]);
 
   const sourceLabel =
-    source === "ai" ? "OpenAI (gpt-4o-mini)" :
-    source === "template_fallback" ? "deterministic templates (AI response invalid)" :
-    "deterministic templates";
+    source === "ai"
+      ? "OpenAI (gpt-4o-mini)"
+      : source === "template_fallback"
+        ? "deterministic templates (AI response invalid)"
+        : "deterministic templates";
 
   return (
     <div className="px-8 py-6 max-w-6xl mx-auto space-y-6">
@@ -114,28 +116,38 @@ export function PackOverview({ project, onPickArtifact, generatedAt, source, sta
       <header className="space-y-2">
         <h2 className="text-base font-semibold">Pack overview</h2>
         <p className="text-sm text-muted-foreground leading-relaxed">
-          15 artifacts grouped by audience. Pick a bundle to start reading,
-          or jump straight into an artifact from the sidebar.
+          15 artifacts grouped by audience. Pick a bundle to start reading, or
+          jump straight into an artifact from the sidebar.
         </p>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground pt-1">
           {generatedAt && (
             <span>
-              Generated <span className="font-medium text-foreground">
-                {new Date(generatedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+              Generated{" "}
+              <span className="font-medium text-foreground">
+                {new Date(generatedAt).toLocaleString(undefined, {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })}
               </span>
             </span>
           )}
-          {source && <span>via <span className="font-medium text-foreground">{sourceLabel}</span></span>}
+          {source && (
+            <span>
+              via{" "}
+              <span className="font-medium text-foreground">{sourceLabel}</span>
+            </span>
+          )}
           <span className="flex items-center gap-3">
-            <ReadinessLegendDot strength="rich"   count={counts.rich} />
+            <ReadinessLegendDot strength="rich" count={counts.rich} />
             <ReadinessLegendDot strength="usable" count={counts.usable} />
-            <ReadinessLegendDot strength="thin"   count={counts.thin} />
-            <ReadinessLegendDot strength="empty"  count={counts.empty} />
+            <ReadinessLegendDot strength="thin" count={counts.thin} />
+            <ReadinessLegendDot strength="empty" count={counts.empty} />
           </span>
         </div>
         {stale && (
           <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-            Inputs have changed since generation — regenerate from the top of the page to refresh.
+            Inputs have changed since generation — regenerate from the top of
+            the page to refresh.
           </div>
         )}
       </header>
@@ -155,7 +167,9 @@ export function PackOverview({ project, onPickArtifact, generatedAt, source, sta
               >
                 {ARTIFACT_LABEL_SHORT[key]}
               </button>
-              {i < SUGGESTED_READ_ORDER.length - 1 && <span className="text-muted-foreground">→</span>}
+              {i < SUGGESTED_READ_ORDER.length - 1 && (
+                <span className="text-muted-foreground">→</span>
+              )}
             </span>
           ))}
         </div>
@@ -164,18 +178,29 @@ export function PackOverview({ project, onPickArtifact, generatedAt, source, sta
       {/* Audience bundles */}
       <div className="grid md:grid-cols-2 gap-4">
         {BUNDLES.map((bundle) => (
-          <BundleCard key={bundle.label} bundle={bundle} project={project} onPick={onPickArtifact} />
+          <BundleCard
+            key={bundle.label}
+            bundle={bundle}
+            project={project}
+            onPick={onPickArtifact}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-async function copyScopedPack(project: OnboardingProject, scope: PackScope, label: string) {
+async function copyScopedPack(
+  project: OnboardingProject,
+  scope: PackScope,
+  label: string,
+) {
   try {
     const md = assembleScopedPack(project, scope);
     await navigator.clipboard.writeText(md);
-    toast.success(`${label} copied to clipboard`, { description: `${md.length.toLocaleString()} characters` });
+    toast.success(`${label} copied to clipboard`, {
+      description: `${md.length.toLocaleString()} characters`,
+    });
   } catch {
     toast.error("Could not copy — clipboard access denied?");
   }
@@ -183,13 +208,15 @@ async function copyScopedPack(project: OnboardingProject, scope: PackScope, labe
 
 const SCOPE_FOR_BUNDLE: Record<string, PackScope | null> = {
   "Customer-Facing": "customer",
-  "Internal": "internal",
-  "Technical": "technical",
-  "Product": null, // single artifact, no dedicated scope
+  Internal: "internal",
+  Technical: "technical",
+  Product: null, // single artifact, no dedicated scope
 };
 
 function BundleCard({
-  bundle, project, onPick,
+  bundle,
+  project,
+  onPick,
 }: {
   bundle: Bundle;
   project: OnboardingProject;
@@ -223,11 +250,20 @@ function BundleCard({
                 type="button"
                 onClick={() => onPick(key)}
                 className="w-full flex items-center gap-2 text-left px-2 py-1.5 rounded-md hover:bg-background/70 transition-colors text-xs"
-                title={`${READINESS_LABEL[r]} — click to open`}
+                title={readinessTooltip(r)}
               >
-                <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", READINESS_DOT[r])} />
-                <span className="font-medium truncate flex-1">{ARTIFACT_LABEL_SHORT[key]}</span>
-                <span className="text-[10px] text-muted-foreground/70 shrink-0">{READINESS_LABEL[r]}</span>
+                <span
+                  className={cn(
+                    "w-1.5 h-1.5 rounded-full shrink-0",
+                    READINESS_DOT[r],
+                  )}
+                />
+                <span className="font-medium truncate flex-1">
+                  {ARTIFACT_LABEL_SHORT[key]}
+                </span>
+                <span className="text-[10px] text-muted-foreground/70 shrink-0">
+                  {READINESS_LABEL[r]}
+                </span>
               </button>
             </li>
           );
@@ -252,7 +288,9 @@ function BundleCard({
         {scope && (
           <button
             type="button"
-            onClick={() => copyScopedPack(project, scope, bundle.label + " pack")}
+            onClick={() =>
+              copyScopedPack(project, scope, bundle.label + " pack")
+            }
             className="text-xs px-2.5 py-1.5 rounded-md border border-border bg-background hover:bg-muted/50 transition-colors"
             title="Copy markdown to clipboard"
           >
@@ -264,11 +302,21 @@ function BundleCard({
   );
 }
 
-function ReadinessLegendDot({ strength, count }: { strength: ArtifactReadiness; count: number }) {
+function ReadinessLegendDot({
+  strength,
+  count,
+}: {
+  strength: ArtifactReadiness;
+  count: number;
+}) {
   return (
     <span className="inline-flex items-center gap-1">
-      <span className={cn("w-1.5 h-1.5 rounded-full", READINESS_DOT[strength])} />
-      <span>{count} {READINESS_LABEL[strength].toLowerCase()}</span>
+      <span
+        className={cn("w-1.5 h-1.5 rounded-full", READINESS_DOT[strength])}
+      />
+      <span>
+        {count} {READINESS_LABEL[strength].toLowerCase()}
+      </span>
     </span>
   );
 }

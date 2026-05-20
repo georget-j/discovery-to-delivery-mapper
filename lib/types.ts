@@ -213,10 +213,7 @@ export type RequirementCategory =
   | "support"
   | "change_management";
 
-export type RequirementPriority =
-  | "must_have"
-  | "should_have"
-  | "nice_to_have";
+export type RequirementPriority = "must_have" | "should_have" | "nice_to_have";
 
 export type RequirementSource =
   | "customer_discovery"
@@ -241,6 +238,9 @@ export type Requirement = {
   // discovery field that drove this requirement. Populated by the engine and
   // by the NotesImport flow. Optional for legacy / manually-added items.
   sourceRefs?: SourceRef[];
+  // Short ("Generated because…") sentence explaining WHY this auto-derived
+  // requirement appeared. Populated by the engine for auto items.
+  rationale?: string;
 };
 
 // ────────────────────────────────────────────────────────────
@@ -255,7 +255,11 @@ export type MissingInfoOwner =
   | "commercial"
   | "unknown";
 
-export type MissingInfoRelatedTab = "discovery" | "workflow" | "systems" | "pilot";
+export type MissingInfoRelatedTab =
+  | "discovery"
+  | "workflow"
+  | "systems"
+  | "pilot";
 
 export type MissingInfoItem = {
   id: string;
@@ -297,6 +301,9 @@ export type DeploymentRisk = {
   status: RiskStatus;
   source?: "auto" | "manual";
   sourceRefs?: SourceRef[];
+  // Short ("Generated because…") sentence explaining WHY this auto-derived
+  // risk appeared. Populated by the engine for auto items.
+  rationale?: string;
 };
 
 // ────────────────────────────────────────────────────────────
@@ -304,19 +311,19 @@ export type DeploymentRisk = {
 // ────────────────────────────────────────────────────────────
 
 export type SourceRefType =
-  | "workflow_step"        // a step in project.workflows
-  | "system"               // a project.systems entry
-  | "data_source"          // a project.dataSources entry
-  | "stakeholder"          // a stakeholder
-  | "stakeholder_concern"  // a specific concern string on a stakeholder
-  | "discovery_field"      // a field on discovery / customer (use refId as the field name)
-  | "session"              // a DiscoverySession
-  | "regulatory_context";  // a regulatory tag
+  | "workflow_step" // a step in project.workflows
+  | "system" // a project.systems entry
+  | "data_source" // a project.dataSources entry
+  | "stakeholder" // a stakeholder
+  | "stakeholder_concern" // a specific concern string on a stakeholder
+  | "discovery_field" // a field on discovery / customer (use refId as the field name)
+  | "session" // a DiscoverySession
+  | "regulatory_context"; // a regulatory tag
 
 export type SourceRef = {
   type: SourceRefType;
-  refId: string;   // id of the referenced entity (or field name for discovery_field)
-  label?: string;  // pre-rendered label, e.g. "Workflow step #3 — Manual review"
+  refId: string; // id of the referenced entity (or field name for discovery_field)
+  label?: string; // pre-rendered label, e.g. "Workflow step #3 — Manual review"
 };
 
 // ────────────────────────────────────────────────────────────
@@ -329,21 +336,21 @@ export type ActionItemStatus = "open" | "done";
 export type ActionItem = {
   id: string;
   title: string;
-  assignee: string;          // free-text; usually a stakeholder name
-  dueDate?: string;          // ISO date (YYYY-MM-DD) or quarter (Q3 2026) — free-text
+  assignee: string; // free-text; usually a stakeholder name
+  dueDate?: string; // ISO date (YYYY-MM-DD) or quarter (Q3 2026) — free-text
   urgency: ActionItemUrgency;
   status: ActionItemStatus;
-  sessionId?: string;        // session this was extracted from, if any
+  sessionId?: string; // session this was extracted from, if any
   createdAt: string;
 };
 
 export type DiscoverySession = {
   id: string;
-  date: string;              // ISO date (YYYY-MM-DD)
-  title: string;             // e.g. "Initial discovery call with Sarah Chen"
-  attendees: string[];       // names; loosely linked to stakeholders
-  notes: string;             // raw pasted notes / transcript
-  extractedAt?: string;      // when AI extraction was last run
+  date: string; // ISO date (YYYY-MM-DD)
+  title: string; // e.g. "Initial discovery call with Sarah Chen"
+  attendees: string[]; // names; loosely linked to stakeholders
+  notes: string; // raw pasted notes / transcript
+  extractedAt?: string; // when AI extraction was last run
   actionItems: ActionItem[]; // items extracted or added against this session
   createdAt: string;
 };
@@ -454,9 +461,19 @@ export type NotesExtractionResult = {
     desiredOutcome?: string;
     regulatoryContext?: string[];
   };
-  suggestedStakeholders?: { name: string; role: string; team: string; concerns: string[] }[];
+  suggestedStakeholders?: {
+    name: string;
+    role: string;
+    team: string;
+    concerns: string[];
+  }[];
   suggestedSystems?: { name: string; type: string; notes: string }[];
-  suggestedDataSources?: { name: string; dataType: string; format: string; notes: string }[];
+  suggestedDataSources?: {
+    name: string;
+    dataType: string;
+    format: string;
+    notes: string;
+  }[];
   suggestedWorkflows?: {
     name: string;
     description: string;

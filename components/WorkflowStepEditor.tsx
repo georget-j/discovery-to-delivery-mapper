@@ -4,10 +4,17 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { FormField, ChipInput } from "@/components/ui/form-field";
 import { EmptyState } from "@/components/ui/empty-state";
+import { InfoTip } from "@/components/ui/info-tip";
 import { cn } from "@/lib/utils";
 import { generateId } from "@/lib/utils";
 import type { WorkflowStep, FutureState } from "@/lib/types";
@@ -66,10 +73,17 @@ function StepRow({ step, index, onUpdate, onRemove }: StepRowProps) {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className={cn("rounded-lg border bg-background", open && "ring-1 ring-primary/20")}>
+    <div
+      className={cn(
+        "rounded-lg border bg-background",
+        open && "ring-1 ring-primary/20",
+      )}
+    >
       {/* Header row */}
       <div className="flex items-center gap-3 px-4 py-3">
-        <span className="text-xs font-mono text-muted-foreground w-5 shrink-0">{index + 1}</span>
+        <span className="text-xs font-mono text-muted-foreground w-5 shrink-0">
+          {index + 1}
+        </span>
 
         <div className="flex-1 min-w-0">
           {open ? (
@@ -80,18 +94,38 @@ function StepRow({ step, index, onUpdate, onRemove }: StepRowProps) {
               className="h-7 text-sm font-medium"
             />
           ) : (
-            <p className="text-sm font-medium truncate">{step.name || <span className="text-muted-foreground italic">Unnamed step</span>}</p>
+            <p className="text-sm font-medium truncate">
+              {step.name || (
+                <span className="text-muted-foreground italic">
+                  Unnamed step
+                </span>
+              )}
+            </p>
           )}
         </div>
 
         <div className="hidden sm:flex items-center gap-2 shrink-0">
           {step.ownerTeam && !open && (
-            <span className="text-xs text-muted-foreground">{step.ownerTeam}</span>
+            <span className="text-xs text-muted-foreground">
+              {step.ownerTeam}
+            </span>
           )}
-          <Badge variant="outline" className={cn("text-xs shrink-0", FUTURE_STATE_COLORS[step.futureState])}>
+          <Badge
+            variant="outline"
+            className={cn(
+              "text-xs shrink-0",
+              FUTURE_STATE_COLORS[step.futureState],
+            )}
+          >
             {FUTURE_STATE_LABELS[step.futureState]}
           </Badge>
-          <Badge variant="outline" className={cn("text-xs shrink-0", AUTO_COLORS[step.automationPotential])}>
+          <Badge
+            variant="outline"
+            className={cn(
+              "text-xs shrink-0",
+              AUTO_COLORS[step.automationPotential],
+            )}
+          >
             {step.automationPotential} auto
           </Badge>
         </div>
@@ -121,14 +155,28 @@ function StepRow({ step, index, onUpdate, onRemove }: StepRowProps) {
           <div className="px-4 py-4 space-y-4">
             <div className="grid sm:grid-cols-2 gap-4">
               <FormField label="Owner Team" helper="Who runs this step today.">
-                <Input value={step.ownerTeam} onChange={(e) => onUpdate({ ownerTeam: e.target.value })} placeholder="AML Analysts" />
+                <Input
+                  value={step.ownerTeam}
+                  onChange={(e) => onUpdate({ ownerTeam: e.target.value })}
+                  placeholder="AML Analysts"
+                />
               </FormField>
-              <FormField label="Current System" helper="The tool used at this step.">
-                <Input value={step.currentSystem} onChange={(e) => onUpdate({ currentSystem: e.target.value })} placeholder="Actimize Case Manager" />
+              <FormField
+                label="Current System"
+                helper="The tool used at this step."
+              >
+                <Input
+                  value={step.currentSystem}
+                  onChange={(e) => onUpdate({ currentSystem: e.target.value })}
+                  placeholder="Actimize Case Manager"
+                />
               </FormField>
             </div>
 
-            <FormField label="Description" helper="What actually happens. 1-2 sentences.">
+            <FormField
+              label="Description"
+              helper="What actually happens. 1-2 sentences."
+            >
               <Textarea
                 rows={2}
                 value={step.description}
@@ -138,7 +186,10 @@ function StepRow({ step, index, onUpdate, onRemove }: StepRowProps) {
             </FormField>
 
             <div className="grid sm:grid-cols-2 gap-4">
-              <FormField label="Pain Points" helper="Frustrations, delays, manual rework.">
+              <FormField
+                label="Pain Points"
+                helper="Frustrations, delays, manual rework."
+              >
                 <ChipInput
                   value={step.painPoints}
                   onChange={(v) => onUpdate({ painPoints: v })}
@@ -146,7 +197,10 @@ function StepRow({ step, index, onUpdate, onRemove }: StepRowProps) {
                   ariaLabel="Pain points"
                 />
               </FormField>
-              <FormField label="Failure Modes" helper="What can go wrong at this step.">
+              <FormField
+                label="Failure Modes"
+                helper="What can go wrong at this step."
+              >
                 <ChipInput
                   value={step.failureModes}
                   onChange={(v) => onUpdate({ failureModes: v })}
@@ -157,9 +211,21 @@ function StepRow({ step, index, onUpdate, onRemove }: StepRowProps) {
             </div>
 
             <div className="grid sm:grid-cols-2 gap-4">
-              <FormField label="Manual Effort" helper="How much human time per occurrence.">
-                <Select value={step.manualEffort} onValueChange={(v) => onUpdate({ manualEffort: v as WorkflowStep["manualEffort"] })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+              <FormField
+                label="Manual Effort"
+                helper="How much human time per occurrence."
+              >
+                <Select
+                  value={step.manualEffort}
+                  onValueChange={(v) =>
+                    onUpdate({
+                      manualEffort: v as WorkflowStep["manualEffort"],
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="low">Low</SelectItem>
                     <SelectItem value="medium">Medium</SelectItem>
@@ -168,8 +234,15 @@ function StepRow({ step, index, onUpdate, onRemove }: StepRowProps) {
                 </Select>
               </FormField>
               <FormField label="Frequency" helper="How often this step runs.">
-                <Select value={step.frequency} onValueChange={(v) => onUpdate({ frequency: v as WorkflowStep["frequency"] })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select
+                  value={step.frequency}
+                  onValueChange={(v) =>
+                    onUpdate({ frequency: v as WorkflowStep["frequency"] })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="daily">Daily</SelectItem>
                     <SelectItem value="weekly">Weekly</SelectItem>
@@ -178,9 +251,22 @@ function StepRow({ step, index, onUpdate, onRemove }: StepRowProps) {
                   </SelectContent>
                 </Select>
               </FormField>
-              <FormField label="Automation Potential" helper="How well-suited to AI assistance.">
-                <Select value={step.automationPotential} onValueChange={(v) => onUpdate({ automationPotential: v as WorkflowStep["automationPotential"] })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+              <FormField
+                label="Automation Potential"
+                helper="How well-suited to AI assistance."
+              >
+                <Select
+                  value={step.automationPotential}
+                  onValueChange={(v) =>
+                    onUpdate({
+                      automationPotential:
+                        v as WorkflowStep["automationPotential"],
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="low">Low</SelectItem>
                     <SelectItem value="medium">Medium</SelectItem>
@@ -188,14 +274,26 @@ function StepRow({ step, index, onUpdate, onRemove }: StepRowProps) {
                   </SelectContent>
                 </Select>
               </FormField>
-              <FormField label="Future State" helper="Target role in the AI-enabled workflow.">
-                <Select value={step.futureState} onValueChange={(v) => onUpdate({ futureState: v as FutureState })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+              <FormField
+                label="Future State"
+                helper="Target role in the AI-enabled workflow."
+              >
+                <Select
+                  value={step.futureState}
+                  onValueChange={(v) =>
+                    onUpdate({ futureState: v as FutureState })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="human_led">Human-Led</SelectItem>
                     <SelectItem value="ai_assisted">AI-Assisted</SelectItem>
                     <SelectItem value="automated">Automated</SelectItem>
-                    <SelectItem value="requires_approval">Requires Approval</SelectItem>
+                    <SelectItem value="requires_approval">
+                      Requires Approval
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </FormField>

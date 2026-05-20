@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 
 // Catches render errors inside the workspace tree without nuking the whole app.
-// Sessions are stored client-side in sessionStorage so the user's work is intact.
+// Sessions are stored client-side in localStorage so the user's work is intact.
 export default function WorkspaceError({
   error,
   reset,
@@ -22,7 +22,8 @@ export default function WorkspaceError({
         <p className="text-4xl">⚠️</p>
         <h2 className="text-lg font-semibold">Workspace hit an error</h2>
         <p className="text-sm text-muted-foreground">
-          A view in this workspace failed to render. Your saved data is intact — try resetting this view, or head back to the scenarios list.
+          A view in this workspace failed to render. Your saved data is intact —
+          try resetting this view, or head back to the scenarios list.
         </p>
         <div className="flex gap-2 justify-center pt-1">
           <button

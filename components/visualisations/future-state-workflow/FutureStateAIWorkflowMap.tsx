@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { VisualisationFrame } from "../shared/VisualisationFrame";
 import { StaleBanner } from "../shared/StaleBanner";
@@ -30,7 +30,7 @@ import type {
 import { generateId } from "@/lib/utils";
 
 export function FutureStateAIWorkflowMap() {
-  const { project, updateProject } = useWorkspace();
+  const { project, updateProject, syncRequests } = useWorkspace();
   const [generating, setGenerating] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [multiSelectIds, setMultiSelectIds] = useState<string[]>([]);
@@ -85,6 +85,14 @@ export function FutureStateAIWorkflowMap() {
       setGenerating(false);
     }
   }, [project, persist, currentMap?.id]);
+
+  const lastSyncSeen = useRef(syncRequests.future);
+  useEffect(() => {
+    if (syncRequests.future !== lastSyncSeen.current && !generating) {
+      lastSyncSeen.current = syncRequests.future;
+      void handleGenerate();
+    }
+  }, [syncRequests.future, generating, handleGenerate]);
 
   const handleAddNode = useCallback(
     (type: FutureWorkflowNodeType) => {

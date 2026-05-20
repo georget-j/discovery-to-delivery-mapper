@@ -54,11 +54,15 @@ describe("getPhaseForPath", () => {
   });
 
   it("resolves /discovery to discover", () => {
-    expect(getPhaseForPath(`/workspace/${PID}/discovery`, PID).id).toBe("discover");
+    expect(getPhaseForPath(`/workspace/${PID}/discovery`, PID).id).toBe(
+      "discover",
+    );
   });
 
   it("resolves /workflow to design", () => {
-    expect(getPhaseForPath(`/workspace/${PID}/workflow`, PID).id).toBe("design");
+    expect(getPhaseForPath(`/workspace/${PID}/workflow`, PID).id).toBe(
+      "design",
+    );
   });
 
   it("resolves /systems to design", () => {
@@ -66,7 +70,9 @@ describe("getPhaseForPath", () => {
   });
 
   it("resolves /requirements to design", () => {
-    expect(getPhaseForPath(`/workspace/${PID}/requirements`, PID).id).toBe("design");
+    expect(getPhaseForPath(`/workspace/${PID}/requirements`, PID).id).toBe(
+      "design",
+    );
   });
 
   it("resolves /risks to plan", () => {
@@ -78,11 +84,15 @@ describe("getPhaseForPath", () => {
   });
 
   it("resolves /outputs to deliver", () => {
-    expect(getPhaseForPath(`/workspace/${PID}/outputs`, PID).id).toBe("deliver");
+    expect(getPhaseForPath(`/workspace/${PID}/outputs`, PID).id).toBe(
+      "deliver",
+    );
   });
 
   it("falls back to first phase for an unknown subpath", () => {
-    expect(getPhaseForPath(`/workspace/${PID}/garbage`, PID).id).toBe("discover");
+    expect(getPhaseForPath(`/workspace/${PID}/garbage`, PID).id).toBe(
+      "discover",
+    );
   });
 });
 
@@ -90,7 +100,9 @@ describe("getPhaseForPath", () => {
 
 describe("getTabForPath", () => {
   it("resolves /workflow to Workflows", () => {
-    expect(getTabForPath(`/workspace/${PID}/workflow`, PID).label).toBe("Workflows");
+    expect(getTabForPath(`/workspace/${PID}/workflow`, PID).label).toBe(
+      "Workflows",
+    );
   });
 
   it("resolves the root path to Overview", () => {
@@ -98,7 +110,9 @@ describe("getTabForPath", () => {
   });
 
   it("falls back to first tab for an unknown subpath", () => {
-    expect(getTabForPath(`/workspace/${PID}/nonsense`, PID).label).toBe("Overview");
+    expect(getTabForPath(`/workspace/${PID}/nonsense`, PID).label).toBe(
+      "Overview",
+    );
   });
 });
 
@@ -182,11 +196,17 @@ describe("isPhaseComplete", () => {
 
 describe("phaseProgress", () => {
   it("returns 0/1 for null project", () => {
-    expect(phaseProgress(null, "discover")).toEqual({ done: 0, total: 1 });
+    const result = phaseProgress(null, "discover");
+    expect(result.done).toBe(0);
+    expect(result.total).toBe(1);
+    expect(result.checks).toHaveLength(1);
   });
 
   it("counts both discover checks when complete", () => {
-    expect(phaseProgress(fintech, "discover")).toEqual({ done: 2, total: 2 });
+    const result = phaseProgress(fintech, "discover");
+    expect(result.done).toBe(2);
+    expect(result.total).toBe(2);
+    expect(result.checks.every((c) => c.done)).toBe(true);
   });
 
   it("counts partial discover progress", () => {
@@ -194,7 +214,9 @@ describe("phaseProgress", () => {
       ...fintech,
       discovery: { ...fintech.discovery, currentProcess: "" },
     };
-    expect(phaseProgress(project, "discover")).toEqual({ done: 1, total: 2 });
+    const result = phaseProgress(project, "discover");
+    expect(result.done).toBe(1);
+    expect(result.total).toBe(2);
   });
 
   it("counts design as 3-check ratio", () => {
@@ -206,6 +228,17 @@ describe("phaseProgress", () => {
 
   it("deliver is 0/1 when no outputs", () => {
     const project: OnboardingProject = { ...fintech, outputs: null };
-    expect(phaseProgress(project, "deliver")).toEqual({ done: 0, total: 1 });
+    const result = phaseProgress(project, "deliver");
+    expect(result.done).toBe(0);
+    expect(result.total).toBe(1);
+  });
+
+  it("returns labelled checks", () => {
+    const result = phaseProgress(fintech, "design");
+    expect(result.checks.map((c) => c.label)).toEqual([
+      "Workflow steps captured",
+      "Systems documented",
+      "Requirements captured",
+    ]);
   });
 });

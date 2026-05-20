@@ -94,7 +94,10 @@ export async function POST(req: NextRequest) {
         model: "gpt-4o-mini",
         messages: [
           { role: "system", content: EXTRACTION_PROMPT },
-          { role: "user", content: `Extract structured fields from these notes:\n\n${notes}` },
+          {
+            role: "user",
+            content: `Extract structured fields from these notes:\n\n${notes}`,
+          },
         ],
         response_format: { type: "json_object" },
         temperature: 0.1,
@@ -115,12 +118,18 @@ export async function POST(req: NextRequest) {
 
     if (!validated.success) {
       console.error("Extraction schema validation failed:", validated.error);
-      return NextResponse.json({ error: "extraction_failed" });
+      return NextResponse.json({
+        error: "extraction_failed",
+        message: `Response did not match expected schema: ${validated.error.issues[0]?.message ?? "validation error"}`,
+      });
     }
 
     return NextResponse.json({ suggestions: validated.data });
   } catch (err) {
     console.error("Notes extraction failed:", err);
-    return NextResponse.json({ error: "extraction_failed" });
+    return NextResponse.json({
+      error: "extraction_failed",
+      message: err instanceof Error ? err.message : "Unknown error",
+    });
   }
 }

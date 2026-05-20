@@ -8,7 +8,7 @@ import type { DiscoverySession } from "@/lib/types";
 
 // Multi-session discovery log on the Overview. Replaces the single NotesImport
 // textarea. Migrates legacy `meetingNotes` (a single string) into the first
-// session on first open so existing scenarios + sessionStorage keep working.
+// session on first open so existing scenarios + stored projects keep working.
 
 export function SessionLog() {
   const { project, updateProject } = useWorkspace();
@@ -18,7 +18,8 @@ export function SessionLog() {
   // One-time migration of legacy meetingNotes → first session.
   useEffect(() => {
     if (!project) return;
-    const hasLegacy = !!project.meetingNotes && project.meetingNotes.trim().length > 0;
+    const hasLegacy =
+      !!project.meetingNotes && project.meetingNotes.trim().length > 0;
     const hasSessions = (project.meetingSessions?.length ?? 0) > 0;
     if (hasLegacy && !hasSessions) {
       const migrated: DiscoverySession = {
@@ -37,8 +38,9 @@ export function SessionLog() {
   if (!project) return null;
 
   const sorted = useMemo(
-    () => [...sessions].sort((a, b) => (b.date || "").localeCompare(a.date || "")),
-    [sessions]
+    () =>
+      [...sessions].sort((a, b) => (b.date || "").localeCompare(a.date || "")),
+    [sessions],
   );
 
   const updateSession = (next: DiscoverySession) => {
@@ -80,10 +82,15 @@ export function SessionLog() {
               Add your first discovery session
             </p>
             <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-              Each session captures notes from one meeting or interview. AI extracts discovery fields, stakeholders, workflows, systems, risks, and action items — all attached to that session as evidence.
+              Each session captures notes from one meeting or interview. AI
+              extracts discovery fields, stakeholders, workflows, systems,
+              risks, and action items — all attached to that session as
+              evidence.
             </p>
           </div>
-          <span className="text-primary group-hover:translate-x-0.5 transition-transform shrink-0">→</span>
+          <span className="text-primary group-hover:translate-x-0.5 transition-transform shrink-0">
+            →
+          </span>
         </div>
       </button>
     );
@@ -93,7 +100,8 @@ export function SessionLog() {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
-          {sessions.length} session{sessions.length !== 1 ? "s" : ""} · most recent first
+          {sessions.length} session{sessions.length !== 1 ? "s" : ""} · most
+          recent first
         </p>
         <button
           type="button"

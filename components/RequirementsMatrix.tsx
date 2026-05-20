@@ -5,12 +5,19 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { EvidenceTrail } from "@/components/EvidenceTrail";
-import type { Requirement, RequirementCategory, RequirementPriority } from "@/lib/types";
+import { ProvenancePopover } from "@/components/ui/provenance-popover";
+import type {
+  Requirement,
+  RequirementCategory,
+  RequirementPriority,
+} from "@/lib/types";
 
 type Props = {
   requirements: Requirement[];
   manualIds?: Set<string>;
   onDelete?: (id: string) => void;
+  /** When provided, the empty state renders a "Run requirement detection" CTA. */
+  onDetect?: () => void;
 };
 
 const CATEGORY_LABELS: Record<RequirementCategory, string> = {
@@ -38,16 +45,31 @@ const STATUS_COLORS: Record<Requirement["status"], string> = {
 };
 
 const ALL_CATEGORIES = Object.keys(CATEGORY_LABELS) as RequirementCategory[];
-const ALL_PRIORITIES = ["must_have", "should_have", "nice_to_have"] as RequirementPriority[];
+const ALL_PRIORITIES = [
+  "must_have",
+  "should_have",
+  "nice_to_have",
+] as RequirementPriority[];
 
-export function RequirementsMatrix({ requirements, manualIds, onDelete }: Props) {
-  const [filterCategory, setFilterCategory] = useState<RequirementCategory | "all">("all");
-  const [filterPriority, setFilterPriority] = useState<RequirementPriority | "all">("all");
+export function RequirementsMatrix({
+  requirements,
+  manualIds,
+  onDelete,
+  onDetect,
+}: Props) {
+  const [filterCategory, setFilterCategory] = useState<
+    RequirementCategory | "all"
+  >("all");
+  const [filterPriority, setFilterPriority] = useState<
+    RequirementPriority | "all"
+  >("all");
 
   const grouped = useMemo(() => {
     const filtered = requirements.filter((r) => {
-      if (filterCategory !== "all" && r.category !== filterCategory) return false;
-      if (filterPriority !== "all" && r.priority !== filterPriority) return false;
+      if (filterCategory !== "all" && r.category !== filterCategory)
+        return false;
+      if (filterPriority !== "all" && r.priority !== filterPriority)
+        return false;
       return true;
     });
 
@@ -59,9 +81,15 @@ export function RequirementsMatrix({ requirements, manualIds, onDelete }: Props)
     return byCategory;
   }, [requirements, filterCategory, filterPriority]);
 
-  const categoriesWithResults = ALL_CATEGORIES.filter((c) => grouped[c]?.length);
-  const mustHaveCount = requirements.filter((r) => r.priority === "must_have").length;
-  const needsValidationCount = requirements.filter((r) => r.status === "needs_validation").length;
+  const categoriesWithResults = ALL_CATEGORIES.filter(
+    (c) => grouped[c]?.length,
+  );
+  const mustHaveCount = requirements.filter(
+    (r) => r.priority === "must_have",
+  ).length;
+  const needsValidationCount = requirements.filter(
+    (r) => r.status === "needs_validation",
+  ).length;
 
   if (requirements.length === 0) {
     return (
@@ -69,6 +97,17 @@ export function RequirementsMatrix({ requirements, manualIds, onDelete }: Props)
         icon="📋"
         title="No requirements yet"
         body="Requirements auto-generate from your workflows, systems, and discovery notes. Add data to those tabs and they'll appear here with an evidence trail back to the source."
+        cta={
+          onDetect ? (
+            <button
+              type="button"
+              onClick={onDetect}
+              className="text-xs px-3 py-1.5 rounded-md bg-foreground text-background hover:bg-foreground/90 transition-colors font-medium"
+            >
+              Run requirement detection now
+            </button>
+          ) : undefined
+        }
       />
     );
   }
@@ -83,7 +122,9 @@ export function RequirementsMatrix({ requirements, manualIds, onDelete }: Props)
         {needsValidationCount > 0 && (
           <>
             <span>·</span>
-            <span className="text-orange-700">{needsValidationCount} need validation</span>
+            <span className="text-orange-700">
+              {needsValidationCount} need validation
+            </span>
           </>
         )}
       </div>
@@ -93,7 +134,12 @@ export function RequirementsMatrix({ requirements, manualIds, onDelete }: Props)
         <button
           type="button"
           onClick={() => setFilterCategory("all")}
-          className={cn("text-xs px-2.5 py-1 rounded-full border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", filterCategory === "all" ? "bg-foreground text-background border-foreground" : "border-border text-muted-foreground hover:text-foreground")}
+          className={cn(
+            "text-xs px-2.5 py-1 rounded-full border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+            filterCategory === "all"
+              ? "bg-foreground text-background border-foreground"
+              : "border-border text-muted-foreground hover:text-foreground",
+          )}
         >
           All categories
         </button>
@@ -102,7 +148,12 @@ export function RequirementsMatrix({ requirements, manualIds, onDelete }: Props)
             key={c}
             type="button"
             onClick={() => setFilterCategory(c)}
-            className={cn("text-xs px-2.5 py-1 rounded-full border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", filterCategory === c ? "bg-foreground text-background border-foreground" : "border-border text-muted-foreground hover:text-foreground")}
+            className={cn(
+              "text-xs px-2.5 py-1 rounded-full border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+              filterCategory === c
+                ? "bg-foreground text-background border-foreground"
+                : "border-border text-muted-foreground hover:text-foreground",
+            )}
           >
             {CATEGORY_LABELS[c]}
           </button>
@@ -112,7 +163,12 @@ export function RequirementsMatrix({ requirements, manualIds, onDelete }: Props)
         <button
           type="button"
           onClick={() => setFilterPriority("all")}
-          className={cn("text-xs px-2.5 py-1 rounded-full border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", filterPriority === "all" ? "bg-foreground text-background border-foreground" : "border-border text-muted-foreground hover:text-foreground")}
+          className={cn(
+            "text-xs px-2.5 py-1 rounded-full border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+            filterPriority === "all"
+              ? "bg-foreground text-background border-foreground"
+              : "border-border text-muted-foreground hover:text-foreground",
+          )}
         >
           All priorities
         </button>
@@ -121,37 +177,81 @@ export function RequirementsMatrix({ requirements, manualIds, onDelete }: Props)
             key={p}
             type="button"
             onClick={() => setFilterPriority(p)}
-            className={cn("text-xs px-2.5 py-1 rounded-full border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", filterPriority === p ? "bg-foreground text-background border-foreground" : "border-border text-muted-foreground hover:text-foreground")}
+            className={cn(
+              "text-xs px-2.5 py-1 rounded-full border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+              filterPriority === p
+                ? "bg-foreground text-background border-foreground"
+                : "border-border text-muted-foreground hover:text-foreground",
+            )}
           >
-            {p === "must_have" ? "Must Have" : p === "should_have" ? "Should Have" : "Nice to Have"}
+            {p === "must_have"
+              ? "Must Have"
+              : p === "should_have"
+                ? "Should Have"
+                : "Nice to Have"}
           </button>
         ))}
       </div>
 
       {/* Grouped requirements */}
       {categoriesWithResults.length === 0 && (
-        <p className="text-sm text-muted-foreground py-4">No requirements match the selected filters.</p>
+        <p className="text-sm text-muted-foreground py-4">
+          No requirements match the selected filters.
+        </p>
       )}
       {categoriesWithResults.map((category) => (
         <section key={category} className="space-y-2">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground pt-2">
-            {CATEGORY_LABELS[category]} <span className="font-normal">({grouped[category]!.length})</span>
+            {CATEGORY_LABELS[category]}{" "}
+            <span className="font-normal">({grouped[category]!.length})</span>
           </h3>
           <div className="space-y-2">
             {grouped[category]!.map((req) => {
               const isManual = manualIds?.has(req.id);
-              const priorityLabel = req.priority === "must_have" ? "Must Have" : req.priority === "should_have" ? "Should Have" : "Nice to Have";
-              const statusLabel = req.status === "needs_validation" ? "Needs Validation" : req.status.charAt(0).toUpperCase() + req.status.slice(1);
+              const priorityLabel =
+                req.priority === "must_have"
+                  ? "Must Have"
+                  : req.priority === "should_have"
+                    ? "Should Have"
+                    : "Nice to Have";
+              const statusLabel =
+                req.status === "needs_validation"
+                  ? "Needs Validation"
+                  : req.status.charAt(0).toUpperCase() + req.status.slice(1);
               return (
-                <div key={req.id} className={cn("rounded-lg border bg-background px-4 py-3 space-y-1.5", isManual && "border-primary/30")}>
+                <div
+                  key={req.id}
+                  className={cn(
+                    "rounded-lg border bg-background px-4 py-3 space-y-1.5",
+                    isManual && "border-primary/30",
+                  )}
+                >
                   <div className="flex items-start gap-2 flex-wrap">
-                    <p className="text-sm font-medium flex-1 min-w-0">{req.title}</p>
+                    <p className="text-sm font-medium flex-1 min-w-0 inline-flex items-center gap-1.5">
+                      <span>{req.title}</span>
+                      {req.rationale && (
+                        <ProvenancePopover rationale={req.rationale} />
+                      )}
+                    </p>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      {isManual && <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">Custom</Badge>}
-                      <Badge variant="outline" className={cn("text-xs", PRIORITY_COLORS[req.priority])}>
+                      {isManual && (
+                        <Badge
+                          variant="outline"
+                          className="text-xs bg-primary/10 text-primary border-primary/20"
+                        >
+                          Custom
+                        </Badge>
+                      )}
+                      <Badge
+                        variant="outline"
+                        className={cn("text-xs", PRIORITY_COLORS[req.priority])}
+                      >
                         {priorityLabel}
                       </Badge>
-                      <Badge variant="outline" className={cn("text-xs", STATUS_COLORS[req.status])}>
+                      <Badge
+                        variant="outline"
+                        className={cn("text-xs", STATUS_COLORS[req.status])}
+                      >
                         {statusLabel}
                       </Badge>
                       {isManual && onDelete && (
@@ -166,12 +266,21 @@ export function RequirementsMatrix({ requirements, manualIds, onDelete }: Props)
                       )}
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">{req.description}</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {req.description}
+                  </p>
                   <EvidenceTrail refs={req.sourceRefs} />
                   <div className="flex gap-3 text-xs text-muted-foreground">
-                    <span>Owner: <span className="capitalize">{req.owner}</span></span>
+                    <span>
+                      Owner: <span className="capitalize">{req.owner}</span>
+                    </span>
                     <span>·</span>
-                    <span>Source: <span className="capitalize">{req.source.replace(/_/g, " ")}</span></span>
+                    <span>
+                      Source:{" "}
+                      <span className="capitalize">
+                        {req.source.replace(/_/g, " ")}
+                      </span>
+                    </span>
                   </div>
                 </div>
               );

@@ -5,12 +5,30 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/ui/empty-state";
+import { InfoTip } from "@/components/ui/info-tip";
 import { cn } from "@/lib/utils";
 import { generateId } from "@/lib/utils";
-import type { CustomerSystem, DataSource, SystemType, AccessMethod, DataSensitivity, IntegrationComplexity, DataType, DataFormat, DataQuality, AccessStatus } from "@/lib/types";
+import type {
+  CustomerSystem,
+  DataSource,
+  SystemType,
+  AccessMethod,
+  DataSensitivity,
+  IntegrationComplexity,
+  DataType,
+  DataFormat,
+  DataQuality,
+  AccessStatus,
+} from "@/lib/types";
 
 // ─── Label maps ────────────────────────────────────────────────────────────────
 
@@ -134,34 +152,83 @@ function SystemRow({ system, onUpdate, onRemove }: SystemRowProps) {
   const apiFlag = system.apiAvailable === false;
 
   return (
-    <div className={cn("rounded-lg border bg-background", apiFlag && "border-orange-200 bg-orange-50/30", open && "ring-1 ring-primary/20")}>
+    <div
+      className={cn(
+        "rounded-lg border bg-background",
+        apiFlag && "border-orange-200 bg-orange-50/30",
+        open && "ring-1 ring-primary/20",
+      )}
+    >
       <div className="flex items-center gap-3 px-4 py-3">
         {apiFlag && (
-          <span className="text-orange-500 text-xs shrink-0 font-bold" title="No API available">⚠</span>
+          <span
+            className="text-orange-500 text-xs shrink-0 font-bold"
+            title="No API available"
+          >
+            ⚠
+          </span>
         )}
         <div className="flex-1 min-w-0">
           {open ? (
-            <Input value={system.name} onChange={(e) => onUpdate({ name: e.target.value })} placeholder="System name…" className="h-7 text-sm font-medium" />
+            <Input
+              value={system.name}
+              onChange={(e) => onUpdate({ name: e.target.value })}
+              placeholder="System name…"
+              className="h-7 text-sm font-medium"
+            />
           ) : (
-            <p className="text-sm font-medium truncate">{system.name || <span className="text-muted-foreground italic">Unnamed system</span>}</p>
+            <p className="text-sm font-medium truncate">
+              {system.name || (
+                <span className="text-muted-foreground italic">
+                  Unnamed system
+                </span>
+              )}
+            </p>
           )}
         </div>
         <div className="hidden sm:flex items-center gap-2 shrink-0">
-          <span className="text-xs text-muted-foreground">{SYSTEM_TYPE_LABELS[system.type]}</span>
+          <span className="text-xs text-muted-foreground">
+            {SYSTEM_TYPE_LABELS[system.type]}
+          </span>
           <span className="text-xs text-muted-foreground">·</span>
-          <span className="text-xs text-muted-foreground">{ACCESS_METHOD_LABELS[system.accessMethod]}</span>
-          <Badge variant="outline" className={cn("text-xs", SENSITIVITY_COLOR[system.dataSensitivity])}>
-            {system.dataSensitivity.charAt(0).toUpperCase() + system.dataSensitivity.slice(1)} data
+          <span className="text-xs text-muted-foreground">
+            {ACCESS_METHOD_LABELS[system.accessMethod]}
+          </span>
+          <Badge
+            variant="outline"
+            className={cn("text-xs", SENSITIVITY_COLOR[system.dataSensitivity])}
+          >
+            {system.dataSensitivity.charAt(0).toUpperCase() +
+              system.dataSensitivity.slice(1)}{" "}
+            data
           </Badge>
-          <Badge variant="outline" className={cn("text-xs", COMPLEXITY_COLOR[system.integrationComplexity])}>
-            {system.integrationComplexity.charAt(0).toUpperCase() + system.integrationComplexity.slice(1)} complexity
+          <Badge
+            variant="outline"
+            className={cn(
+              "text-xs",
+              COMPLEXITY_COLOR[system.integrationComplexity],
+            )}
+          >
+            {system.integrationComplexity.charAt(0).toUpperCase() +
+              system.integrationComplexity.slice(1)}{" "}
+            complexity
           </Badge>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <button type="button" onClick={() => setOpen((o) => !o)} className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-muted transition-colors">
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-muted transition-colors"
+          >
             {open ? "Done" : "Edit"}
           </button>
-          <button type="button" onClick={onRemove} className="text-xs text-destructive/70 hover:text-destructive px-2 py-1 rounded hover:bg-destructive/10 transition-colors">×</button>
+          <button
+            type="button"
+            onClick={onRemove}
+            className="text-xs text-destructive/70 hover:text-destructive px-2 py-1 rounded hover:bg-destructive/10 transition-colors"
+          >
+            ×
+          </button>
         </div>
       </div>
 
@@ -172,26 +239,56 @@ function SystemRow({ system, onUpdate, onRemove }: SystemRowProps) {
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>System Type</Label>
-                <Select value={system.type} onValueChange={(v) => onUpdate({ type: v as SystemType })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select
+                  value={system.type}
+                  onValueChange={(v) => onUpdate({ type: v as SystemType })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {(Object.entries(SYSTEM_TYPE_LABELS) as [SystemType, string][]).map(([val, label]) => (
-                      <SelectItem key={val} value={val}>{label}</SelectItem>
+                    {(
+                      Object.entries(SYSTEM_TYPE_LABELS) as [
+                        SystemType,
+                        string,
+                      ][]
+                    ).map(([val, label]) => (
+                      <SelectItem key={val} value={val}>
+                        {label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>Owner / Team</Label>
-                <Input value={system.owner} onChange={(e) => onUpdate({ owner: e.target.value })} placeholder="e.g. IT, Compliance…" />
+                <Input
+                  value={system.owner}
+                  onChange={(e) => onUpdate({ owner: e.target.value })}
+                  placeholder="e.g. IT, Compliance…"
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>Access Method</Label>
-                <Select value={system.accessMethod} onValueChange={(v) => onUpdate({ accessMethod: v as AccessMethod })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select
+                  value={system.accessMethod}
+                  onValueChange={(v) =>
+                    onUpdate({ accessMethod: v as AccessMethod })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {(Object.entries(ACCESS_METHOD_LABELS) as [AccessMethod, string][]).map(([val, label]) => (
-                      <SelectItem key={val} value={val}>{label}</SelectItem>
+                    {(
+                      Object.entries(ACCESS_METHOD_LABELS) as [
+                        AccessMethod,
+                        string,
+                      ][]
+                    ).map(([val, label]) => (
+                      <SelectItem key={val} value={val}>
+                        {label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -200,9 +297,15 @@ function SystemRow({ system, onUpdate, onRemove }: SystemRowProps) {
                 <Label>API Available</Label>
                 <Select
                   value={String(system.apiAvailable)}
-                  onValueChange={(v) => onUpdate({ apiAvailable: v === "unknown" ? "unknown" : v === "true" })}
+                  onValueChange={(v) =>
+                    onUpdate({
+                      apiAvailable: v === "unknown" ? "unknown" : v === "true",
+                    })
+                  }
                 >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="true">Yes</SelectItem>
                     <SelectItem value="false">No</SelectItem>
@@ -211,9 +314,39 @@ function SystemRow({ system, onUpdate, onRemove }: SystemRowProps) {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Data Sensitivity</Label>
-                <Select value={system.dataSensitivity} onValueChange={(v) => onUpdate({ dataSensitivity: v as DataSensitivity })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Label className="inline-flex items-center gap-1.5">
+                  Data Sensitivity
+                  <InfoTip
+                    label="Data sensitivity levels"
+                    items={[
+                      {
+                        term: "Low",
+                        hint: "Public or non-sensitive — fine to send to any LLM",
+                      },
+                      {
+                        term: "Medium",
+                        hint: "Internal business data — needs basic controls",
+                      },
+                      {
+                        term: "High",
+                        hint: "Confidential / customer data — needs encryption + access logs",
+                      },
+                      {
+                        term: "Regulated",
+                        hint: "PII, PHI, financial — needs DPA, residency, audit trail",
+                      },
+                    ]}
+                  />
+                </Label>
+                <Select
+                  value={system.dataSensitivity}
+                  onValueChange={(v) =>
+                    onUpdate({ dataSensitivity: v as DataSensitivity })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="low">Low</SelectItem>
                     <SelectItem value="medium">Medium</SelectItem>
@@ -223,9 +356,37 @@ function SystemRow({ system, onUpdate, onRemove }: SystemRowProps) {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Integration Complexity</Label>
-                <Select value={system.integrationComplexity} onValueChange={(v) => onUpdate({ integrationComplexity: v as IntegrationComplexity })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Label className="inline-flex items-center gap-1.5">
+                  Integration Complexity
+                  <InfoTip
+                    label="Integration complexity"
+                    items={[
+                      {
+                        term: "Low",
+                        hint: "Off-the-shelf API, well-documented, public SDK",
+                      },
+                      {
+                        term: "Medium",
+                        hint: "Custom auth, sandbox env, some schema mapping",
+                      },
+                      {
+                        term: "High",
+                        hint: "Legacy / undocumented, requires vendor engagement",
+                      },
+                    ]}
+                  />
+                </Label>
+                <Select
+                  value={system.integrationComplexity}
+                  onValueChange={(v) =>
+                    onUpdate({
+                      integrationComplexity: v as IntegrationComplexity,
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="low">Low</SelectItem>
                     <SelectItem value="medium">Medium</SelectItem>
@@ -235,12 +396,23 @@ function SystemRow({ system, onUpdate, onRemove }: SystemRowProps) {
               </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <Label>Authentication Method</Label>
-                <Input value={system.authenticationMethod} onChange={(e) => onUpdate({ authenticationMethod: e.target.value })} placeholder="OAuth 2.0, API key, SSO…" />
+                <Input
+                  value={system.authenticationMethod}
+                  onChange={(e) =>
+                    onUpdate({ authenticationMethod: e.target.value })
+                  }
+                  placeholder="OAuth 2.0, API key, SSO…"
+                />
               </div>
             </div>
             <div className="space-y-1.5">
               <Label>Notes</Label>
-              <Textarea rows={2} value={system.notes} onChange={(e) => onUpdate({ notes: e.target.value })} placeholder="Integration caveats, known blockers…" />
+              <Textarea
+                rows={2}
+                value={system.notes}
+                onChange={(e) => onUpdate({ notes: e.target.value })}
+                placeholder="Integration caveats, known blockers…"
+              />
             </div>
           </div>
         </>
@@ -262,33 +434,84 @@ function DataSourceRow({ source, onUpdate, onRemove }: DataSourceRowProps) {
   const blocked = source.accessStatus === "blocked";
 
   return (
-    <div className={cn("rounded-lg border bg-background", blocked && "border-red-200 bg-red-50/30", open && "ring-1 ring-primary/20")}>
+    <div
+      className={cn(
+        "rounded-lg border bg-background",
+        blocked && "border-red-200 bg-red-50/30",
+        open && "ring-1 ring-primary/20",
+      )}
+    >
       <div className="flex items-center gap-3 px-4 py-3">
-        {blocked && <span className="text-red-600 text-xs shrink-0 font-bold" title="Access blocked">✕</span>}
+        {blocked && (
+          <span
+            className="text-red-600 text-xs shrink-0 font-bold"
+            title="Access blocked"
+          >
+            ✕
+          </span>
+        )}
         <div className="flex-1 min-w-0">
           {open ? (
-            <Input value={source.name} onChange={(e) => onUpdate({ name: e.target.value })} placeholder="Data source name…" className="h-7 text-sm font-medium" />
+            <Input
+              value={source.name}
+              onChange={(e) => onUpdate({ name: e.target.value })}
+              placeholder="Data source name…"
+              className="h-7 text-sm font-medium"
+            />
           ) : (
-            <p className="text-sm font-medium truncate">{source.name || <span className="text-muted-foreground italic">Unnamed source</span>}</p>
+            <p className="text-sm font-medium truncate">
+              {source.name || (
+                <span className="text-muted-foreground italic">
+                  Unnamed source
+                </span>
+              )}
+            </p>
           )}
         </div>
         <div className="hidden sm:flex items-center gap-2 shrink-0">
-          {source.sourceSystem && !open && <span className="text-xs text-muted-foreground">{source.sourceSystem}</span>}
-          <Badge variant="outline" className={cn("text-xs", ACCESS_STATUS_COLOR[source.accessStatus])}>
-            {source.accessStatus.charAt(0).toUpperCase() + source.accessStatus.slice(1)}
+          {source.sourceSystem && !open && (
+            <span className="text-xs text-muted-foreground">
+              {source.sourceSystem}
+            </span>
+          )}
+          <Badge
+            variant="outline"
+            className={cn("text-xs", ACCESS_STATUS_COLOR[source.accessStatus])}
+          >
+            {source.accessStatus.charAt(0).toUpperCase() +
+              source.accessStatus.slice(1)}
           </Badge>
-          <Badge variant="outline" className={cn("text-xs", QUALITY_COLOR[source.quality])}>
-            {source.quality.charAt(0).toUpperCase() + source.quality.slice(1)} quality
+          <Badge
+            variant="outline"
+            className={cn("text-xs", QUALITY_COLOR[source.quality])}
+          >
+            {source.quality.charAt(0).toUpperCase() + source.quality.slice(1)}{" "}
+            quality
           </Badge>
           {source.pii === true && (
-            <Badge variant="outline" className="text-xs bg-purple-100 text-purple-800 border-purple-200">PII</Badge>
+            <Badge
+              variant="outline"
+              className="text-xs bg-purple-100 text-purple-800 border-purple-200"
+            >
+              PII
+            </Badge>
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <button type="button" onClick={() => setOpen((o) => !o)} className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-muted transition-colors">
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded hover:bg-muted transition-colors"
+          >
             {open ? "Done" : "Edit"}
           </button>
-          <button type="button" onClick={onRemove} className="text-xs text-destructive/70 hover:text-destructive px-2 py-1 rounded hover:bg-destructive/10 transition-colors">×</button>
+          <button
+            type="button"
+            onClick={onRemove}
+            className="text-xs text-destructive/70 hover:text-destructive px-2 py-1 rounded hover:bg-destructive/10 transition-colors"
+          >
+            ×
+          </button>
         </div>
       </div>
 
@@ -299,34 +522,87 @@ function DataSourceRow({ source, onUpdate, onRemove }: DataSourceRowProps) {
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Source System</Label>
-                <Input value={source.sourceSystem} onChange={(e) => onUpdate({ sourceSystem: e.target.value })} placeholder="e.g. Salesforce CRM…" />
+                <Input
+                  value={source.sourceSystem}
+                  onChange={(e) => onUpdate({ sourceSystem: e.target.value })}
+                  placeholder="e.g. Salesforce CRM…"
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>Data Type</Label>
-                <Select value={source.dataType} onValueChange={(v) => onUpdate({ dataType: v as DataType })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select
+                  value={source.dataType}
+                  onValueChange={(v) => onUpdate({ dataType: v as DataType })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {(Object.entries(DATA_TYPE_LABELS) as [DataType, string][]).map(([val, label]) => (
-                      <SelectItem key={val} value={val}>{label}</SelectItem>
+                    {(
+                      Object.entries(DATA_TYPE_LABELS) as [DataType, string][]
+                    ).map(([val, label]) => (
+                      <SelectItem key={val} value={val}>
+                        {label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>Format</Label>
-                <Select value={source.format} onValueChange={(v) => onUpdate({ format: v as DataFormat })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select
+                  value={source.format}
+                  onValueChange={(v) => onUpdate({ format: v as DataFormat })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {(Object.entries(DATA_FORMAT_LABELS) as [DataFormat, string][]).map(([val, label]) => (
-                      <SelectItem key={val} value={val}>{label}</SelectItem>
+                    {(
+                      Object.entries(DATA_FORMAT_LABELS) as [
+                        DataFormat,
+                        string,
+                      ][]
+                    ).map(([val, label]) => (
+                      <SelectItem key={val} value={val}>
+                        {label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Data Quality</Label>
-                <Select value={source.quality} onValueChange={(v) => onUpdate({ quality: v as DataQuality })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Label className="inline-flex items-center gap-1.5">
+                  Data Quality
+                  <InfoTip
+                    label="Data quality"
+                    items={[
+                      {
+                        term: "Good",
+                        hint: "Clean, consistent schema, low missing-field rate",
+                      },
+                      {
+                        term: "Mixed",
+                        hint: "Usable but needs cleanup or normalisation",
+                      },
+                      {
+                        term: "Poor",
+                        hint: "Free-text, malformed, gaps — needs upstream fixes",
+                      },
+                      {
+                        term: "Unknown",
+                        hint: "Haven't sampled yet — surface as a discovery action",
+                      },
+                    ]}
+                  />
+                </Label>
+                <Select
+                  value={source.quality}
+                  onValueChange={(v) => onUpdate({ quality: v as DataQuality })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="good">Good</SelectItem>
                     <SelectItem value="mixed">Mixed</SelectItem>
@@ -336,9 +612,39 @@ function DataSourceRow({ source, onUpdate, onRemove }: DataSourceRowProps) {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Access Status</Label>
-                <Select value={source.accessStatus} onValueChange={(v) => onUpdate({ accessStatus: v as AccessStatus })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Label className="inline-flex items-center gap-1.5">
+                  Access Status
+                  <InfoTip
+                    label="Access status"
+                    items={[
+                      {
+                        term: "Available",
+                        hint: "You can pull this data today — no blockers",
+                      },
+                      {
+                        term: "Pending",
+                        hint: "Approved in principle; awaiting credentials / contract",
+                      },
+                      {
+                        term: "Blocked",
+                        hint: "Cannot access — needs escalation or workaround",
+                      },
+                      {
+                        term: "Unknown",
+                        hint: "Haven't asked yet — discovery action",
+                      },
+                    ]}
+                  />
+                </Label>
+                <Select
+                  value={source.accessStatus}
+                  onValueChange={(v) =>
+                    onUpdate({ accessStatus: v as AccessStatus })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="available">Available</SelectItem>
                     <SelectItem value="pending">Pending</SelectItem>
@@ -351,9 +657,15 @@ function DataSourceRow({ source, onUpdate, onRemove }: DataSourceRowProps) {
                 <Label>Contains PII</Label>
                 <Select
                   value={String(source.pii)}
-                  onValueChange={(v) => onUpdate({ pii: v === "unknown" ? "unknown" : v === "true" })}
+                  onValueChange={(v) =>
+                    onUpdate({
+                      pii: v === "unknown" ? "unknown" : v === "true",
+                    })
+                  }
                 >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="true">Yes</SelectItem>
                     <SelectItem value="false">No</SelectItem>
@@ -363,17 +675,39 @@ function DataSourceRow({ source, onUpdate, onRemove }: DataSourceRowProps) {
               </div>
               <div className="space-y-1.5">
                 <Label>Volume Estimate</Label>
-                <Input value={source.volumeEstimate} onChange={(e) => onUpdate({ volumeEstimate: e.target.value })} placeholder="e.g. 10k records/month…" />
+                <Input
+                  value={source.volumeEstimate}
+                  onChange={(e) => onUpdate({ volumeEstimate: e.target.value })}
+                  placeholder="e.g. 10k records/month…"
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>Update Frequency</Label>
-                <Input value={source.updateFrequency} onChange={(e) => onUpdate({ updateFrequency: e.target.value })} placeholder="e.g. Real-time, daily…" />
+                <Input
+                  value={source.updateFrequency}
+                  onChange={(e) =>
+                    onUpdate({ updateFrequency: e.target.value })
+                  }
+                  placeholder="e.g. Real-time, daily…"
+                />
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label>Open Questions <span className="text-muted-foreground font-normal text-xs">(comma-separated)</span></Label>
+                <Label>
+                  Open Questions{" "}
+                  <span className="text-muted-foreground font-normal text-xs">
+                    (comma-separated)
+                  </span>
+                </Label>
                 <Input
                   value={source.openQuestions.join(", ")}
-                  onChange={(e) => onUpdate({ openQuestions: e.target.value.split(",").map((v) => v.trim()).filter(Boolean) })}
+                  onChange={(e) =>
+                    onUpdate({
+                      openQuestions: e.target.value
+                        .split(",")
+                        .map((v) => v.trim())
+                        .filter(Boolean),
+                    })
+                  }
                   placeholder="Who owns schema changes? Is historical data retained?…"
                 />
               </div>
@@ -394,17 +728,30 @@ type Props = {
   onDataSourcesChange: (sources: DataSource[]) => void;
 };
 
-export function SystemsDataSourceEditor({ systems, dataSources, onSystemsChange, onDataSourcesChange }: Props) {
+export function SystemsDataSourceEditor({
+  systems,
+  dataSources,
+  onSystemsChange,
+  onDataSourcesChange,
+}: Props) {
   const updateSystem = (id: string, patch: Partial<CustomerSystem>) =>
     onSystemsChange(systems.map((s) => (s.id === id ? { ...s, ...patch } : s)));
-  const removeSystem = (id: string) => onSystemsChange(systems.filter((s) => s.id !== id));
+  const removeSystem = (id: string) =>
+    onSystemsChange(systems.filter((s) => s.id !== id));
 
   const updateSource = (id: string, patch: Partial<DataSource>) =>
-    onDataSourcesChange(dataSources.map((s) => (s.id === id ? { ...s, ...patch } : s)));
-  const removeSource = (id: string) => onDataSourcesChange(dataSources.filter((s) => s.id !== id));
+    onDataSourcesChange(
+      dataSources.map((s) => (s.id === id ? { ...s, ...patch } : s)),
+    );
+  const removeSource = (id: string) =>
+    onDataSourcesChange(dataSources.filter((s) => s.id !== id));
 
-  const systemsNeedingAttention = systems.filter((s) => s.apiAvailable === false || s.integrationComplexity === "high").length;
-  const sourcesNeedingAttention = dataSources.filter((s) => s.accessStatus === "blocked" || s.quality === "poor").length;
+  const systemsNeedingAttention = systems.filter(
+    (s) => s.apiAvailable === false || s.integrationComplexity === "high",
+  ).length;
+  const sourcesNeedingAttention = dataSources.filter(
+    (s) => s.accessStatus === "blocked" || s.quality === "poor",
+  ).length;
 
   return (
     <div className="space-y-10">
@@ -412,13 +759,23 @@ export function SystemsDataSourceEditor({ systems, dataSources, onSystemsChange,
       <section className="space-y-3">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Customer Systems</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Systems the AI product must read from or write to. Click Edit to configure integration details.</p>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              Customer Systems
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Systems the AI product must read from or write to. Click Edit to
+              configure integration details.
+            </p>
           </div>
           <div className="flex items-center gap-2 shrink-0 pt-0.5">
-            <span className="text-xs text-muted-foreground">{systems.length} system{systems.length !== 1 ? "s" : ""}</span>
+            <span className="text-xs text-muted-foreground">
+              {systems.length} system{systems.length !== 1 ? "s" : ""}
+            </span>
             {systemsNeedingAttention > 0 && (
-              <Badge variant="outline" className="text-xs bg-orange-100 text-orange-800 border-orange-200">
+              <Badge
+                variant="outline"
+                className="text-xs bg-orange-100 text-orange-800 border-orange-200"
+              >
                 {systemsNeedingAttention} need attention
               </Badge>
             )}
@@ -433,7 +790,12 @@ export function SystemsDataSourceEditor({ systems, dataSources, onSystemsChange,
           />
         )}
         {systems.map((s) => (
-          <SystemRow key={s.id} system={s} onUpdate={(p) => updateSystem(s.id, p)} onRemove={() => removeSystem(s.id)} />
+          <SystemRow
+            key={s.id}
+            system={s}
+            onUpdate={(p) => updateSystem(s.id, p)}
+            onRemove={() => removeSystem(s.id)}
+          />
         ))}
         <button
           type="button"
@@ -450,13 +812,23 @@ export function SystemsDataSourceEditor({ systems, dataSources, onSystemsChange,
       <section className="space-y-3">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Data Sources</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Datasets the AI model will train on or use for inference. Flag PII and access issues here.</p>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              Data Sources
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Datasets the AI model will train on or use for inference. Flag PII
+              and access issues here.
+            </p>
           </div>
           <div className="flex items-center gap-2 shrink-0 pt-0.5">
-            <span className="text-xs text-muted-foreground">{dataSources.length} source{dataSources.length !== 1 ? "s" : ""}</span>
+            <span className="text-xs text-muted-foreground">
+              {dataSources.length} source{dataSources.length !== 1 ? "s" : ""}
+            </span>
             {sourcesNeedingAttention > 0 && (
-              <Badge variant="outline" className="text-xs bg-red-100 text-red-800 border-red-200">
+              <Badge
+                variant="outline"
+                className="text-xs bg-red-100 text-red-800 border-red-200"
+              >
                 {sourcesNeedingAttention} need attention
               </Badge>
             )}
@@ -471,7 +843,12 @@ export function SystemsDataSourceEditor({ systems, dataSources, onSystemsChange,
           />
         )}
         {dataSources.map((s) => (
-          <DataSourceRow key={s.id} source={s} onUpdate={(p) => updateSource(s.id, p)} onRemove={() => removeSource(s.id)} />
+          <DataSourceRow
+            key={s.id}
+            source={s}
+            onUpdate={(p) => updateSource(s.id, p)}
+            onRemove={() => removeSource(s.id)}
+          />
         ))}
         <button
           type="button"

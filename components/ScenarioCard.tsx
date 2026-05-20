@@ -29,7 +29,8 @@ export function ScenarioCard({ scenario }: Props) {
           <div className="flex items-start justify-between gap-2">
             <div>
               <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
-                {INDUSTRY_LABELS[scenario.customer.industry] ?? scenario.customer.industry}
+                {INDUSTRY_LABELS[scenario.customer.industry] ??
+                  scenario.customer.industry}
               </p>
               <h3 className="font-semibold text-base mt-0.5 leading-snug">
                 {scenario.customer.companyName}
@@ -50,7 +51,20 @@ export function ScenarioCard({ scenario }: Props) {
           <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
             {scenario.customer.businessProblem}
           </p>
-          <div className="flex items-center gap-3 pt-1 text-xs text-muted-foreground">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1 pt-1 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <span aria-hidden>⏱</span>~{meta.estimatedMinutes} min walkthrough
+            </span>
+            <span className="flex items-center gap-1">
+              <span aria-hidden>🤖</span>
+              {meta.aiSurfaces} AI surface{meta.aiSurfaces !== 1 ? "s" : ""}
+            </span>
+            <span className="flex items-center gap-1 col-span-2 text-foreground/80">
+              <span aria-hidden>🎯</span>
+              <span className="truncate">Best for: {meta.bestFor}</span>
+            </span>
+          </div>
+          <div className="flex items-center gap-3 pt-1 text-xs text-muted-foreground border-t pt-2 mt-1">
             <span className="flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block" />
               {riskCount} risks
@@ -59,11 +73,13 @@ export function ScenarioCard({ scenario }: Props) {
               <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" />
               {systemCount} systems
             </span>
-            <span className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
-              {scenario.customer.regulatoryContext.length > 0
-                ? `${scenario.customer.regulatoryContext.join(", ")}`
-                : "No regulatory context"}
+            <span className="flex items-center gap-1 truncate">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block shrink-0" />
+              <span className="truncate">
+                {scenario.customer.regulatoryContext.length > 0
+                  ? scenario.customer.regulatoryContext.join(", ")
+                  : "No regulatory context"}
+              </span>
             </span>
           </div>
         </CardContent>

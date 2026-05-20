@@ -16,29 +16,47 @@ type FormFieldProps = {
   optional?: boolean;
   required?: boolean;
   error?: string;
+  /** Optional InfoTip (or any node) rendered inline after the label. */
+  infoTip?: ReactNode;
   children: ReactNode;
   className?: string;
 };
 
 export function FormField({
-  id, label, helper, optional, required, error, children, className,
+  id,
+  label,
+  helper,
+  optional,
+  required,
+  error,
+  infoTip,
+  children,
+  className,
 }: FormFieldProps) {
   return (
     <div className={cn("space-y-1.5", className)}>
       <div className="flex items-baseline justify-between gap-2">
-        <Label htmlFor={id} className="text-xs font-medium">
+        <Label
+          htmlFor={id}
+          className="text-xs font-medium inline-flex items-center gap-1.5"
+        >
           {label}
           {required && <span className="text-destructive ml-0.5">*</span>}
+          {infoTip && <span className="not-italic">{infoTip}</span>}
         </Label>
         {optional && (
-          <span className="text-[10px] text-muted-foreground/60 italic">Optional</span>
+          <span className="text-[10px] text-muted-foreground/60 italic">
+            Optional
+          </span>
         )}
       </div>
       {children}
       {error ? (
         <p className="text-[11px] text-destructive">{error}</p>
       ) : helper ? (
-        <p className="text-[11px] text-muted-foreground/80 leading-relaxed">{helper}</p>
+        <p className="text-[11px] text-muted-foreground/80 leading-relaxed">
+          {helper}
+        </p>
       ) : null}
     </div>
   );
@@ -52,13 +70,18 @@ type ChipInputProps = {
   value: string[];
   onChange: (next: string[]) => void;
   placeholder?: string;
-  suggestions?: string[];   // optional quick-add buttons
+  suggestions?: string[]; // optional quick-add buttons
   maxChips?: number;
   ariaLabel?: string;
 };
 
 export function ChipInput({
-  value, onChange, placeholder, suggestions, maxChips, ariaLabel,
+  value,
+  onChange,
+  placeholder,
+  suggestions,
+  maxChips,
+  ariaLabel,
 }: ChipInputProps) {
   const [draft, setDraft] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -109,7 +132,10 @@ export function ChipInput({
             <span>{chip}</span>
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); removeAt(i); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                removeAt(i);
+              }}
               className="text-muted-foreground hover:text-foreground -mr-1 ml-0.5 text-xs leading-none"
               aria-label={`Remove ${chip}`}
             >
@@ -133,7 +159,9 @@ export function ChipInput({
       {suggestions && suggestions.length > 0 && !atMax && (
         <div className="flex flex-wrap gap-1.5">
           {suggestions
-            .filter((s) => !value.some((v) => v.toLowerCase() === s.toLowerCase()))
+            .filter(
+              (s) => !value.some((v) => v.toLowerCase() === s.toLowerCase()),
+            )
             .slice(0, 8)
             .map((s) => (
               <button
@@ -159,11 +187,17 @@ type FieldGroupProps = {
   title: string;
   helper?: string;
   defaultOpen?: boolean;
-  status?: ReactNode;       // e.g. "3 of 5 complete"
+  status?: ReactNode; // e.g. "3 of 5 complete"
   children: ReactNode;
 };
 
-export function FieldGroup({ title, helper, defaultOpen = true, status, children }: FieldGroupProps) {
+export function FieldGroup({
+  title,
+  helper,
+  defaultOpen = true,
+  status,
+  children,
+}: FieldGroupProps) {
   const [open, setOpen] = useState(defaultOpen);
 
   return (
@@ -175,18 +209,20 @@ export function FieldGroup({ title, helper, defaultOpen = true, status, children
       >
         <div className="min-w-0">
           <h3 className="text-sm font-semibold">{title}</h3>
-          {helper && <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{helper}</p>}
+          {helper && (
+            <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+              {helper}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          {status && <div className="text-[11px] text-muted-foreground">{status}</div>}
+          {status && (
+            <div className="text-[11px] text-muted-foreground">{status}</div>
+          )}
           <span className="text-muted-foreground">{open ? "−" : "+"}</span>
         </div>
       </button>
-      {open && (
-        <div className="border-t px-4 py-4 space-y-4">
-          {children}
-        </div>
-      )}
+      {open && <div className="border-t px-4 py-4 space-y-4">{children}</div>}
     </section>
   );
 }

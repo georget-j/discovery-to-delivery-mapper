@@ -24,6 +24,11 @@ import { SourceChip } from "@/components/outputs/SourceChip";
 import { Sheet } from "@/components/ui/sheet";
 import { hashGenerationInputs } from "@/lib/artifact-helpers";
 import { getArtifactReadiness, type ArtifactKey } from "@/lib/artifact-sources";
+import {
+  READINESS_DOT,
+  READINESS_LABEL,
+  readinessTooltip,
+} from "@/lib/readiness";
 
 // Transform plain text children inside markdown nodes — split any [N] tokens
 // out as <SourceChip n={N} /> components, leaving everything else as text.
@@ -62,13 +67,6 @@ function renderChildrenWithChips(
 
 type Tab = ArtifactKey;
 type ViewMode = "overview" | "artifact" | "matrix";
-
-const READINESS_DOT: Record<"rich" | "usable" | "thin" | "empty", string> = {
-  rich: "bg-emerald-500",
-  usable: "bg-amber-500",
-  thin: "bg-muted-foreground/40",
-  empty: "bg-red-500",
-};
 
 type TabMeta = {
   key: Tab;
@@ -302,7 +300,7 @@ export default function OutputsPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-8 pt-8 pb-4 space-y-4 border-b">
+      <div className="sticky top-0 z-10 px-8 pt-8 pb-4 space-y-4 border-b bg-background/95 backdrop-blur">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-xl font-bold">Deployment Pack</h1>
@@ -441,6 +439,25 @@ export default function OutputsPage() {
 
           {/* Sidebar (desktop only) */}
           <div className="hidden md:flex flex-col w-52 shrink-0 border-r overflow-y-auto py-2">
+            {/* Readiness legend */}
+            <div
+              className="px-3 pb-2 border-b mb-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground"
+              aria-label="Readiness legend"
+            >
+              {(["rich", "usable", "thin", "empty"] as const).map((r) => (
+                <span
+                  key={r}
+                  className="inline-flex items-center gap-1"
+                  title={readinessTooltip(r)}
+                >
+                  <span
+                    className={cn("w-1.5 h-1.5 rounded-full", READINESS_DOT[r])}
+                    aria-hidden
+                  />
+                  {READINESS_LABEL[r]}
+                </span>
+              ))}
+            </div>
             {/* View mode at top */}
             <div className="px-2 pb-2 border-b mb-1 space-y-1">
               <button
@@ -490,7 +507,7 @@ export default function OutputsPage() {
                           ? "bg-muted text-foreground font-medium"
                           : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
                       )}
-                      title={`${tab.label} — ${readiness} inputs`}
+                      title={`${tab.label} · ${readinessTooltip(readiness)}`}
                     >
                       <span
                         className={cn(

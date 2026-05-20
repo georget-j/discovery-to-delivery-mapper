@@ -1,11 +1,18 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import {
+  useState,
+  type ReactNode,
+  type MouseEvent,
+  type KeyboardEvent,
+} from "react";
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { hashWorkflows } from "@/lib/visualisations/workflow-helpers";
 import { cn } from "@/lib/utils";
 
 export type WorkflowTabId = "steps" | "current" | "future";
+
+type TabStatus = { label: string; stale: boolean } | null;
 
 type Props = {
   steps: ReactNode;
@@ -19,9 +26,17 @@ type Props = {
 // Tabs preserve children mount state by using CSS visibility, not conditional
 // render. This means the React Flow canvases keep their viewport, undo history,
 // and selection across tab switches.
-export function WorkflowTabs({ steps, current, future, defaultTab = "steps", active, onChange }: Props) {
+export function WorkflowTabs({
+  steps,
+  current,
+  future,
+  defaultTab = "steps",
+  active,
+  onChange,
+}: Props) {
   const [internal, setInternal] = useState<WorkflowTabId>(defaultTab);
   const activeTab = active ?? internal;
+  const { requestMapSync } = useWorkspace();
 
   const setActive = (t: WorkflowTabId) => {
     if (active === undefined) setInternal(t);
@@ -29,6 +44,12 @@ export function WorkflowTabs({ steps, current, future, defaultTab = "steps", act
   };
 
   const status = useTabStatuses();
+
+  const syncFromStaleBadge = (variant: "current" | "future") => {
+    setActive(variant);
+    // Defer one tick so the panel becomes visible before the canvas regenerates.
+    setTimeout(() => requestMapSync(variant), 50);
+  };
 
   return (
     <div>
@@ -44,12 +65,14 @@ export function WorkflowTabs({ steps, current, future, defaultTab = "steps", act
           onClick={() => setActive("current")}
           label="Current-State Map"
           status={status.current}
+          onSync={() => syncFromStaleBadge("current")}
         />
         <TabButton
           active={activeTab === "future"}
           onClick={() => setActive("future")}
           label="Future-State Map"
           status={status.future}
+          onSync={() => syncFromStaleBadge("future")}
         />
       </div>
 
@@ -63,13 +86,31 @@ export function WorkflowTabs({ steps, current, future, defaultTab = "steps", act
 }
 
 function TabButton({
-  active, onClick, label, status,
+  active,
+  onClick,
+  label,
+  status,
+  onSync,
 }: {
   active: boolean;
   onClick: () => void;
   label: string;
-  status: string | null;
+  status: TabStatus;
+  onSync?: () => void;
 }) {
+  const handleStaleClick = (e: MouseEvent<HTMLSpanElement>) => {
+    if (!onSync) return;
+    e.stopPropagation();
+    onSync();
+  };
+  const handleStaleKey = (e: KeyboardEvent<HTMLSpanElement>) => {
+    if (!onSync) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      e.stopPropagation();
+      onSync();
+    }
+  };
   return (
     <button
       type="button"
@@ -80,23 +121,46 @@ function TabButton({
         "flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px",
         active
           ? "border-primary text-foreground bg-background"
-          : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40"
+          : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40",
       )}
     >
       <span>{label}</span>
-      {status && (
-        <span className={cn(
-          "text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded",
-          active ? "bg-muted text-muted-foreground" : "bg-muted/60 text-muted-foreground/80"
-        )}>
-          {status}
-        </span>
-      )}
+      {status &&
+        (status.stale && onSync ? (
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={handleStaleClick}
+            onKeyDown={handleStaleKey}
+            title="Workflow steps changed since this map was generated — click to sync now"
+            className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200 cursor-pointer"
+          >
+            <span aria-hidden>↻</span>
+            Sync
+          </span>
+        ) : (
+          <span
+            className={cn(
+              "text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded",
+              active
+                ? "bg-muted text-muted-foreground"
+                : "bg-muted/60 text-muted-foreground/80",
+            )}
+          >
+            {status.label}
+          </span>
+        ))}
     </button>
   );
 }
 
-function TabPanel({ active, children }: { active: boolean; children: ReactNode }) {
+function TabPanel({
+  active,
+  children,
+}: {
+  active: boolean;
+  children: ReactNode;
+}) {
   // Keep mounted; use hidden so canvases retain state across switches.
   return (
     <div role="tabpanel" hidden={!active} className={active ? "" : "hidden"}>
@@ -107,7 +171,11 @@ function TabPanel({ active, children }: { active: boolean; children: ReactNode }
 
 // Compute label statuses from the project so users see at-a-glance which tabs
 // have content and whether maps are stale.
-function useTabStatuses(): { steps: string | null; current: string | null; future: string | null } {
+function useTabStatuses(): {
+  steps: TabStatus;
+  current: TabStatus;
+  future: TabStatus;
+} {
   const { project } = useWorkspace();
   if (!project) return { steps: null, current: null, future: null };
 
@@ -120,14 +188,16 @@ function useTabStatuses(): { steps: string | null; current: string | null; futur
 
   const mapStatus = (
     map: { derivedFromHash?: string } | undefined,
-  ): string | null => {
-    if (!map) return "Empty";
-    if (map.derivedFromHash && map.derivedFromHash !== currentHash) return "Stale";
-    return "Ready";
+  ): TabStatus => {
+    if (!map) return { label: "Empty", stale: false };
+    if (map.derivedFromHash && map.derivedFromHash !== currentHash) {
+      return { label: "Stale", stale: true };
+    }
+    return { label: "Ready", stale: false };
   };
 
   return {
-    steps: stepsLabel,
+    steps: { label: stepsLabel, stale: false },
     current: mapStatus(currentMap),
     future: mapStatus(futureMap),
   };
