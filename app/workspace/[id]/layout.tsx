@@ -29,7 +29,7 @@ export default async function WorkspaceLayout({
   const { id } = await params;
   return (
     <WorkspaceProvider id={id}>
-      <div className="flex flex-col" style={{ height: "calc(100vh - 3.5rem)" }}>
+      <div className="flex flex-col" style={{ height: "calc(100dvh - 3.5rem)" }}>
         <JourneyBar />
         <div className="flex flex-1 min-h-0">
           <WorkspaceSidebar />
