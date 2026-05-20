@@ -12,15 +12,35 @@ function orCallout(value: string | undefined | null, section: string): string {
   return value && value.trim() ? value : callout(section);
 }
 
-export function generateTemplateArtifacts(project: OnboardingProject): GeneratedArtifacts {
-  const { customer, discovery, workflows, systems, dataSources, stakeholders, risks, pilotPlan } = project;
+export function generateTemplateArtifacts(
+  project: OnboardingProject,
+): GeneratedArtifacts {
+  const {
+    customer,
+    discovery,
+    workflows,
+    systems,
+    dataSources,
+    stakeholders,
+    risks,
+    pilotPlan,
+  } = project;
   const name = customer.companyName;
   const industry = humanise(customer.industry);
   const companySize = humanise(customer.companySize);
-  const highAutoSteps = workflows.filter((w) => w.automationPotential === "high").map((w) => w.name);
-  const blockedSystems = systems.filter((s) => s.apiAvailable === false).map((s) => s.name);
-  const criticalRisks = risks.filter((r) => r.severity === "critical" || r.severity === "high").slice(0, 3);
-  const regs = customer.regulatoryContext.length > 0 ? customer.regulatoryContext.join(", ") : null;
+  const highAutoSteps = workflows
+    .filter((w) => w.automationPotential === "high")
+    .map((w) => w.name);
+  const blockedSystems = systems
+    .filter((s) => s.apiAvailable === false)
+    .map((s) => s.name);
+  const criticalRisks = risks
+    .filter((r) => r.severity === "critical" || r.severity === "high")
+    .slice(0, 3);
+  const regs =
+    customer.regulatoryContext.length > 0
+      ? customer.regulatoryContext.join(", ")
+      : null;
 
   return {
     executiveSummary: `# Executive Summary — ${name}
@@ -31,7 +51,7 @@ ${name} is a **${companySize} ${industry}** company seeking to deploy AI to addr
 
 The primary use case is **${customer.primaryUseCase || "to be defined"}**. Desired outcome: ${customer.desiredOutcome || callout("Desired outcome")}.
 
-${highAutoSteps.length > 0 ? `**${highAutoSteps.length} workflow step${highAutoSteps.length !== 1 ? "s"  : ""}** identified as high automation potential: ${highAutoSteps.slice(0, 3).join(", ")}.` : ""}
+${highAutoSteps.length > 0 ? `**${highAutoSteps.length} workflow step${highAutoSteps.length !== 1 ? "s" : ""}** identified as high automation potential: ${highAutoSteps.slice(0, 3).join(", ")}.` : ""}
 ${regs ? `\nSubject to **${regs}** — compliance documentation required before data transfer.` : ""}
 
 ## Approach
@@ -101,9 +121,13 @@ ${highAutoSteps.length > 0 ? `Highest automation potential identified in: **${hi
 
 ${orCallout(discovery.currentProcess, "Current process description")}
 
-${workflows.length > 0 ? `## Workflow Steps (${workflows.length} documented)
+${
+  workflows.length > 0
+    ? `## Workflow Steps (${workflows.length} documented)
 
-${workflows.map((w, i) => `### ${i + 1}. ${w.name}
+${workflows
+  .map(
+    (w, i) => `### ${i + 1}. ${w.name}
 
 - **Owner:** ${w.ownerTeam || "Unknown"}
 - **Frequency:** ${humanise(w.frequency)}
@@ -111,7 +135,13 @@ ${workflows.map((w, i) => `### ${i + 1}. ${w.name}
 - **Current system:** ${w.currentSystem || "Not specified"}
 ${w.description ? `- **Description:** ${w.description}` : ""}
 ${w.painPoints.filter(Boolean).length > 0 ? `- **Pain points:** ${w.painPoints.join("; ")}` : ""}
-${w.failureModes.filter(Boolean).length > 0 ? `- **Failure modes:** ${w.failureModes.join("; ")}` : ""}`).join("\n\n")}` : callout("Workflow mapping — no steps documented yet. Populate the Workflow tab to complete this section")}
+${w.failureModes.filter(Boolean).length > 0 ? `- **Failure modes:** ${w.failureModes.join("; ")}` : ""}`,
+  )
+  .join("\n\n")}`
+    : callout(
+        "Workflow mapping — no steps documented yet. Populate the Workflow tab to complete this section",
+      )
+}
 
 ## Systems in Use
 
@@ -123,9 +153,19 @@ Following successful AI deployment, ${name}'s **${customer.primaryUseCase || "ta
 
 ## Step-by-Step Future State
 
-${workflows.length > 0 ? workflows.map((w) => `**${w.name}**
+${
+  workflows.length > 0
+    ? workflows
+        .map(
+          (w) => `**${w.name}**
 - Current: ${humanise(w.manualEffort)} manual effort
-- Future: **${humanise(w.futureState)}**${w.automationPotential === "high" ? " — high automation potential" : ""}`).join("\n\n") : callout("Future state — populate the Workflow tab with steps and future state designations")}
+- Future: **${humanise(w.futureState)}**${w.automationPotential === "high" ? " — high automation potential" : ""}`,
+        )
+        .join("\n\n")
+    : callout(
+        "Future state — populate the Workflow tab with steps and future state designations",
+      )
+}
 
 ## Expected Outcomes
 
@@ -163,14 +203,42 @@ ${dataSources.some((d) => d.pii === true) ? "- [ ] PII data handling policy and 
 
 Items below must be resolved before pilot launch.
 
-${[
-  ...(blockedSystems.map((s) => `- **[Engineering]** API access or integration method for **${s}** — blocks integration design`)),
-  ...(!discovery.currentProcess ? ["- **[Customer]** Full current process documentation — required for workflow mapping and baseline measurement"] : []),
-  ...(!discovery.successDefinition ? ["- **[Customer]** Measurable success definition — required for pilot sign-off criteria"] : []),
-  ...(stakeholders.length === 0 ? ["- **[Customer]** Named stakeholders including technical owner and executive sponsor"] : []),
-  ...(dataSources.filter((d) => d.accessStatus === "blocked" || d.accessStatus === "unknown").map((d) => `- **[Customer]** Data access resolution for **${d.name}** (status: ${humanise(d.accessStatus)})`)),
-  ...(customer.regulatoryContext.length > 0 ? ["- **[Commercial]** Data processing agreement — required before any data is transferred"] : []),
-].join("\n") || "No open items identified at this stage."}
+${
+  [
+    ...blockedSystems.map(
+      (s) =>
+        `- **[Engineering]** API access or integration method for **${s}** — blocks integration design`,
+    ),
+    ...(!discovery.currentProcess
+      ? [
+          "- **[Customer]** Full current process documentation — required for workflow mapping and baseline measurement",
+        ]
+      : []),
+    ...(!discovery.successDefinition
+      ? [
+          "- **[Customer]** Measurable success definition — required for pilot sign-off criteria",
+        ]
+      : []),
+    ...(stakeholders.length === 0
+      ? [
+          "- **[Customer]** Named stakeholders including technical owner and executive sponsor",
+        ]
+      : []),
+    ...dataSources
+      .filter(
+        (d) => d.accessStatus === "blocked" || d.accessStatus === "unknown",
+      )
+      .map(
+        (d) =>
+          `- **[Customer]** Data access resolution for **${d.name}** (status: ${humanise(d.accessStatus)})`,
+      ),
+    ...(customer.regulatoryContext.length > 0
+      ? [
+          "- **[Commercial]** Data processing agreement — required before any data is transferred",
+        ]
+      : []),
+  ].join("\n") || "No open items identified at this stage."
+}
 
 ---
 
@@ -180,25 +248,53 @@ ${[
 
 ## Systems in Scope
 
-${systems.length > 0 ? `| System | Type | API | Access Method | Complexity | Sensitivity |
+${
+  systems.length > 0
+    ? `| System | Type | API | Access Method | Complexity | Sensitivity |
 |---|---|---|---|---|---|
-${systems.map((s) => `| ${s.name} | ${humanise(s.type)} | ${s.apiAvailable ? "Yes" : "No"} | ${humanise(s.accessMethod)} | ${humanise(s.integrationComplexity)} | ${humanise(s.dataSensitivity)} |`).join("\n")}` : callout("Systems — no systems mapped. Populate the Systems tab")}
+${systems.map((s) => `| ${s.name} | ${humanise(s.type)} | ${s.apiAvailable ? "Yes" : "No"} | ${humanise(s.accessMethod)} | ${humanise(s.integrationComplexity)} | ${humanise(s.dataSensitivity)} |`).join("\n")}`
+    : callout("Systems — no systems mapped. Populate the Systems tab")
+}
 
 ## Integration Approach
 
-${systems.filter((s) => s.apiAvailable === true).length > 0 ? `**API integrations (${systems.filter((s) => s.apiAvailable === true).length} systems):**
+${
+  systems.filter((s) => s.apiAvailable === true).length > 0
+    ? `**API integrations (${systems.filter((s) => s.apiAvailable === true).length} systems):**
 
-${systems.filter((s) => s.apiAvailable === true).map((s) => `- **${s.name}**: REST API. Auth: ${s.authenticationMethod || "TBD"}. Sensitivity: ${humanise(s.dataSensitivity)}.`).join("\n")}` : ""}
+${systems
+  .filter((s) => s.apiAvailable === true)
+  .map(
+    (s) =>
+      `- **${s.name}**: REST API. Auth: ${s.authenticationMethod || "TBD"}. Sensitivity: ${humanise(s.dataSensitivity)}.`,
+  )
+  .join("\n")}`
+    : ""
+}
 
-${systems.filter((s) => s.apiAvailable === false).length > 0 ? `**Custom integrations required (${systems.filter((s) => s.apiAvailable === false).length} systems):**
+${
+  systems.filter((s) => s.apiAvailable === false).length > 0
+    ? `**Custom integrations required (${systems.filter((s) => s.apiAvailable === false).length} systems):**
 
-${systems.filter((s) => s.apiAvailable === false).map((s) => `- **${s.name}**: No API. Options: CSV export pipeline, webhook workaround, or manual upload — scope to be agreed.`).join("\n")}` : ""}
+${systems
+  .filter((s) => s.apiAvailable === false)
+  .map(
+    (s) =>
+      `- **${s.name}**: No API. Options: CSV export pipeline, webhook workaround, or manual upload — scope to be agreed.`,
+  )
+  .join("\n")}`
+    : ""
+}
 
 ## Data Pipeline
 
-${dataSources.length > 0 ? `| Source | Type | Format | Quality | Access | PII |
+${
+  dataSources.length > 0
+    ? `| Source | Type | Format | Quality | Access | PII |
 |---|---|---|---|---|---|
-${dataSources.map((d) => `| ${d.name} | ${humanise(d.dataType)} | ${humanise(d.format)} | ${humanise(d.quality)} | ${humanise(d.accessStatus)} | ${d.pii ? "Yes" : "No"} |`).join("\n")}` : callout("Data sources — none mapped. Populate the Systems & Data tab")}
+${dataSources.map((d) => `| ${d.name} | ${humanise(d.dataType)} | ${humanise(d.format)} | ${humanise(d.quality)} | ${humanise(d.accessStatus)} | ${d.pii ? "Yes" : "No"} |`).join("\n")}`
+    : callout("Data sources — none mapped. Populate the Systems & Data tab")
+}
 
 ## Estimated Effort
 
@@ -209,9 +305,13 @@ ${dataSources.map((d) => `| ${d.name} | ${humanise(d.dataType)} | ${humanise(d.f
 
 **Overall status: ${dataSources.length === 0 ? "⚠ INCOMPLETE — no data sources mapped" : dataSources.every((d) => d.quality === "good" && d.accessStatus === "available") ? "✅ READY" : "⚠ ACTION REQUIRED"}**
 
-${dataSources.length > 0 ? `## Source-by-Source Assessment
+${
+  dataSources.length > 0
+    ? `## Source-by-Source Assessment
 
-${dataSources.map((d) => `### ${d.name}
+${dataSources
+  .map(
+    (d) => `### ${d.name}
 
 | Attribute | Value |
 |---|---|
@@ -223,11 +323,29 @@ ${dataSources.map((d) => `### ${d.name}
 | **Volume** | ${d.volumeEstimate || "Not specified"} |
 
 ${d.quality === "poor" ? "> ⚠ **Data remediation required** before training can begin." : ""}
-${d.accessStatus === "blocked" ? "> ✕ **Access blocked** — must be unblocked before pilot start." : ""}`).join("\n\n")}` : callout("Data sources — none documented yet. Populate the Systems & Data tab")}
+${d.accessStatus === "blocked" ? "> ✕ **Access blocked** — must be unblocked before pilot start." : ""}`,
+  )
+  .join("\n\n")}`
+    : callout(
+        "Data sources — none documented yet. Populate the Systems & Data tab",
+      )
+}
 
 ## Key Risks
 
-${dataSources.filter((d) => d.quality === "poor" || d.accessStatus === "blocked").length > 0 ? dataSources.filter((d) => d.quality === "poor" || d.accessStatus === "blocked").map((d) => `- **${d.name}**: ${d.quality === "poor" ? "poor data quality" : ""}${d.quality === "poor" && d.accessStatus === "blocked" ? " + " : ""}${d.accessStatus === "blocked" ? "access blocked" : ""}`).join("\n") : "No critical data risks identified at this stage."}
+${
+  dataSources.filter(
+    (d) => d.quality === "poor" || d.accessStatus === "blocked",
+  ).length > 0
+    ? dataSources
+        .filter((d) => d.quality === "poor" || d.accessStatus === "blocked")
+        .map(
+          (d) =>
+            `- **${d.name}**: ${d.quality === "poor" ? "poor data quality" : ""}${d.quality === "poor" && d.accessStatus === "blocked" ? " + " : ""}${d.accessStatus === "blocked" ? "access blocked" : ""}`,
+        )
+        .join("\n")
+    : "No critical data risks identified at this stage."
+}
 
 ## Recommendations
 
@@ -279,13 +397,21 @@ Overall deployment risk: **${humanise(discovery.riskLevel)}**
 
 ## Critical & High Risks
 
-${criticalRisks.length > 0 ? criticalRisks.map((r) => `### ${r.title}
+${
+  criticalRisks.length > 0
+    ? criticalRisks
+        .map(
+          (r) => `### ${r.title}
 
 - **Severity:** ${humanise(r.severity)}
 - **Likelihood:** ${humanise(r.likelihood)}
 - **Status:** ${humanise(r.status)}
 - **Mitigation:** ${r.mitigation || "To be defined"}
-${r.escalationTrigger ? `- **Escalation trigger:** ${r.escalationTrigger}` : ""}`).join("\n\n") : "No critical or high risks identified at this stage."}
+${r.escalationTrigger ? `- **Escalation trigger:** ${r.escalationTrigger}` : ""}`,
+        )
+        .join("\n\n")
+    : "No critical or high risks identified at this stage."
+}
 
 ## Risk Status Summary
 
@@ -318,9 +444,15 @@ ${pilotPlan?.excludedWorkflows.length ? `## Excluded Workflows\n\n${pilotPlan.ex
 
 ## Success Metrics
 
-${pilotPlan?.successMetrics.length ? `| Metric | Baseline | Target | Method | Owner |
+${
+  pilotPlan?.successMetrics.length
+    ? `| Metric | Baseline | Target | Method | Owner |
 |---|---|---|---|---|
-${pilotPlan.successMetrics.map((m) => `| ${m.name} | ${m.baseline || "—"} | ${m.target || "—"} | ${m.measurementMethod || "—"} | ${m.owner || "—"} |`).join("\n")}` : callout("Success metrics — add at least one measurable metric before pilot launch")}
+${pilotPlan.successMetrics.map((m) => `| ${m.name} | ${m.baseline || "—"} | ${m.target || "—"} | ${m.measurementMethod || "—"} | ${m.owner || "—"} |`).join("\n")}`
+    : callout(
+        "Success metrics — add at least one measurable metric before pilot launch",
+      )
+}
 
 ## Launch Criteria
 
@@ -334,13 +466,23 @@ ${pilotPlan?.rollbackCriteria.length ? pilotPlan.rollbackCriteria.map((c) => `- 
 
 This plan outlines how each stakeholder group at **${name}** will be engaged throughout deployment.
 
-${stakeholders.length > 0 ? stakeholders.map((s) => `## ${s.name} — ${s.role}
+${
+  stakeholders.length > 0
+    ? stakeholders
+        .map(
+          (s) => `## ${s.name} — ${s.role}
 
 - **Team:** ${s.team}
 - **Involvement:** ${humanise(s.involvement)}
 - **Concerns:** ${s.concerns.filter(Boolean).length > 0 ? s.concerns.join("; ") : "Not documented"}
 - **Required actions:** ${s.requiredActions.filter(Boolean).length > 0 ? s.requiredActions.join("; ") : "Not documented"}
-- **Cadence:** ${s.involvement === "sponsor" ? "Monthly executive briefing + pilot sign-off meeting" : s.involvement === "technical_owner" ? "Weekly technical sync during integration phase" : "Bi-weekly status update"}`).join("\n\n") : callout("Stakeholders — none mapped yet. Stakeholder identification is an urgent action item")}
+- **Cadence:** ${s.involvement === "sponsor" ? "Monthly executive briefing + pilot sign-off meeting" : s.involvement === "technical_owner" ? "Weekly technical sync during integration phase" : "Bi-weekly status update"}`,
+        )
+        .join("\n\n")
+    : callout(
+        "Stakeholders — none mapped yet. Stakeholder identification is an urgent action item",
+      )
+}
 
 ## Communication Channels
 
@@ -355,22 +497,44 @@ This document summarises the technical requirements and integration specifics fo
 
 ## Customer Environment
 
-${systems.length > 0 ? `| System | Type | API | Access Method | Auth | Sensitivity |
+${
+  systems.length > 0
+    ? `| System | Type | API | Access Method | Auth | Sensitivity |
 |---|---|---|---|---|---|
-${systems.map((s) => `| **${s.name}** | ${humanise(s.type)} | ${s.apiAvailable ? "✅ Yes" : "❌ No"} | ${humanise(s.accessMethod)} | ${s.authenticationMethod || "TBD"} | ${humanise(s.dataSensitivity)} |`).join("\n")}` : callout("Systems — not yet mapped. Populate the Systems tab before handoff")}
+${systems.map((s) => `| **${s.name}** | ${humanise(s.type)} | ${s.apiAvailable ? "✅ Yes" : "❌ No"} | ${humanise(s.accessMethod)} | ${s.authenticationMethod || "TBD"} | ${humanise(s.dataSensitivity)} |`).join("\n")}`
+    : callout(
+        "Systems — not yet mapped. Populate the Systems tab before handoff",
+      )
+}
 
 ## Data Sources
 
-${dataSources.length > 0 ? `| Source | Type | Format | Quality | Access | PII |
+${
+  dataSources.length > 0
+    ? `| Source | Type | Format | Quality | Access | PII |
 |---|---|---|---|---|---|
-${dataSources.map((d) => `| **${d.name}** | ${humanise(d.dataType)} | ${humanise(d.format)} | ${humanise(d.quality)} | ${humanise(d.accessStatus)} | ${d.pii ? "✅ Yes" : "No"} |`).join("\n")}` : callout("Data sources — not yet mapped")}
+${dataSources.map((d) => `| **${d.name}** | ${humanise(d.dataType)} | ${humanise(d.format)} | ${humanise(d.quality)} | ${humanise(d.accessStatus)} | ${d.pii ? "✅ Yes" : "No"} |`).join("\n")}`
+    : callout("Data sources — not yet mapped")
+}
 
 ## Integration Blockers
 
-${blockedSystems.length > 0 || dataSources.filter((d) => d.accessStatus === "blocked").length > 0 ? [
-  ...blockedSystems.map((s) => `- **${s}**: No API available — custom integration required`),
-  ...dataSources.filter((d) => d.accessStatus === "blocked").map((d) => `- **${d.name}**: Data access blocked — awaiting customer action`),
-].join("\n") : "No blockers identified at this stage."}
+${
+  blockedSystems.length > 0 ||
+  dataSources.filter((d) => d.accessStatus === "blocked").length > 0
+    ? [
+        ...blockedSystems.map(
+          (s) => `- **${s}**: No API available — custom integration required`,
+        ),
+        ...dataSources
+          .filter((d) => d.accessStatus === "blocked")
+          .map(
+            (d) =>
+              `- **${d.name}**: Data access blocked — awaiting customer action`,
+          ),
+      ].join("\n")
+    : "No blockers identified at this stage."
+}
 
 ## Security & Compliance Requirements
 
@@ -396,7 +560,18 @@ ${blockedSystems.length > 0 ? blockedSystems.map((s) => `- **${s}**: No API avai
 
 ## Data Quality Issues
 
-${dataSources.filter((d) => d.quality === "poor" || d.quality === "mixed").length > 0 ? dataSources.filter((d) => d.quality === "poor" || d.quality === "mixed").map((d) => `- **${d.name}**: ${humanise(d.quality)} quality. Customers need clearer guidance on minimum data quality requirements before signing.`).join("\n") : "No data quality issues to flag from this engagement."}
+${
+  dataSources.filter((d) => d.quality === "poor" || d.quality === "mixed")
+    .length > 0
+    ? dataSources
+        .filter((d) => d.quality === "poor" || d.quality === "mixed")
+        .map(
+          (d) =>
+            `- **${d.name}**: ${humanise(d.quality)} quality. Customers need clearer guidance on minimum data quality requirements before signing.`,
+        )
+        .join("\n")
+    : "No data quality issues to flag from this engagement."
+}
 
 ## Compliance Friction
 
@@ -416,15 +591,30 @@ This customer could be a **strong reference case** if the pilot succeeds. Recomm
 
 ## For ${name} (Customer)
 
-${[
-  (!discovery.currentProcess) && "- [ ] Provide full current process documentation to the deployment team",
-  (stakeholders.length === 0) && "- [ ] Name technical owner, executive sponsor, and end-user pilot participants",
-  ...dataSources.filter((d) => d.accessStatus === "blocked").map((d) => `- [ ] Unblock data access for **${d.name}**`),
-  ...blockedSystems.map((s) => `- [ ] Confirm integration approach for **${s}** (no API available)`),
-  (customer.regulatoryContext.length > 0) && "- [ ] Engage legal/procurement to begin DPA review",
-  (!discovery.successDefinition) && "- [ ] Define measurable success criteria for the pilot",
-  (!discovery.implementationDeadline) && "- [ ] Confirm implementation deadline",
-].filter(Boolean).join("\n") || "- [ ] Review the deployment plan and confirm readiness to proceed"}
+${
+  [
+    !discovery.currentProcess &&
+      "- [ ] Provide full current process documentation to the deployment team",
+    stakeholders.length === 0 &&
+      "- [ ] Name technical owner, executive sponsor, and end-user pilot participants",
+    ...dataSources
+      .filter((d) => d.accessStatus === "blocked")
+      .map((d) => `- [ ] Unblock data access for **${d.name}**`),
+    ...blockedSystems.map(
+      (s) =>
+        `- [ ] Confirm integration approach for **${s}** (no API available)`,
+    ),
+    customer.regulatoryContext.length > 0 &&
+      "- [ ] Engage legal/procurement to begin DPA review",
+    !discovery.successDefinition &&
+      "- [ ] Define measurable success criteria for the pilot",
+    !discovery.implementationDeadline &&
+      "- [ ] Confirm implementation deadline",
+  ]
+    .filter(Boolean)
+    .join("\n") ||
+  "- [ ] Review the deployment plan and confirm readiness to proceed"
+}
 
 ## For the Deployment Team
 
@@ -440,4 +630,20 @@ ${customer.regulatoryContext.length > 0 ? "- [ ] Prepare compliance documentatio
 
 > All items above should be completed within **14 days** of this document being shared.`,
   };
+}
+
+// Live preview of a single artifact, computed synchronously from the current
+// project state via the template path (no LLM round-trip).
+// Only narrows to string-typed artifact keys (excludes derivedFromHash etc).
+export type ArtifactPreviewKey = Exclude<
+  keyof GeneratedArtifacts,
+  "derivedFromHash" | "generatedAt"
+>;
+
+export function previewArtifact(
+  project: OnboardingProject,
+  key: ArtifactPreviewKey,
+): string {
+  const all = generateTemplateArtifacts(project);
+  return all[key] ?? "";
 }

@@ -5,10 +5,14 @@ import { GeneratedArtifactsSchema } from "@/lib/schemas";
 import { generateTemplateArtifacts } from "@/lib/artifact-templates";
 import { hashGenerationInputs } from "@/lib/artifact-helpers";
 import { parseBoundedJson, looksLikeProject } from "@/lib/api-guards";
+import { industryVoice } from "@/lib/industry-personae";
 
 // Stamp every generated GeneratedArtifacts blob with the input hash + timestamp
 // so the Outputs page can detect when project inputs have drifted since.
-function stamp(artifacts: GeneratedArtifacts, project: OnboardingProject): GeneratedArtifacts {
+function stamp(
+  artifacts: GeneratedArtifacts,
+  project: OnboardingProject,
+): GeneratedArtifacts {
   return {
     ...artifacts,
     derivedFromHash: hashGenerationInputs(project),
@@ -37,6 +41,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const { system, user } = buildArtifactPrompt(project);
+    const voice = industryVoice(project.customer.industry);
+    const systemWithVoice = voice ? `${voice}\n\n${system}` : system;
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -47,7 +53,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         model: "gpt-4o-mini",
         messages: [
-          { role: "system", content: system },
+          { role: "system", content: systemWithVoice },
           { role: "user", content: user },
         ],
         response_format: { type: "json_object" },

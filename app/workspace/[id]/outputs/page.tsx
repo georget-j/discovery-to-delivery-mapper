@@ -29,6 +29,8 @@ import {
   READINESS_LABEL,
   readinessTooltip,
 } from "@/lib/readiness";
+import { assessGenerationReadiness } from "@/lib/generation-readiness";
+import Link from "next/link";
 
 // Transform plain text children inside markdown nodes — split any [N] tokens
 // out as <SourceChip n={N} /> components, leaving everything else as text.
@@ -208,13 +210,14 @@ export default function OutputsPage() {
   // Mobile-only: sources panel becomes a Sheet, artifact picker becomes a Sheet.
   const [mobileSourcesOpen, setMobileSourcesOpen] = useState(false);
   const [mobilePickerOpen, setMobilePickerOpen] = useState(false);
+  const [preflightOpen, setPreflightOpen] = useState(false);
 
   const flashSourcesPanel = useCallback(() => {
     setPanelFlash((n) => n + 1);
     setMobileSourcesOpen(true);
   }, []);
 
-  const generate = useCallback(async () => {
+  const runGenerate = useCallback(async () => {
     if (!project) return;
     setGenerating(true);
     setSource(null);
@@ -249,6 +252,23 @@ export default function OutputsPage() {
     }
     setGenerating(false);
   }, [project, updateProject]);
+
+  // Pre-flight: if the project is thin in many artifacts, surface a confirm
+  // dialog before burning an LLM round-trip.
+  const generate = useCallback(() => {
+    if (!project) return;
+    const readiness = assessGenerationReadiness(project);
+    if (!readiness.ok) {
+      setPreflightOpen(true);
+      return;
+    }
+    void runGenerate();
+  }, [project, runGenerate]);
+
+  const generateAnyway = useCallback(() => {
+    setPreflightOpen(false);
+    void runGenerate();
+  }, [runGenerate]);
 
   const copyTab = useCallback(async () => {
     const content = project?.outputs?.[activeTab];
@@ -739,6 +759,82 @@ export default function OutputsPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </Sheet>
+      )}
+      {project && (
+        <Sheet
+          open={preflightOpen}
+          onOpenChange={setPreflightOpen}
+          side="bottom"
+          ariaLabel="Generation pre-flight"
+        >
+          <div className="mx-auto max-w-lg w-full bg-background rounded-t-lg sm:rounded-lg sm:mt-20 shadow-lg border p-4 space-y-3">
+            <p className="text-sm font-semibold">Inputs are thin</p>
+            {(() => {
+              const r = assessGenerationReadiness(project);
+              return (
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    {r.gaps.length} of {r.totalCount} artifacts have thin or
+                    empty inputs. Generating now will produce light-weight
+                    output for these — you can fill the gaps first, or generate
+                    anyway.
+                  </p>
+                  <ul className="space-y-1 max-h-48 overflow-y-auto">
+                    {r.gaps.slice(0, 8).map((g) => (
+                      <li
+                        key={g.key}
+                        className="flex items-center justify-between gap-2 text-xs px-2 py-1.5 rounded border bg-muted/20"
+                      >
+                        <span className="truncate">
+                          <span
+                            className={cn(
+                              "inline-block w-1.5 h-1.5 rounded-full mr-1.5",
+                              g.readiness === "empty"
+                                ? "bg-red-500"
+                                : "bg-muted-foreground/40",
+                            )}
+                            aria-hidden
+                          />
+                          {g.label}
+                        </span>
+                        {g.hintTab && (
+                          <Link
+                            href={`/workspace/${project.id}/${g.hintTab}`}
+                            onClick={() => setPreflightOpen(false)}
+                            className="text-[11px] text-foreground/80 hover:text-foreground underline-offset-2 hover:underline"
+                          >
+                            Fix in {g.hintTab} →
+                          </Link>
+                        )}
+                      </li>
+                    ))}
+                    {r.gaps.length > 8 && (
+                      <li className="text-[10px] text-muted-foreground italic px-2">
+                        + {r.gaps.length - 8} more
+                      </li>
+                    )}
+                  </ul>
+                  <div className="flex items-center justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setPreflightOpen(false)}
+                      className="text-xs px-3 py-1.5 rounded-md border border-border hover:bg-muted/50 transition-colors"
+                    >
+                      Fill gaps first
+                    </button>
+                    <button
+                      type="button"
+                      onClick={generateAnyway}
+                      className="text-xs px-3 py-1.5 rounded-md bg-foreground text-background hover:bg-foreground/90 transition-colors font-medium"
+                    >
+                      Generate anyway
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </Sheet>
       )}

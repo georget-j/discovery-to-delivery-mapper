@@ -3,6 +3,7 @@
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { PilotPlanBuilder } from "@/components/PilotPlanBuilder";
 import { PageNav } from "@/components/PageNav";
+import { LiveArtifactPreview } from "@/components/LiveArtifactPreview";
 import {
   SaveIndicator,
   useSaveIndicator,
@@ -117,29 +118,34 @@ export default function PilotPage() {
   const workflowNames = project.workflows.map((w) => w.name).filter(Boolean);
 
   return (
-    <div className="max-w-4xl space-y-6">
-      <div className="sticky top-0 z-10 px-8 pt-8 pb-4 bg-background/95 backdrop-blur border-b flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold">Pilot Plan</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Lock down what success means before kick-off. Scope, users, metrics,
-            and the launch/rollback gates that decide go/no-go.
-          </p>
+    <div className="flex">
+      <div className="flex-1 max-w-4xl space-y-6">
+        <div className="sticky top-0 z-10 px-8 pt-8 pb-4 bg-background/95 backdrop-blur border-b flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-bold">Pilot Plan</h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              Lock down what success means before kick-off. Scope, users,
+              metrics, and the launch/rollback gates that decide go/no-go.
+            </p>
+          </div>
+          <SaveIndicator state={saveState} className="shrink-0 mt-1" />
         </div>
-        <SaveIndicator state={saveState} className="shrink-0 mt-1" />
+
+        <div className="px-8 pb-8 space-y-6">
+          <PilotTimeline plan={project.pilotPlan} />
+
+          <PilotPlanBuilder
+            plan={project.pilotPlan}
+            workflowNames={workflowNames}
+            onChange={(pilotPlan: PilotPlan) => updateProject({ pilotPlan })}
+          />
+
+          <PageNav />
+        </div>
       </div>
-
-      <div className="px-8 pb-8 space-y-6">
-        <PilotTimeline plan={project.pilotPlan} />
-
-        <PilotPlanBuilder
-          plan={project.pilotPlan}
-          workflowNames={workflowNames}
-          onChange={(pilotPlan: PilotPlan) => updateProject({ pilotPlan })}
-        />
-
-        <PageNav />
-      </div>
+      <LiveArtifactPreview
+        artifacts={["pilotSuccessPlan", "nextActionsChecklist"]}
+      />
     </div>
   );
 }

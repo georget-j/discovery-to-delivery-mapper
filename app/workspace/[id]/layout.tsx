@@ -4,6 +4,7 @@ import { WorkspaceSidebar } from "@/components/WorkspaceSidebar";
 import { JourneyBar } from "@/components/JourneyBar";
 import { CommandPalette } from "@/components/CommandPalette";
 import { GuidedTour } from "@/components/GuidedTour";
+import { ProjectCopilot } from "@/components/ProjectCopilot";
 import { loadScenario } from "@/lib/scenarios";
 
 export async function generateMetadata({
@@ -43,6 +44,7 @@ export default async function WorkspaceLayout({
       </div>
       <CommandPalette projectId={id} />
       <GuidedTour projectId={id} />
+      <ProjectCopilot />
     </WorkspaceProvider>
   );
 }
