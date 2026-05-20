@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useState, useEffect, useRef } from "react";
+import { useCallback, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FormField, ChipInput, FieldGroup } from "@/components/ui/form-field";
+import { useSaveIndicator, SaveIndicator } from "@/components/ui/save-indicator";
 import { StakeholderEditor } from "@/components/StakeholderEditor";
 import type { OnboardingProject, CustomerProfile, DiscoveryInput, Stakeholder } from "@/lib/types";
 
@@ -359,43 +360,6 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
       </FieldGroup>
     </div>
   );
-}
-
-// ── Save indicator ────────────────────────────────────────────────────────
-
-type SaveState = "idle" | "saving" | "saved";
-
-function useSaveIndicator(updatedAt: string | undefined): SaveState {
-  const [state, setState] = useState<SaveState>("idle");
-  const initial = useRef(updatedAt);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (updatedAt === initial.current) return; // skip mount
-    setState("saved");
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => setState("idle"), 1500);
-  }, [updatedAt]);
-
-  return state;
-}
-
-function SaveIndicator({ state }: { state: SaveState }) {
-  if (state === "saved") {
-    return (
-      <span className="inline-flex items-center gap-1.5 text-emerald-700 text-xs">
-        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-        Saved
-      </span>
-    );
-  }
-  if (state === "saving") {
-    return <span className="text-xs text-muted-foreground">Saving…</span>;
-  }
-  return <span className="inline-flex items-center gap-1.5 text-muted-foreground text-xs">
-    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40" />
-    Ready
-  </span>;
 }
 
 // ── Layout helpers ────────────────────────────────────────────────────────
