@@ -24,7 +24,7 @@ export function DataFlowDiagram() {
     systems: project.systems.length,
     dataSources: project.dataSources.length,
     stakeholders: project.stakeholders.length,
-    notes: !!project.meetingNotes,
+    notes: (project.meetingSessions?.length ?? 0) > 0,
   };
 
   const derived = {

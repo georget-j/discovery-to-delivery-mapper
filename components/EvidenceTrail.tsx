@@ -17,7 +17,7 @@ const TAB_FOR_TYPE: Record<SourceRefType, string> = {
   system:              "systems",
   data_source:         "systems",
   stakeholder:         "discovery",
-  stakeholder_concern: "discovery",
+  stakeholder_concern: "risks",       // concerns drive risk entries — route to Risks tab
   discovery_field:     "discovery",
   session:             "",            // Overview
   regulatory_context:  "discovery",
