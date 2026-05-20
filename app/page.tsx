@@ -2,6 +2,13 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
+const PHASES = [
+  { num: 1, label: "Discover", color: "border-blue-300 bg-blue-50 text-blue-800", blurb: "Capture context, stakeholders, notes" },
+  { num: 2, label: "Design",   color: "border-violet-300 bg-violet-50 text-violet-800", blurb: "Map workflows, systems, requirements" },
+  { num: 3, label: "Plan",     color: "border-amber-300 bg-amber-50 text-amber-800", blurb: "Surface risks, lock the pilot" },
+  { num: 4, label: "Deliver",  color: "border-emerald-300 bg-emerald-50 text-emerald-800", blurb: "Generate the 15-artifact pack" },
+];
+
 const OUTPUTS = [
   "Customer Discovery Summary",
   "Current & Future-State Workflow Map",
@@ -45,6 +52,11 @@ export default function Home() {
           deployment-ready onboarding plan — requirements, risks, engineering handoffs, pilot
           success metrics, and more.
         </p>
+        <p className="text-xs text-muted-foreground/80">
+          <span className="font-mono font-semibold text-foreground">15</span> deployment artifacts ·
+          <span className="font-mono font-semibold text-foreground"> 4</span> phases ·
+          <span className="font-mono font-semibold text-foreground"> 9</span> input categories
+        </p>
         <div className="flex items-center gap-3 pt-2">
           <Link href="/scenarios" className={buttonVariants({ size: "lg" })}>
             Browse Scenarios
@@ -52,6 +64,26 @@ export default function Home() {
           <Link href="/workspace/custom" className={buttonVariants({ variant: "outline", size: "lg" })}>
             Start Custom Project
           </Link>
+        </div>
+      </section>
+
+      {/* Journey pills */}
+      <section className="space-y-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          The 4-phase journey
+        </h2>
+        <div className="grid sm:grid-cols-4 gap-3">
+          {PHASES.map((p) => (
+            <div key={p.num} className={`rounded-lg border-2 px-4 py-3 ${p.color}`}>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="w-5 h-5 rounded-full bg-foreground text-background text-[10px] font-bold flex items-center justify-center">
+                  {p.num}
+                </span>
+                <span className="text-sm font-bold">{p.label}</span>
+              </div>
+              <p className="text-[11px] leading-relaxed opacity-80">{p.blurb}</p>
+            </div>
+          ))}
         </div>
       </section>
 

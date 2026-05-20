@@ -77,14 +77,19 @@ export function CoverageMatrix({ project, onPickArtifact }: Props) {
             Click any artifact label to jump to it.
           </p>
         </div>
-        <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-          <input
-            type="checkbox"
-            checked={emptyOnly}
-            onChange={(e) => setEmptyOnly(e.target.checked)}
-          />
-          Show only uncaptured categories
-        </label>
+        <button
+          type="button"
+          onClick={() => setEmptyOnly((v) => !v)}
+          className={cn(
+            "text-xs px-3 py-1.5 rounded-md border transition-colors shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+            emptyOnly
+              ? "bg-amber-50 border-amber-300 text-amber-900 font-medium"
+              : "bg-background border-border text-muted-foreground hover:text-foreground hover:bg-muted/30",
+          )}
+          aria-pressed={emptyOnly}
+        >
+          {emptyOnly ? "✓ Uncaptured only" : "Show uncaptured only"}
+        </button>
       </div>
 
       {stale && (

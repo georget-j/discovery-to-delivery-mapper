@@ -99,7 +99,7 @@ export function RiskRegister({ risks, onStatusChange, onDelete }: Props) {
             key={val}
             type="button"
             onClick={() => setFilterSeverity(val)}
-            className={cn("text-xs px-2.5 py-1 rounded-full border transition-colors",
+            className={cn("text-xs px-2.5 py-1 rounded-full border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
               filterSeverity === val ? "bg-foreground text-background border-foreground" : "border-border text-muted-foreground hover:text-foreground"
             )}
           >
@@ -120,7 +120,7 @@ export function RiskRegister({ risks, onStatusChange, onDelete }: Props) {
             key={val}
             type="button"
             onClick={() => setFilterStatus(val)}
-            className={cn("text-xs px-2.5 py-1 rounded-full border transition-colors",
+            className={cn("text-xs px-2.5 py-1 rounded-full border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
               filterStatus === val ? "bg-foreground text-background border-foreground" : "border-border text-muted-foreground hover:text-foreground"
             )}
           >

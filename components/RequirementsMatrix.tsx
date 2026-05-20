@@ -93,7 +93,7 @@ export function RequirementsMatrix({ requirements, manualIds, onDelete }: Props)
         <button
           type="button"
           onClick={() => setFilterCategory("all")}
-          className={cn("text-xs px-2.5 py-1 rounded-full border transition-colors", filterCategory === "all" ? "bg-foreground text-background border-foreground" : "border-border text-muted-foreground hover:text-foreground")}
+          className={cn("text-xs px-2.5 py-1 rounded-full border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", filterCategory === "all" ? "bg-foreground text-background border-foreground" : "border-border text-muted-foreground hover:text-foreground")}
         >
           All categories
         </button>
@@ -102,7 +102,7 @@ export function RequirementsMatrix({ requirements, manualIds, onDelete }: Props)
             key={c}
             type="button"
             onClick={() => setFilterCategory(c)}
-            className={cn("text-xs px-2.5 py-1 rounded-full border transition-colors", filterCategory === c ? "bg-foreground text-background border-foreground" : "border-border text-muted-foreground hover:text-foreground")}
+            className={cn("text-xs px-2.5 py-1 rounded-full border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", filterCategory === c ? "bg-foreground text-background border-foreground" : "border-border text-muted-foreground hover:text-foreground")}
           >
             {CATEGORY_LABELS[c]}
           </button>
@@ -112,7 +112,7 @@ export function RequirementsMatrix({ requirements, manualIds, onDelete }: Props)
         <button
           type="button"
           onClick={() => setFilterPriority("all")}
-          className={cn("text-xs px-2.5 py-1 rounded-full border transition-colors", filterPriority === "all" ? "bg-foreground text-background border-foreground" : "border-border text-muted-foreground hover:text-foreground")}
+          className={cn("text-xs px-2.5 py-1 rounded-full border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", filterPriority === "all" ? "bg-foreground text-background border-foreground" : "border-border text-muted-foreground hover:text-foreground")}
         >
           All priorities
         </button>
@@ -121,7 +121,7 @@ export function RequirementsMatrix({ requirements, manualIds, onDelete }: Props)
             key={p}
             type="button"
             onClick={() => setFilterPriority(p)}
-            className={cn("text-xs px-2.5 py-1 rounded-full border transition-colors", filterPriority === p ? "bg-foreground text-background border-foreground" : "border-border text-muted-foreground hover:text-foreground")}
+            className={cn("text-xs px-2.5 py-1 rounded-full border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", filterPriority === p ? "bg-foreground text-background border-foreground" : "border-border text-muted-foreground hover:text-foreground")}
           >
             {p === "must_have" ? "Must Have" : p === "should_have" ? "Should Have" : "Nice to Have"}
           </button>
