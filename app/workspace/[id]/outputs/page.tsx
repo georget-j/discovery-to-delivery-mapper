@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo, Fragment, type ReactNode } from "react"
 import ReactMarkdown from "react-markdown";
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { cn } from "@/lib/utils";
+import { toast } from "@/lib/toast";
 import { assembleOnboardingPack, downloadMarkdown } from "@/lib/markdown-export";
 import { PageNav } from "@/components/PageNav";
 import { StaleArtifactsBanner } from "@/components/outputs/StaleArtifactsBanner";
@@ -108,22 +109,31 @@ export default function OutputsPage() {
     if (!project) return;
     setGenerating(true);
     setSource(null);
-    try {
+    const startedAt = Date.now();
+    const work = (async () => {
       const res = await fetch("/api/generate/artifacts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(project),
       });
       const data = await res.json();
-      if (data.artifacts) {
-        updateProject({ outputs: data.artifacts });
-        setSource(data.source);
-      }
-    } catch (err) {
-      console.error("Generation failed", err);
-    } finally {
-      setGenerating(false);
-    }
+      if (!data.artifacts) throw new Error(data.error ?? "no_artifacts");
+      updateProject({ outputs: data.artifacts });
+      setSource(data.source);
+      return { source: data.source as string, ms: Date.now() - startedAt };
+    })();
+    toast.promise(work, {
+      loading: "Generating 15 artifacts…",
+      success: ({ source, ms }) => {
+        const secs = (ms / 1000).toFixed(1);
+        if (source === "ai") return `Generated via OpenAI in ${secs}s`;
+        if (source === "template_fallback") return `Used template fallback (${secs}s) — AI response was invalid`;
+        return `Generated from templates in ${secs}s (no OPENAI_API_KEY)`;
+      },
+      error: "Generation failed — check the console and try again",
+    });
+    try { await work; } catch { /* surfaced via toast */ }
+    setGenerating(false);
   }, [project, updateProject]);
 
   const copyTab = useCallback(async () => {
@@ -131,6 +141,7 @@ export default function OutputsPage() {
     if (!content) return;
     await navigator.clipboard.writeText(content);
     setCopied(true);
+    toast.success("Copied to clipboard");
     setTimeout(() => setCopied(false), 2000);
   }, [project, activeTab]);
 

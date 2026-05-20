@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { FormField, ChipInput } from "@/components/ui/form-field";
 import { cn, generateId } from "@/lib/utils";
+import { toast } from "@/lib/toast";
 import type {
   DiscoverySession,
   ActionItem,
@@ -99,17 +100,25 @@ export function SessionEditor({ session, defaultOpen = false, onChange, onDelete
       const data = await res.json();
       if (data.error === "no_api_key") {
         setError("AI extraction requires an OpenAI API key. Notes are saved and used in artifact generation.");
+        toast.info("AI extraction needs an API key — notes saved as plain text");
         return;
       }
       if (data.error) {
         setError("Extraction failed. Please try again or fill the tabs manually.");
+        toast.error("Extraction failed");
         return;
       }
       setSuggestions(data.suggestions as NotesExtractionResult);
       // Stamp extractedAt so SessionLog can show "extracted X ago".
       onChange({ ...session, notes: notesDraft, extractedAt: new Date().toISOString() });
+      const s = data.suggestions as NotesExtractionResult;
+      const hits = (s.suggestedWorkflows?.length ?? 0) + (s.suggestedSystems?.length ?? 0)
+        + (s.suggestedDataSources?.length ?? 0) + (s.suggestedRisks?.length ?? 0)
+        + (s.suggestedStakeholders?.length ?? 0) + (s.suggestedActionItems?.length ?? 0);
+      toast.success(`Extracted ${hits} suggestion${hits !== 1 ? "s" : ""}`, { description: "Review and click Apply all to add them" });
     } catch {
       setError("Network error. Please try again.");
+      toast.error("Network error — could not reach extraction endpoint");
     } finally {
       setExtracting(false);
     }
@@ -259,6 +268,9 @@ export function SessionEditor({ session, defaultOpen = false, onChange, onDelete
 
     setLastApplied(applied);
     setSuggestions(null);
+    if (applied.length > 0) {
+      toast.success("Applied to project", { description: applied.join(" · ") });
+    }
   }, [suggestions, project, session, onChange, updateProject]);
 
   // ── Manual action item ops on this session ─────────────────────────────
