@@ -2,34 +2,13 @@
 
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import type { OnboardingProject, SourceRef, SourceRefType } from "@/lib/types";
+import type { OnboardingProject, SourceRef } from "@/lib/types";
 import { computeArtifactSources, type ArtifactKey } from "@/lib/artifact-sources";
+import { SOURCE_REF_COLORS, TAB_FOR_SOURCE_REF } from "@/lib/source-ref-colors";
 
 type Props = {
   project: OnboardingProject;
   artifactKey: ArtifactKey;
-};
-
-const TAB_FOR_TYPE: Record<SourceRefType, string> = {
-  workflow_step:       "workflow",
-  system:              "systems",
-  data_source:         "systems",
-  stakeholder:         "discovery",
-  stakeholder_concern: "risks",
-  discovery_field:     "discovery",
-  session:             "",
-  regulatory_context:  "discovery",
-};
-
-const DOT_FOR_TYPE: Record<SourceRefType, string> = {
-  workflow_step:       "bg-blue-500",
-  system:              "bg-emerald-500",
-  data_source:         "bg-cyan-500",
-  stakeholder:         "bg-purple-500",
-  stakeholder_concern: "bg-red-500",
-  discovery_field:     "bg-slate-500",
-  session:             "bg-amber-500",
-  regulatory_context:  "bg-red-500",
 };
 
 // Right-side panel on the Outputs page showing exactly which inputs fed the
@@ -77,14 +56,14 @@ export function ArtifactSourcesPanel({ project, artifactKey }: Props) {
 }
 
 function SourceRow({ ref_, projectId }: { ref_: SourceRef; projectId: string }) {
-  const tab = TAB_FOR_TYPE[ref_.type];
+  const tab = TAB_FOR_SOURCE_REF[ref_.type];
   const href = `/workspace/${projectId}${tab ? `/${tab}` : ""}`;
   return (
     <Link
       href={href}
       className="flex items-center gap-2 text-xs px-2 py-1.5 rounded-md border bg-background hover:bg-muted/40 hover:shadow-sm transition-all"
     >
-      <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", DOT_FOR_TYPE[ref_.type])} />
+      <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", SOURCE_REF_COLORS[ref_.type].dot)} />
       <span className="truncate">{ref_.label ?? ref_.refId}</span>
     </Link>
   );

@@ -19,15 +19,15 @@ type Props = {
 };
 
 const CATEGORIES: { key: CoverageInputCategory; label: string; dot: string }[] = [
-  { key: "customer",      label: "Customer",      dot: "bg-blue-500"    },
-  { key: "discovery",     label: "Discovery",     dot: "bg-slate-500"   },
-  { key: "regulatory",    label: "Regulatory",    dot: "bg-red-500"     },
-  { key: "workflows",     label: "Workflows",     dot: "bg-blue-500"    },
-  { key: "systems",       label: "Systems",       dot: "bg-emerald-500" },
-  { key: "data_sources",  label: "Data sources",  dot: "bg-cyan-500"    },
-  { key: "stakeholders",  label: "Stakeholders",  dot: "bg-purple-500"  },
-  { key: "risks",         label: "Risks",         dot: "bg-red-500"     },
-  { key: "pilot",         label: "Pilot",         dot: "bg-amber-500"   },
+  { key: "customer",      label: "Customer",      dot: "bg-blue-600"     },
+  { key: "discovery",     label: "Discovery",     dot: "bg-slate-500"    },
+  { key: "regulatory",    label: "Regulatory",    dot: "bg-rose-500"     },
+  { key: "workflows",     label: "Workflows",     dot: "bg-blue-400"     },
+  { key: "systems",       label: "Systems",       dot: "bg-emerald-500"  },
+  { key: "data_sources",  label: "Data sources",  dot: "bg-cyan-500"     },
+  { key: "stakeholders",  label: "Stakeholders",  dot: "bg-purple-500"   },
+  { key: "risks",         label: "Risks",         dot: "bg-indigo-500"   },
+  { key: "pilot",         label: "Pilot",         dot: "bg-amber-500"    },
 ];
 
 // Bidirectional traceability view. Rows = input categories, columns = 15
