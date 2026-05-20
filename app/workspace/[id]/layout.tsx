@@ -1,22 +1,25 @@
+import type { Metadata } from "next";
 import { WorkspaceProvider } from "@/components/WorkspaceProvider";
 import { WorkspaceSidebar } from "@/components/WorkspaceSidebar";
 import { JourneyBar } from "@/components/JourneyBar";
+import { loadScenario } from "@/lib/scenarios";
 
-export default function WorkspaceLayout({
-  children,
+export async function generateMetadata({
   params,
 }: {
-  children: React.ReactNode;
   params: Promise<{ id: string }>;
-}) {
-  return (
-    <WorkspaceLayoutInner params={params}>
-      {children}
-    </WorkspaceLayoutInner>
-  );
+}): Promise<Metadata> {
+  const { id } = await params;
+  // Seeded scenarios have known company names; ad-hoc projects (sessionStorage)
+  // can't be read server-side, so fall back to a generic title.
+  const scenario = loadScenario(id);
+  const name = scenario?.customer.companyName ?? "Workspace";
+  return {
+    title: `${name} · Onboarding Simulator`,
+  };
 }
 
-async function WorkspaceLayoutInner({
+export default async function WorkspaceLayout({
   children,
   params,
 }: {

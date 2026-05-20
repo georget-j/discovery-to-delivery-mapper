@@ -1,7 +1,13 @@
+import type { Metadata } from "next";
 import { listScenarios } from "@/lib/scenarios";
 import { ScenarioCard } from "@/components/ScenarioCard";
 import { buttonVariants } from "@/components/ui/button";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Scenarios · Onboarding Simulator",
+  description: "Pick a pre-built customer scenario or start a blank project.",
+};
 
 export default function ScenariosPage() {
   const scenarios = listScenarios();

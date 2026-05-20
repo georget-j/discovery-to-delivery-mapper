@@ -4,19 +4,19 @@ import { CurrentStateWorkflowMapSchema } from "@/lib/visualisations/workflow-typ
 import { buildCurrentStateWorkflowPrompt } from "@/lib/visualisations/prompts";
 import { buildCurrentStateWorkflowTemplate } from "@/lib/visualisations/workflow-templates";
 import { hashWorkflows } from "@/lib/visualisations/workflow-helpers";
+import { parseBoundedJson, looksLikeProject } from "@/lib/api-guards";
 
 export async function POST(req: NextRequest) {
-  let project: OnboardingProject;
-  try {
-    const body = await req.json();
-    project = body.project;
-  } catch {
-    return NextResponse.json({ error: "invalid_request" }, { status: 400 });
+  const parsed = await parseBoundedJson<{ project?: unknown }>(req);
+  if (!parsed.ok) {
+    const status = parsed.error === "too_large" ? 413 : 400;
+    return NextResponse.json({ error: parsed.error }, { status });
   }
-
-  if (!project?.id) {
-    return NextResponse.json({ error: "missing_project" }, { status: 400 });
+  const candidate = parsed.data?.project;
+  if (!looksLikeProject(candidate)) {
+    return NextResponse.json({ error: "invalid_project" }, { status: 400 });
   }
+  const project = candidate as OnboardingProject;
 
   const apiKey = process.env.OPENAI_API_KEY;
 

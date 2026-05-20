@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { OnboardingProject } from "@/lib/types";
 import { NotesExtractionResultSchema } from "@/lib/schemas";
+import { parseBoundedJson } from "@/lib/api-guards";
+
+// Notes have their own ceiling — longer than the project-shape cap, since a
+// pasted transcript may legitimately be 100KB+, but capped to avoid burning
+// tokens on absurd inputs.
+const MAX_NOTES_CHARS = 80_000;
 
 // Bump when the prompt body changes meaningfully — read by no consumers today
 // but lets us version stored extractions later.
@@ -60,17 +65,17 @@ GUIDELINES
 - Empty arrays are fine; omit fields not mentioned rather than inserting placeholder strings.`;
 
 export async function POST(req: NextRequest) {
-  let body: { notes: string; project: OnboardingProject };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "invalid_request" }, { status: 400 });
+  const parsed = await parseBoundedJson<{ notes?: unknown }>(req);
+  if (!parsed.ok) {
+    const status = parsed.error === "too_large" ? 413 : 400;
+    return NextResponse.json({ error: parsed.error }, { status });
   }
-
-  const { notes } = body;
-
-  if (!notes || notes.trim().length < 20) {
+  const notes = parsed.data?.notes;
+  if (typeof notes !== "string" || notes.trim().length < 20) {
     return NextResponse.json({ error: "notes_too_short" }, { status: 400 });
+  }
+  if (notes.length > MAX_NOTES_CHARS) {
+    return NextResponse.json({ error: "notes_too_long" }, { status: 413 });
   }
 
   const apiKey = process.env.OPENAI_API_KEY;

@@ -4,6 +4,7 @@ import { buildArtifactPrompt } from "@/lib/prompts";
 import { GeneratedArtifactsSchema } from "@/lib/schemas";
 import { generateTemplateArtifacts } from "@/lib/artifact-templates";
 import { hashGenerationInputs } from "@/lib/artifact-helpers";
+import { parseBoundedJson, looksLikeProject } from "@/lib/api-guards";
 
 // Stamp every generated GeneratedArtifacts blob with the input hash + timestamp
 // so the Outputs page can detect when project inputs have drifted since.
@@ -16,12 +17,15 @@ function stamp(artifacts: GeneratedArtifacts, project: OnboardingProject): Gener
 }
 
 export async function POST(req: NextRequest) {
-  let project: OnboardingProject;
-  try {
-    project = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  const parsed = await parseBoundedJson<unknown>(req);
+  if (!parsed.ok) {
+    const status = parsed.error === "too_large" ? 413 : 400;
+    return NextResponse.json({ error: parsed.error }, { status });
   }
+  if (!looksLikeProject(parsed.data)) {
+    return NextResponse.json({ error: "invalid_project" }, { status: 400 });
+  }
+  const project = parsed.data as OnboardingProject;
 
   const apiKey = process.env.OPENAI_API_KEY;
 
