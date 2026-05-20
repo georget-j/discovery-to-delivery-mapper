@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { FormField, ChipInput } from "@/components/ui/form-field";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { generateId } from "@/lib/utils";
 import type { WorkflowStep, FutureState } from "@/lib/types";
@@ -222,9 +223,11 @@ export function WorkflowStepEditor({ steps, onChange }: Props) {
   return (
     <div className="space-y-3">
       {steps.length === 0 && (
-        <div className="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
-          No workflow steps yet. Add one for each step in the customer's current process — owner, system used, pain points. Drives the canvas and the future-state map.
-        </div>
+        <EmptyState
+          icon="🛠"
+          title="No workflow steps yet"
+          body="Outline each step your customer uses today — who owns it, what system they use, and what slows them down. This powers the workflow visualisation."
+        />
       )}
       {steps.map((step, i) => (
         <StepRow

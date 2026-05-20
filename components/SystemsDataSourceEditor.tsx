@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { generateId } from "@/lib/utils";
 import type { CustomerSystem, DataSource, SystemType, AccessMethod, DataSensitivity, IntegrationComplexity, DataType, DataFormat, DataQuality, AccessStatus } from "@/lib/types";
@@ -425,9 +426,11 @@ export function SystemsDataSourceEditor({ systems, dataSources, onSystemsChange,
         </div>
 
         {systems.length === 0 && (
-          <div className="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
-            No systems yet. Add every tool the AI reads from or writes to — CRM, case manager, ticketing, document store, etc.
-          </div>
+          <EmptyState
+            icon="🔌"
+            title="No systems yet"
+            body="Add every tool the AI reads from or writes to — CRM, case manager, ticketing, document store, etc."
+          />
         )}
         {systems.map((s) => (
           <SystemRow key={s.id} system={s} onUpdate={(p) => updateSystem(s.id, p)} onRemove={() => removeSystem(s.id)} />
@@ -461,9 +464,11 @@ export function SystemsDataSourceEditor({ systems, dataSources, onSystemsChange,
         </div>
 
         {dataSources.length === 0 && (
-          <div className="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
-            No data sources yet. Add datasets the AI ingests — transactions, tickets, contracts, telemetry. Quality and PII flags drive risks.
-          </div>
+          <EmptyState
+            icon="🗂"
+            title="No data sources yet"
+            body="Add datasets the AI ingests — transactions, tickets, contracts, telemetry. Quality and PII flags drive risks."
+          />
         )}
         {dataSources.map((s) => (
           <DataSourceRow key={s.id} source={s} onUpdate={(p) => updateSource(s.id, p)} onRemove={() => removeSource(s.id)} />

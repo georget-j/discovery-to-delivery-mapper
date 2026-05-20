@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import type { MissingInfoItem, MissingInfoOwner } from "@/lib/types";
 
@@ -20,9 +21,11 @@ const OWNER_COLORS: Record<MissingInfoOwner, string> = {
 export function MissingInfoLog({ items }: Props) {
   if (items.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
-        No open items. Discovery looks complete.
-      </div>
+      <EmptyState
+        icon="✅"
+        title="No open items"
+        body="Discovery looks complete. Nothing blocks the next phase."
+      />
     );
   }
 

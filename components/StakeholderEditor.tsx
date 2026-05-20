@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { FormField, ChipInput } from "@/components/ui/form-field";
+import { EmptyState } from "@/components/ui/empty-state";
 import { generateId } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import type { Stakeholder, StakeholderInvolvement, StakeholderInfluence } from "@/lib/types";
@@ -111,10 +112,11 @@ export function StakeholderEditor({ stakeholders, onChange }: Props) {
       )}
 
       {stakeholders.length === 0 && (
-        <div className="rounded-lg border border-dashed px-6 py-6 text-center text-sm text-muted-foreground space-y-1">
-          <p>No stakeholders added yet.</p>
-          <p className="text-xs text-muted-foreground/70">Aim to identify at least an Executive Sponsor, Technical Owner, and an End User.</p>
-        </div>
+        <EmptyState
+          icon="👥"
+          title="No stakeholders added yet"
+          body="Aim to identify at least an Executive Sponsor, a Technical Owner, and an End User."
+        />
       )}
 
       <div className="space-y-2">

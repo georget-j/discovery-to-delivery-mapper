@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { EvidenceTrail } from "@/components/EvidenceTrail";
 import type { DeploymentRisk, RiskCategory, RiskSeverity, RiskLikelihood, RiskStatus } from "@/lib/types";
@@ -68,9 +69,11 @@ export function RiskRegister({ risks, onStatusChange, onDelete }: Props) {
 
   if (risks.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed px-6 py-12 text-center text-sm text-muted-foreground">
-        No risks yet. Add systems, data sources, or stakeholders — the engine flags integration, data, security, and adoption risks automatically. Add custom ones below.
-      </div>
+      <EmptyState
+        icon="⚠️"
+        title="No risks yet"
+        body="As you add systems and data sources, we'll automatically identify integration and security risks. You can also add custom ones below."
+      />
     );
   }
 

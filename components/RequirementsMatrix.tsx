@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { EvidenceTrail } from "@/components/EvidenceTrail";
 import type { Requirement, RequirementCategory, RequirementPriority } from "@/lib/types";
@@ -64,9 +65,11 @@ export function RequirementsMatrix({ requirements, manualIds, onDelete }: Props)
 
   if (requirements.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed px-6 py-12 text-center text-sm text-muted-foreground">
-        No requirements yet. Fill in Workflow, Systems & Data, or Discovery — requirements derive automatically and show an evidence trail back to the source.
-      </div>
+      <EmptyState
+        icon="📋"
+        title="No requirements yet"
+        body="Requirements auto-generate from your workflows, systems, and discovery notes. Add data to those tabs and they'll appear here with an evidence trail back to the source."
+      />
     );
   }
 
