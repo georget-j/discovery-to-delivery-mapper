@@ -149,7 +149,7 @@ describe("hashWorkflows", () => {
     const h1 = hashWorkflows(fintech.workflows);
     // Pick a value different from whatever the first workflow already has
     const current = fintech.workflows[0].futureState;
-    const next = current === "human_led" ? "ai_assisted" : "human_led";
+    const next: "human_led" | "ai_assisted" = current === "human_led" ? "ai_assisted" : "human_led";
     const modified = fintech.workflows.map((w, i) => (i === 0 ? { ...w, futureState: next } : w));
     const h2 = hashWorkflows(modified);
     expect(h1).not.toBe(h2);
