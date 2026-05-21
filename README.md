@@ -1,8 +1,8 @@
-# Forward-Deployed Customer Onboarding Simulator
+# Discovery to Delivery Mapper
 
-> Simulate how a forward-deployed AI team turns messy customer discovery into a deployment-ready onboarding plan.
+> Map customer discovery into deployment readiness — requirements, risks, pilots, and engineering handoffs.
 
-**Live demo:** [ai-onboarding-simulator.vercel.app](https://ai-onboarding-simulator.vercel.app)
+**Live demo:** [discovery-to-delivery-mapper.vercel.app](https://discovery-to-delivery-mapper.vercel.app)
 
 ---
 
@@ -10,7 +10,7 @@
 
 Early-stage B2B AI startups hire forward-deployed engineers, solutions engineers, and deployment strategists to sit between customers and engineering. These roles require turning messy discovery into structured plans — requirements, risks, engineering handoffs, pilot KPIs, and customer communications.
 
-This project is a working simulator of that process. It demonstrates how to go from a real enterprise customer scenario to a complete onboarding pack that engineering can act on and customers can sign off.
+This tool maps that process end-to-end. It demonstrates how to go from a real enterprise customer scenario to a complete deployment pack that engineering can act on and customers can sign off.
 
 ---
 
@@ -35,7 +35,7 @@ This project is a working simulator of that process. It demonstrates how to go f
 - **Risk register** — 9-category risk register auto-generated from workflow and systems data
 - **Pilot success plan** — define KPIs, baselines, targets, launch criteria, and rollback criteria
 - **AI artifact generation** — structured outputs via OpenAI (falls back to templates if no key)
-- **Markdown export** — full downloadable onboarding pack
+- **Markdown export** — full downloadable deployment pack
 
 ---
 
@@ -77,8 +77,8 @@ Test coverage: scenarios loading, requirements engine (fintech/legaltech rules),
 ## Setup
 
 ```bash
-git clone https://github.com/georget-j/ai-onboarding-simulator
-cd ai-onboarding-simulator
+git clone https://github.com/georget-j/discovery-to-delivery-mapper
+cd discovery-to-delivery-mapper
 npm install
 cp .env.local.example .env.local
 # Add OPENAI_API_KEY to .env.local (optional — app runs without it)
@@ -91,8 +91,8 @@ Open [http://localhost:3000](http://localhost:3000)
 
 ## Environment Variables
 
-| Variable | Required | Description |
-|---|---|---|
+| Variable         | Required | Description                                                                   |
+| ---------------- | -------- | ----------------------------------------------------------------------------- |
 | `OPENAI_API_KEY` | Optional | Enables AI-generated artifacts. Without it, deterministic templates are used. |
 
 ---
@@ -106,7 +106,7 @@ Open [http://localhost:3000](http://localhost:3000)
 5. View auto-generated requirements and risk register
 6. Build pilot success plan
 7. Generate AI artifacts (or view template-filled versions)
-8. Export Markdown onboarding pack
+8. Export Markdown deployment pack
 
 See [`/docs/demo-script.md`](./docs/demo-script.md) for the full script.
 
@@ -114,20 +114,21 @@ See [`/docs/demo-script.md`](./docs/demo-script.md) for the full script.
 
 ## Scenarios
 
-| Scenario | Customer | Use Case | Industry |
-|---|---|---|---|
-| Fintech AML | Meridian Bank | AI-assisted AML case triage | Fintech |
-| Legaltech Contract | Harrington Shaw LLP | AI first-pass contract review | Legaltech |
-| Hardware Ops | Atlas Robotics | Remote incident triage | Hardware/Robotics |
-| Enterprise Support | Northbridge Insurance | Internal AI support agent | Insurance |
+| Scenario           | Customer              | Use Case                      | Industry          |
+| ------------------ | --------------------- | ----------------------------- | ----------------- |
+| Fintech AML        | Meridian Bank         | AI-assisted AML case triage   | Fintech           |
+| Legaltech Contract | Harrington Shaw LLP   | AI first-pass contract review | Legaltech         |
+| Hardware Ops       | Atlas Robotics        | Remote incident triage        | Hardware/Robotics |
+| Enterprise Support | Northbridge Insurance | Internal AI support agent     | Insurance         |
 
 ---
 
 ## What This Demonstrates
 
-This project demonstrates how a forward-deployed AI or solutions engineering team can turn messy customer discovery into structured implementation artifacts — requirements, risks, pilot plans, engineering handoffs, and customer communications.
+This tool demonstrates how a forward-deployed AI or solutions engineering team can map customer discovery into delivery-ready artifacts — requirements, risks, pilot plans, engineering handoffs, and customer communications.
 
 Skills shown:
+
 - Customer workflow analysis and requirements classification
 - Integration planning and data readiness assessment
 - Deployment risk identification and management

@@ -5,7 +5,7 @@ import { buttonVariants } from "@/components/ui/button";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Scenarios · Onboarding Simulator",
+  title: "Scenarios · Discovery to Delivery Mapper",
   description: "Pick a pre-built customer scenario or start a blank project.",
 };
 
@@ -16,12 +16,18 @@ export default function ScenariosPage() {
     <div className="mx-auto max-w-7xl px-6 py-12 space-y-8">
       <div className="flex items-start justify-between">
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">Customer Scenarios</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Customer Scenarios
+          </h1>
           <p className="text-muted-foreground text-sm">
-            Select a pre-built scenario to start a simulated onboarding workspace, or create a blank project.
+            Select a pre-built scenario to start a simulated onboarding
+            workspace, or create a blank project.
           </p>
         </div>
-        <Link href="/workspace/custom" className={buttonVariants({ variant: "outline" })}>
+        <Link
+          href="/workspace/custom"
+          className={buttonVariants({ variant: "outline" })}
+        >
           Start Blank Project
         </Link>
       </div>
@@ -33,10 +39,14 @@ export default function ScenariosPage() {
       </div>
 
       <div className="rounded-lg border bg-muted/30 p-5 text-sm text-muted-foreground space-y-1">
-        <p className="font-medium text-foreground text-xs uppercase tracking-wide">About these scenarios</p>
+        <p className="font-medium text-foreground text-xs uppercase tracking-wide">
+          About these scenarios
+        </p>
         <p>
-          All scenarios are fictional. Customer names, data, and situations are invented for demonstration purposes.
-          Each scenario is pre-seeded with realistic discovery data, workflows, systems, stakeholders, risks, and a pilot plan.
+          All scenarios are fictional. Customer names, data, and situations are
+          invented for demonstration purposes. Each scenario is pre-seeded with
+          realistic discovery data, workflows, systems, stakeholders, risks, and
+          a pilot plan.
         </p>
       </div>
     </div>

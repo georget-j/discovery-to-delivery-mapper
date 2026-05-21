@@ -16,7 +16,7 @@ type Step = {
 const STEPS: Step[] = [
   {
     title: "Welcome — let's walk the journey",
-    body: "This tool simulates how a forward-deployed AI team turns customer discovery into a deployable onboarding plan. 4 phases, ~30 minutes if you go slow. Press Cmd+K any time to jump around.",
+    body: "This tool maps customer discovery into a deployable plan. 4 phases, ~30 minutes if you go slow. Press Cmd+K any time to jump around.",
     ctaLabel: "Show me phase 1",
     ctaAction: "next",
   },

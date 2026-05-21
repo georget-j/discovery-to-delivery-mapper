@@ -3,10 +3,30 @@ import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 const PHASES = [
-  { num: 1, label: "Discover", color: "border-blue-300 bg-blue-50 text-blue-800", blurb: "Capture context, stakeholders, notes" },
-  { num: 2, label: "Design",   color: "border-violet-300 bg-violet-50 text-violet-800", blurb: "Map workflows, systems, requirements" },
-  { num: 3, label: "Plan",     color: "border-amber-300 bg-amber-50 text-amber-800", blurb: "Surface risks, lock the pilot" },
-  { num: 4, label: "Deliver",  color: "border-emerald-300 bg-emerald-50 text-emerald-800", blurb: "Generate the 15-artifact pack" },
+  {
+    num: 1,
+    label: "Discover",
+    color: "border-blue-300 bg-blue-50 text-blue-800",
+    blurb: "Capture context, stakeholders, notes",
+  },
+  {
+    num: 2,
+    label: "Design",
+    color: "border-violet-300 bg-violet-50 text-violet-800",
+    blurb: "Map workflows, systems, requirements",
+  },
+  {
+    num: 3,
+    label: "Plan",
+    color: "border-amber-300 bg-amber-50 text-amber-800",
+    blurb: "Surface risks, lock the pilot",
+  },
+  {
+    num: 4,
+    label: "Deliver",
+    color: "border-emerald-300 bg-emerald-50 text-emerald-800",
+    blurb: "Generate the 15-artifact pack",
+  },
 ];
 
 const OUTPUTS = [
@@ -41,27 +61,38 @@ export default function Home() {
       {/* Hero */}
       <section className="space-y-6 max-w-3xl">
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-xs">Portfolio Project</Badge>
-          <Badge variant="outline" className="text-xs">AI · B2B · Forward-Deployed</Badge>
+          <Badge variant="outline" className="text-xs">
+            Portfolio Project
+          </Badge>
+          <Badge variant="outline" className="text-xs">
+            AI · B2B · Deployment
+          </Badge>
         </div>
         <h1 className="text-4xl font-bold tracking-tight">
-          Forward-Deployed Customer Onboarding Simulator
+          Discovery to Delivery Mapper
         </h1>
         <p className="text-lg text-muted-foreground leading-relaxed">
-          Simulate how a forward-deployed AI team turns messy customer discovery into a
-          deployment-ready onboarding plan — requirements, risks, engineering handoffs, pilot
-          success metrics, and more.
+          Turn unstructured discovery into a structured delivery plan —
+          requirements, risks, engineering handoffs, pilot success metrics, and
+          more. Built for forward-deployed engineers, solutions engineers, and
+          deployment strategists.
         </p>
         <p className="text-xs text-muted-foreground/80">
-          <span className="font-mono font-semibold text-foreground">15</span> deployment artifacts ·
-          <span className="font-mono font-semibold text-foreground"> 4</span> phases ·
-          <span className="font-mono font-semibold text-foreground"> 9</span> input categories
+          <span className="font-mono font-semibold text-foreground">15</span>{" "}
+          deployment artifacts ·
+          <span className="font-mono font-semibold text-foreground"> 4</span>{" "}
+          phases ·
+          <span className="font-mono font-semibold text-foreground"> 9</span>{" "}
+          input categories
         </p>
         <div className="flex items-center gap-3 pt-2">
           <Link href="/scenarios" className={buttonVariants({ size: "lg" })}>
             Browse Scenarios
           </Link>
-          <Link href="/workspace/custom" className={buttonVariants({ variant: "outline", size: "lg" })}>
+          <Link
+            href="/workspace/custom"
+            className={buttonVariants({ variant: "outline", size: "lg" })}
+          >
             Start Custom Project
           </Link>
         </div>
@@ -74,14 +105,19 @@ export default function Home() {
         </h2>
         <div className="grid sm:grid-cols-4 gap-3">
           {PHASES.map((p) => (
-            <div key={p.num} className={`rounded-lg border-2 px-4 py-3 ${p.color}`}>
+            <div
+              key={p.num}
+              className={`rounded-lg border-2 px-4 py-3 ${p.color}`}
+            >
               <div className="flex items-center gap-2 mb-1">
                 <span className="w-5 h-5 rounded-full bg-foreground text-background text-[10px] font-bold flex items-center justify-center">
                   {p.num}
                 </span>
                 <span className="text-sm font-bold">{p.label}</span>
               </div>
-              <p className="text-[11px] leading-relaxed opacity-80">{p.blurb}</p>
+              <p className="text-[11px] leading-relaxed opacity-80">
+                {p.blurb}
+              </p>
             </div>
           ))}
         </div>
@@ -143,10 +179,10 @@ export default function Home() {
           <div className="rounded-lg border p-5 space-y-2">
             <h3 className="text-sm font-semibold">Why This Project Exists</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              This project demonstrates how a forward-deployed AI or solutions engineering team
-              can turn messy customer discovery into structured implementation artifacts —
-              requirements, risks, pilot plans, engineering handoffs, and customer
-              communications.
+              This project demonstrates how a forward-deployed AI or solutions
+              engineering team can turn messy customer discovery into structured
+              implementation artifacts — requirements, risks, pilot plans,
+              engineering handoffs, and customer communications.
             </p>
           </div>
         </div>

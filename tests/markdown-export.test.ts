@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { assembleOnboardingPack, assembleScopedPack } from "../lib/markdown-export";
+import {
+  assembleOnboardingPack,
+  assembleScopedPack,
+} from "../lib/markdown-export";
 import fintechScenario from "../data/scenarios/fintech-aml-onboarding.json";
 import type { OnboardingProject, GeneratedArtifacts } from "../lib/types";
 
@@ -92,7 +95,7 @@ describe("assembleOnboardingPack", () => {
 
   it("is valid markdown with a top-level heading", () => {
     const result = assembleOnboardingPack(projectWithOutputs);
-    expect(result).toMatch(/^# AI Onboarding Pack/);
+    expect(result).toMatch(/^# Deployment Pack/);
   });
 });
 

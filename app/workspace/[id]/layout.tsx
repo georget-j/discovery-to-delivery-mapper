@@ -18,7 +18,7 @@ export async function generateMetadata({
   const scenario = loadScenario(id);
   const name = scenario?.customer.companyName ?? "Workspace";
   return {
-    title: `${name} · Onboarding Simulator`,
+    title: `${name} · Discovery to Delivery Mapper`,
   };
 }
 

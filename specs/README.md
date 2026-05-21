@@ -1,6 +1,6 @@
 # Specs
 
-EARS-format feature specifications for the AI Onboarding Simulator.
+EARS-format feature specifications for the Discovery to Delivery Mapper.
 
 Format: each spec includes overview + user value, functional requirements
 (EARS), non-functional requirements, acceptance criteria (Given/When/Then),

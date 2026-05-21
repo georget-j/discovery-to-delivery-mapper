@@ -15,9 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Forward-Deployed Onboarding Simulator",
+  title: "Discovery to Delivery Mapper",
   description:
-    "Simulate how a forward-deployed AI team turns messy customer discovery into a deployment-ready onboarding plan.",
+    "Map customer discovery into deployment readiness — requirements, risks, pilots, and engineering handoffs.",
 };
 
 export default function RootLayout({

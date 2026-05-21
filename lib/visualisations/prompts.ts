@@ -4,7 +4,7 @@ import type { OnboardingProject } from "../types";
 // can invalidate cached outputs after a meaningful prompt edit.
 export const WORKFLOW_PROMPT_VERSION = "2";
 
-const SYSTEM_PROMPT_BASE = `You are an expert forward-deployed AI engineer producing structured visualisation data for an enterprise AI onboarding tool.
+const SYSTEM_PROMPT_BASE = `You are an expert forward-deployed AI engineer producing structured visualisation data for an enterprise discovery-to-delivery mapping tool.
 
 You return valid JSON conforming to the schema described in the user message. You never include markdown, prose, or explanation outside the JSON object.
 
@@ -13,23 +13,30 @@ You only use facts present in the project context — never invent customer syst
 When generating visualisations, produce specific, named nodes (not generic placeholders).`;
 
 function serialiseProjectForViz(project: OnboardingProject): string {
-  return JSON.stringify({
-    customer: project.customer,
-    discovery: project.discovery,
-    workflows: project.workflows,
-    systems: project.systems,
-    dataSources: project.dataSources,
-    stakeholders: project.stakeholders,
-    risks: project.risks.slice(0, 8),
-    ...(project.meetingNotes ? { meetingNotes: project.meetingNotes } : {}),
-  }, null, 2);
+  return JSON.stringify(
+    {
+      customer: project.customer,
+      discovery: project.discovery,
+      workflows: project.workflows,
+      systems: project.systems,
+      dataSources: project.dataSources,
+      stakeholders: project.stakeholders,
+      risks: project.risks.slice(0, 8),
+      ...(project.meetingNotes ? { meetingNotes: project.meetingNotes } : {}),
+    },
+    null,
+    2,
+  );
 }
 
 // ────────────────────────────────────────────────────────────
 // Current-State Workflow Map
 // ────────────────────────────────────────────────────────────
 
-export function buildCurrentStateWorkflowPrompt(project: OnboardingProject): { system: string; user: string } {
+export function buildCurrentStateWorkflowPrompt(project: OnboardingProject): {
+  system: string;
+  user: string;
+} {
   return {
     system: `${SYSTEM_PROMPT_BASE}
 
@@ -110,12 +117,16 @@ This visualisation describes the proposed AI-enabled operating model. You must:
 PROJECT CONTEXT (the ONLY facts you may use):
 ${serialiseProjectForViz(project)}
 
-${currentStateMap ? `BASED ON CURRENT-STATE MAP:
+${
+  currentStateMap
+    ? `BASED ON CURRENT-STATE MAP:
 ${JSON.stringify(currentStateMap, null, 2)}
 
 For each AI/human/system node, set sourceCurrentStateNodeIds to reference the current-state node(s) it replaces or evolves.
 
-` : ""}Return a JSON object with this shape. Do NOT include comments in your output.
+`
+    : ""
+}Return a JSON object with this shape. Do NOT include comments in your output.
 
 {
   "id": "<unique slug>",

@@ -8,49 +8,100 @@ function section(title: string, content: string): string {
 // Audience-scoped pack assembly. Mirrors the bundles in
 // components/outputs/PackOverview.tsx so the UI grouping is the source
 // of truth for what each bundle contains.
-const PACK_SCOPES: Record<"customer" | "internal" | "technical" | "full", {
-  label: string;
-  keys: ArtifactKey[];
-  sections: { num: number; title: string; key: ArtifactKey }[];
-}> = (() => {
+const PACK_SCOPES: Record<
+  "customer" | "internal" | "technical" | "full",
+  {
+    label: string;
+    keys: ArtifactKey[];
+    sections: { num: number; title: string; key: ArtifactKey }[];
+  }
+> = (() => {
   const ALL: { num: number; title: string; key: ArtifactKey }[] = [
-    { num: 1,  title: "Executive Summary",            key: "executiveSummary" },
-    { num: 2,  title: "Customer Discovery Summary",   key: "customerDiscoverySummary" },
-    { num: 3,  title: "Current State Workflow",       key: "currentStateWorkflow" },
-    { num: 4,  title: "Future State Workflow",        key: "futureStateWorkflow" },
-    { num: 5,  title: "Requirements Matrix",          key: "requirementsMatrix" },
-    { num: 6,  title: "Missing Information Log",      key: "missingInformationLog" },
-    { num: 7,  title: "Integration and API Plan",     key: "integrationAndApiPlan" },
-    { num: 8,  title: "Data Readiness Assessment",    key: "dataReadinessAssessment" },
-    { num: 9,  title: "Implementation Plan",          key: "implementationPlan" },
-    { num: 10, title: "Risk Register Summary",        key: "riskRegisterSummary" },
-    { num: 11, title: "Pilot Success Plan",           key: "pilotSuccessPlan" },
-    { num: 12, title: "Stakeholder Communication Plan", key: "stakeholderCommunicationPlan" },
-    { num: 13, title: "Engineering Handoff",          key: "engineeringHandoff" },
-    { num: 14, title: "Product Feedback Memo",        key: "productFeedbackMemo" },
-    { num: 15, title: "Next Actions Checklist",       key: "nextActionsChecklist" },
+    { num: 1, title: "Executive Summary", key: "executiveSummary" },
+    {
+      num: 2,
+      title: "Customer Discovery Summary",
+      key: "customerDiscoverySummary",
+    },
+    { num: 3, title: "Current State Workflow", key: "currentStateWorkflow" },
+    { num: 4, title: "Future State Workflow", key: "futureStateWorkflow" },
+    { num: 5, title: "Requirements Matrix", key: "requirementsMatrix" },
+    { num: 6, title: "Missing Information Log", key: "missingInformationLog" },
+    { num: 7, title: "Integration and API Plan", key: "integrationAndApiPlan" },
+    {
+      num: 8,
+      title: "Data Readiness Assessment",
+      key: "dataReadinessAssessment",
+    },
+    { num: 9, title: "Implementation Plan", key: "implementationPlan" },
+    { num: 10, title: "Risk Register Summary", key: "riskRegisterSummary" },
+    { num: 11, title: "Pilot Success Plan", key: "pilotSuccessPlan" },
+    {
+      num: 12,
+      title: "Stakeholder Communication Plan",
+      key: "stakeholderCommunicationPlan",
+    },
+    { num: 13, title: "Engineering Handoff", key: "engineeringHandoff" },
+    { num: 14, title: "Product Feedback Memo", key: "productFeedbackMemo" },
+    { num: 15, title: "Next Actions Checklist", key: "nextActionsChecklist" },
   ];
   const pick = (keys: ArtifactKey[]) => ALL.filter((a) => keys.includes(a.key));
-  const customer: ArtifactKey[] = ["executiveSummary", "futureStateWorkflow", "pilotSuccessPlan", "stakeholderCommunicationPlan", "nextActionsChecklist"];
-  const internal: ArtifactKey[] = ["customerDiscoverySummary", "requirementsMatrix", "missingInformationLog", "riskRegisterSummary", "implementationPlan"];
-  const technical: ArtifactKey[] = ["currentStateWorkflow", "integrationAndApiPlan", "dataReadinessAssessment", "engineeringHandoff"];
+  const customer: ArtifactKey[] = [
+    "executiveSummary",
+    "futureStateWorkflow",
+    "pilotSuccessPlan",
+    "stakeholderCommunicationPlan",
+    "nextActionsChecklist",
+  ];
+  const internal: ArtifactKey[] = [
+    "customerDiscoverySummary",
+    "requirementsMatrix",
+    "missingInformationLog",
+    "riskRegisterSummary",
+    "implementationPlan",
+  ];
+  const technical: ArtifactKey[] = [
+    "currentStateWorkflow",
+    "integrationAndApiPlan",
+    "dataReadinessAssessment",
+    "engineeringHandoff",
+  ];
   return {
-    customer:  { label: "Customer pack",  keys: customer,  sections: pick(customer)  },
-    internal:  { label: "Internal pack",  keys: internal,  sections: pick(internal)  },
-    technical: { label: "Technical pack", keys: technical, sections: pick(technical) },
-    full:      { label: "Full pack",      keys: ALL.map((a) => a.key), sections: ALL },
+    customer: {
+      label: "Customer pack",
+      keys: customer,
+      sections: pick(customer),
+    },
+    internal: {
+      label: "Internal pack",
+      keys: internal,
+      sections: pick(internal),
+    },
+    technical: {
+      label: "Technical pack",
+      keys: technical,
+      sections: pick(technical),
+    },
+    full: { label: "Full pack", keys: ALL.map((a) => a.key), sections: ALL },
   };
 })();
 
 export type PackScope = keyof typeof PACK_SCOPES;
 
-export function assembleScopedPack(project: OnboardingProject, scope: PackScope): string {
+export function assembleScopedPack(
+  project: OnboardingProject,
+  scope: PackScope,
+): string {
   const { customer, outputs } = project;
-  const date = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  const date = new Date().toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
   const cfg = PACK_SCOPES[scope];
 
   const lines: string[] = [
-    `# AI Onboarding Pack — ${customer.companyName}`,
+    `# Deployment Pack — ${customer.companyName}`,
     ``,
     `**Pack scope:** ${cfg.label}  `,
     `**Generated:** ${date}  `,
@@ -68,16 +119,22 @@ export function assembleScopedPack(project: OnboardingProject, scope: PackScope)
     lines.push(``);
   }
 
-  lines.push(`_Generated by [AI Onboarding Simulator](https://ai-onboarding-simulator.vercel.app) — [GitHub](https://github.com/georget-j/ai-onboarding-simulator)_`);
+  lines.push(
+    `_Generated by [Discovery to Delivery Mapper](https://discovery-to-delivery-mapper.vercel.app) — [GitHub](https://github.com/georget-j/discovery-to-delivery-mapper)_`,
+  );
   return lines.join("\n");
 }
 
 export function assembleOnboardingPack(project: OnboardingProject): string {
   const { customer, outputs } = project;
-  const date = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  const date = new Date().toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 
   const lines: string[] = [
-    `# AI Onboarding Pack — ${customer.companyName}`,
+    `# Deployment Pack — ${customer.companyName}`,
     ``,
     `**Generated:** ${date}  `,
     `**Industry:** ${customer.industry.replace(/_/g, " ")}  `,
@@ -90,7 +147,10 @@ export function assembleOnboardingPack(project: OnboardingProject): string {
     section("1. Executive Summary", outputs?.executiveSummary ?? ""),
     `---`,
     ``,
-    section("2. Customer Discovery Summary", outputs?.customerDiscoverySummary ?? ""),
+    section(
+      "2. Customer Discovery Summary",
+      outputs?.customerDiscoverySummary ?? "",
+    ),
     `---`,
     ``,
     section("3. Current State Workflow", outputs?.currentStateWorkflow ?? ""),
@@ -105,10 +165,16 @@ export function assembleOnboardingPack(project: OnboardingProject): string {
     section("6. Missing Information Log", outputs?.missingInformationLog ?? ""),
     `---`,
     ``,
-    section("7. Integration and API Plan", outputs?.integrationAndApiPlan ?? ""),
+    section(
+      "7. Integration and API Plan",
+      outputs?.integrationAndApiPlan ?? "",
+    ),
     `---`,
     ``,
-    section("8. Data Readiness Assessment", outputs?.dataReadinessAssessment ?? ""),
+    section(
+      "8. Data Readiness Assessment",
+      outputs?.dataReadinessAssessment ?? "",
+    ),
     `---`,
     ``,
     section("9. Implementation Plan", outputs?.implementationPlan ?? ""),
@@ -120,7 +186,10 @@ export function assembleOnboardingPack(project: OnboardingProject): string {
     section("11. Pilot Success Plan", outputs?.pilotSuccessPlan ?? ""),
     `---`,
     ``,
-    section("12. Stakeholder Communication Plan", outputs?.stakeholderCommunicationPlan ?? ""),
+    section(
+      "12. Stakeholder Communication Plan",
+      outputs?.stakeholderCommunicationPlan ?? "",
+    ),
     `---`,
     ``,
     section("13. Engineering Handoff", outputs?.engineeringHandoff ?? ""),
@@ -132,7 +201,7 @@ export function assembleOnboardingPack(project: OnboardingProject): string {
     section("15. Next Actions Checklist", outputs?.nextActionsChecklist ?? ""),
     `---`,
     ``,
-    `_Generated by [AI Onboarding Simulator](https://ai-onboarding-simulator.vercel.app) — [GitHub](https://github.com/georget-j/ai-onboarding-simulator)_`,
+    `_Generated by [Discovery to Delivery Mapper](https://discovery-to-delivery-mapper.vercel.app) — [GitHub](https://github.com/georget-j/discovery-to-delivery-mapper)_`,
   ];
 
   return lines.join("\n");

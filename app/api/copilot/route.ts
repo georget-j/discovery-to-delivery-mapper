@@ -4,7 +4,7 @@ import { projectContextBundle } from "@/lib/copilot-context";
 import { industryVoice } from "@/lib/industry-personae";
 import type { OnboardingProject } from "@/lib/types";
 
-const SYSTEM_PROMPT = `You are a forward-deployed AI deployment assistant for a customer onboarding simulator.
+const SYSTEM_PROMPT = `You are a forward-deployed AI deployment assistant for a discovery-to-delivery mapping tool.
 
 You have full read access to the user's onboarding project state — provided as a compact context bundle below. Answer the user's question grounded in that state.
 

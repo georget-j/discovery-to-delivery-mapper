@@ -19,10 +19,8 @@ export function AppHeader() {
           className="flex items-center gap-2 font-semibold text-sm shrink-0"
         >
           <span className="text-primary">⬡</span>
-          <span className="hidden xs:inline sm:inline">
-            Onboarding Simulator
-          </span>
-          <span className="xs:hidden sm:hidden">Simulator</span>
+          <span className="hidden sm:inline">Discovery to Delivery Mapper</span>
+          <span className="sm:hidden">D→D Mapper</span>
         </Link>
         <nav className="flex items-center gap-1">
           {nav.map(({ href, label }) => (
