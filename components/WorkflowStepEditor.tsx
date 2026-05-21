@@ -12,7 +12,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { FormField, ChipInput } from "@/components/ui/form-field";
+import {
+  FormField,
+  ChipInput,
+  validateRequired,
+} from "@/components/ui/form-field";
 import { EmptyState } from "@/components/ui/empty-state";
 import { InfoTip } from "@/components/ui/info-tip";
 import { cn } from "@/lib/utils";
@@ -71,6 +75,7 @@ type StepRowProps = {
 
 function StepRow({ step, index, onUpdate, onRemove }: StepRowProps) {
   const [open, setOpen] = useState(false);
+  const [nameError, setNameError] = useState<string | undefined>();
 
   return (
     <div
@@ -87,12 +92,23 @@ function StepRow({ step, index, onUpdate, onRemove }: StepRowProps) {
 
         <div className="flex-1 min-w-0">
           {open ? (
-            <Input
-              value={step.name}
-              onChange={(e) => onUpdate({ name: e.target.value })}
-              placeholder="Step name…"
-              className="h-7 text-sm font-medium"
-            />
+            <div className="space-y-1">
+              <Input
+                value={step.name}
+                onChange={(e) => onUpdate({ name: e.target.value })}
+                onBlur={(e) =>
+                  setNameError(validateRequired(e.target.value, "Step name"))
+                }
+                aria-invalid={!!nameError}
+                placeholder="Step name…"
+                className="h-7 text-sm font-medium"
+              />
+              {nameError && (
+                <p className="text-[11px] text-destructive" role="alert">
+                  {nameError}
+                </p>
+              )}
+            </div>
           ) : (
             <p className="text-sm font-medium truncate">
               {step.name || (

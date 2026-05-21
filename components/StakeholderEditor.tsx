@@ -11,7 +11,11 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { FormField, ChipInput } from "@/components/ui/form-field";
+import {
+  FormField,
+  ChipInput,
+  validateRequired,
+} from "@/components/ui/form-field";
 import { EmptyState } from "@/components/ui/empty-state";
 import { InfoTip } from "@/components/ui/info-tip";
 import { generateId } from "@/lib/utils";
@@ -200,6 +204,7 @@ function StakeholderRow({
 }) {
   // Default open if this is a brand-new stakeholder with no name yet.
   const [open, setOpen] = useState(!s.name);
+  const [nameError, setNameError] = useState<string | undefined>();
 
   return (
     <div
@@ -213,13 +218,26 @@ function StakeholderRow({
       <div className="flex items-center gap-3 px-4 py-3">
         <div className="flex-1 min-w-0">
           {open ? (
-            <Input
-              value={s.name}
-              onChange={(e) => onUpdate({ name: e.target.value })}
-              placeholder="Stakeholder name"
-              className="h-7 text-sm font-medium"
-              autoFocus
-            />
+            <div className="space-y-1">
+              <Input
+                value={s.name}
+                onChange={(e) => onUpdate({ name: e.target.value })}
+                onBlur={(e) =>
+                  setNameError(
+                    validateRequired(e.target.value, "Stakeholder name"),
+                  )
+                }
+                aria-invalid={!!nameError}
+                placeholder="Stakeholder name"
+                className="h-7 text-sm font-medium"
+                autoFocus
+              />
+              {nameError && (
+                <p className="text-[11px] text-destructive" role="alert">
+                  {nameError}
+                </p>
+              )}
+            </div>
           ) : (
             <p className="text-sm font-medium truncate">
               {s.name || (
@@ -281,14 +299,22 @@ function StakeholderRow({
           <Separator />
           <div className="px-4 py-4 space-y-4">
             <div className="grid sm:grid-cols-2 gap-4">
-              <FormField label="Role" helper="Job title or function.">
+              <FormField
+                label="Role"
+                helper="Job title or function."
+                flashOnSave={s.role}
+              >
                 <Input
                   value={s.role}
                   onChange={(e) => onUpdate({ role: e.target.value })}
                   placeholder="Chief Compliance Officer"
                 />
               </FormField>
-              <FormField label="Team" helper="Department or business unit.">
+              <FormField
+                label="Team"
+                helper="Department or business unit."
+                flashOnSave={s.team}
+              >
                 <Input
                   value={s.team}
                   onChange={(e) => onUpdate({ team: e.target.value })}

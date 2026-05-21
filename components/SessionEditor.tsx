@@ -128,6 +128,8 @@ export function SessionEditor({
   );
 
   // ── Field setters ───────────────────────────────────────────────────────
+  // Standardised debounce: 400ms across all editors. Matches the default in
+  // useFieldFlash so the "Saved" caption appears the moment persist commits.
   const setField = <K extends keyof DiscoverySession>(
     key: K,
     value: DiscoverySession[K],
@@ -135,7 +137,7 @@ export function SessionEditor({
     if (saveTimeout.current) clearTimeout(saveTimeout.current);
     saveTimeout.current = setTimeout(
       () => persist({ ...session, [key]: value }),
-      600,
+      400,
     );
   };
 

@@ -425,6 +425,7 @@ export function FutureStateAIWorkflowMap() {
         title="Future-State AI Workflow Map"
         subtitle="Double-click to rename · Right-click for actions · ⌘Z undo · ⌘L tidy · drag-select to multi-pick"
         titleBadge={map ? <SourceBadge source={map.source} /> : null}
+        lastSavedAt={map?.updatedAt}
         banner={
           map ? (
             <StaleBanner

@@ -2,6 +2,7 @@
 
 import { useState, useRef, type ReactNode, type KeyboardEvent } from "react";
 import { Label } from "@/components/ui/label";
+import { FieldSavedFlash } from "@/components/ui/save-indicator";
 import { cn } from "@/lib/utils";
 
 // ── FormField ──────────────────────────────────────────────────────────────
@@ -15,9 +16,14 @@ type FormFieldProps = {
   helper?: string;
   optional?: boolean;
   required?: boolean;
+  /** Validation error string. Triggers red border on aria-invalid inputs and
+   *  replaces helper text with the error message. Pass undefined when valid. */
   error?: string;
   /** Optional InfoTip (or any node) rendered inline after the label. */
   infoTip?: ReactNode;
+  /** When set, briefly flashes "✓ Saved" beside the label after the value
+   *  settles. Pass the same value bound to the input. */
+  flashOnSave?: unknown;
   children: ReactNode;
   className?: string;
 };
@@ -30,6 +36,7 @@ export function FormField({
   required,
   error,
   infoTip,
+  flashOnSave,
   children,
   className,
 }: FormFieldProps) {
@@ -44,15 +51,20 @@ export function FormField({
           {required && <span className="text-destructive ml-0.5">*</span>}
           {infoTip && <span className="not-italic">{infoTip}</span>}
         </Label>
-        {optional && (
-          <span className="text-[10px] text-muted-foreground/60 italic">
-            Optional
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {flashOnSave !== undefined && <FieldSavedFlash watch={flashOnSave} />}
+          {optional && (
+            <span className="text-[10px] text-muted-foreground/60 italic">
+              Optional
+            </span>
+          )}
+        </div>
       </div>
       {children}
       {error ? (
-        <p className="text-[11px] text-destructive">{error}</p>
+        <p className="text-[11px] text-destructive" role="alert">
+          {error}
+        </p>
       ) : helper ? (
         <p className="text-[11px] text-muted-foreground/80 leading-relaxed">
           {helper}
@@ -60,6 +72,40 @@ export function FormField({
       ) : null}
     </div>
   );
+}
+
+// ── Validation helpers ──────────────────────────────────────────────────────
+// Tiny set of validators forms can compose. Returns the error string or
+// undefined. Callers store the error in local state, set on blur, clear on
+// the next valid blur.
+
+export function validateRequired(
+  value: string,
+  label: string,
+): string | undefined {
+  if (!value || !value.trim()) return `${label} is required.`;
+  return undefined;
+}
+
+export function validateMinLength(
+  value: string,
+  min: number,
+  label: string,
+): string | undefined {
+  if (!value || value.trim().length < min) {
+    return `${label} must be at least ${min} characters.`;
+  }
+  return undefined;
+}
+
+export function validateUrl(value: string, label = "URL"): string | undefined {
+  if (!value) return undefined; // empty is fine — only validate when filled
+  try {
+    new URL(value.startsWith("http") ? value : `https://${value}`);
+    return undefined;
+  } catch {
+    return `${label} must be a valid URL.`;
+  }
 }
 
 // ── ChipInput ──────────────────────────────────────────────────────────────

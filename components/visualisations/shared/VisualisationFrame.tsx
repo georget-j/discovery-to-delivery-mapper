@@ -2,6 +2,10 @@
 
 import { ReactNode, useState } from "react";
 import { Sheet } from "@/components/ui/sheet";
+import {
+  SaveIndicator,
+  useSaveIndicator,
+} from "@/components/ui/save-indicator";
 
 type Props = {
   title: string;
@@ -16,6 +20,9 @@ type Props = {
   // Typically wired to !!selectedNodeId by the consumer.
   inspectorOpen?: boolean;
   onInspectorOpenChange?: (next: boolean) => void;
+  // Optional `updatedAt` from the underlying map. When it changes, the title
+  // row briefly flashes "Saved" so the user knows their drag persisted.
+  lastSavedAt?: string;
 };
 
 export function VisualisationFrame({
@@ -29,16 +36,21 @@ export function VisualisationFrame({
   legend,
   inspectorOpen = false,
   onInspectorOpenChange,
+  lastSavedAt,
 }: Props) {
   const [toolsOpen, setToolsOpen] = useState(false);
+  const saveState = useSaveIndicator(lastSavedAt);
 
   return (
     <div className="rounded-lg border bg-background overflow-hidden">
       <div className="flex items-start justify-between gap-4 border-b px-4 py-3 flex-wrap sm:flex-nowrap">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h3 className="text-sm font-semibold leading-tight">{title}</h3>
             {titleBadge}
+            {lastSavedAt && saveState === "saved" && (
+              <SaveIndicator state={saveState} />
+            )}
           </div>
           {subtitle && (
             <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed hidden sm:block">

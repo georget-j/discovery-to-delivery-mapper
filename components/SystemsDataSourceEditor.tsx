@@ -15,6 +15,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/ui/empty-state";
 import { InfoTip } from "@/components/ui/info-tip";
+import { validateRequired } from "@/components/ui/form-field";
 import { cn } from "@/lib/utils";
 import { generateId } from "@/lib/utils";
 import type {
@@ -149,6 +150,7 @@ type SystemRowProps = {
 
 function SystemRow({ system, onUpdate, onRemove }: SystemRowProps) {
   const [open, setOpen] = useState(false);
+  const [nameError, setNameError] = useState<string | undefined>();
   const apiFlag = system.apiAvailable === false;
 
   return (
@@ -171,12 +173,23 @@ function SystemRow({ system, onUpdate, onRemove }: SystemRowProps) {
         )}
         <div className="flex-1 min-w-0">
           {open ? (
-            <Input
-              value={system.name}
-              onChange={(e) => onUpdate({ name: e.target.value })}
-              placeholder="System name…"
-              className="h-7 text-sm font-medium"
-            />
+            <div className="space-y-1">
+              <Input
+                value={system.name}
+                onChange={(e) => onUpdate({ name: e.target.value })}
+                onBlur={(e) =>
+                  setNameError(validateRequired(e.target.value, "System name"))
+                }
+                aria-invalid={!!nameError}
+                placeholder="System name…"
+                className="h-7 text-sm font-medium"
+              />
+              {nameError && (
+                <p className="text-[11px] text-destructive" role="alert">
+                  {nameError}
+                </p>
+              )}
+            </div>
           ) : (
             <p className="text-sm font-medium truncate">
               {system.name || (
@@ -432,6 +445,7 @@ type DataSourceRowProps = {
 
 function DataSourceRow({ source, onUpdate, onRemove }: DataSourceRowProps) {
   const [open, setOpen] = useState(false);
+  const [nameError, setNameError] = useState<string | undefined>();
   const blocked = source.accessStatus === "blocked";
 
   return (
@@ -454,12 +468,25 @@ function DataSourceRow({ source, onUpdate, onRemove }: DataSourceRowProps) {
         )}
         <div className="flex-1 min-w-0">
           {open ? (
-            <Input
-              value={source.name}
-              onChange={(e) => onUpdate({ name: e.target.value })}
-              placeholder="Data source name…"
-              className="h-7 text-sm font-medium"
-            />
+            <div className="space-y-1">
+              <Input
+                value={source.name}
+                onChange={(e) => onUpdate({ name: e.target.value })}
+                onBlur={(e) =>
+                  setNameError(
+                    validateRequired(e.target.value, "Data source name"),
+                  )
+                }
+                aria-invalid={!!nameError}
+                placeholder="Data source name…"
+                className="h-7 text-sm font-medium"
+              />
+              {nameError && (
+                <p className="text-[11px] text-destructive" role="alert">
+                  {nameError}
+                </p>
+              )}
+            </div>
           ) : (
             <p className="text-sm font-medium truncate">
               {source.name || (

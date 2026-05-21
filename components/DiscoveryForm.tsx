@@ -10,7 +10,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FormField, ChipInput, FieldGroup } from "@/components/ui/form-field";
+import {
+  FormField,
+  ChipInput,
+  FieldGroup,
+  validateRequired,
+  validateMinLength,
+} from "@/components/ui/form-field";
 import {
   useSaveIndicator,
   SaveIndicator,
@@ -109,6 +115,16 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
   const { customer, discovery } = project;
   const saveState = useSaveIndicator(project.updatedAt);
 
+  // Per-field validation errors. Set on blur, cleared on next valid blur.
+  // Mount-time state is undefined so existing scenarios don't show errors
+  // until the user actually touches the field.
+  const [companyNameError, setCompanyNameError] = useState<
+    string | undefined
+  >();
+  const [businessProblemError, setBusinessProblemError] = useState<
+    string | undefined
+  >();
+
   const setCustomer = useCallback(
     (patch: Partial<CustomerProfile>) => {
       onUpdate({ customer: { ...customer, ...patch } });
@@ -159,11 +175,23 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
       >
         <SubSectionHeader>Identity</SubSectionHeader>
         <div className="grid sm:grid-cols-2 gap-4">
-          <FormField id="companyName" label="Company Name" required>
+          <FormField
+            id="companyName"
+            label="Company Name"
+            required
+            error={companyNameError}
+            flashOnSave={customer.companyName}
+          >
             <Input
               id="companyName"
               value={customer.companyName}
               onChange={(e) => setCustomer({ companyName: e.target.value })}
+              onBlur={(e) =>
+                setCompanyNameError(
+                  validateRequired(e.target.value, "Company name"),
+                )
+              }
+              aria-invalid={!!companyNameError}
               placeholder="Meridian Bank"
             />
           </FormField>
@@ -243,12 +271,20 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
           label="Business Problem"
           helper="1-2 sentences. Focus on the pain, not the proposed solution."
           required
+          error={businessProblemError}
+          flashOnSave={customer.businessProblem}
         >
           <Textarea
             id="businessProblem"
             rows={3}
             value={customer.businessProblem}
             onChange={(e) => setCustomer({ businessProblem: e.target.value })}
+            onBlur={(e) =>
+              setBusinessProblemError(
+                validateMinLength(e.target.value, 10, "Business problem"),
+              )
+            }
+            aria-invalid={!!businessProblemError}
             placeholder="AML analysts spend 4 hours per alert manually pulling KYC, transaction history, and sanctions data into case notes. Backlog is 1,200 alerts and growing."
           />
         </FormField>
@@ -257,6 +293,7 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
           id="desiredOutcome"
           label="Desired Outcome"
           helper="What success looks like, in their words. Quantify where possible — time reduction, error rate, throughput."
+          flashOnSave={customer.desiredOutcome}
         >
           <Textarea
             id="desiredOutcome"
@@ -410,6 +447,7 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
           helper="A short summary of how they work today, end-to-end. You'll map this step-by-step on the Workflow tab — this is the elevator-pitch version."
           example={CURRENT_PROCESS_EXAMPLE}
           required
+          flashOnSave={discovery.currentProcess}
         >
           <Textarea
             id="currentProcess"
@@ -503,6 +541,8 @@ function ExampleField({
   helper,
   example,
   required,
+  flashOnSave,
+  error,
   children,
 }: {
   id?: string;
@@ -510,6 +550,8 @@ function ExampleField({
   helper: string;
   example: string;
   required?: boolean;
+  flashOnSave?: unknown;
+  error?: string;
   children: React.ReactNode;
 }) {
   const [showExample, setShowExample] = useState(false);
@@ -528,7 +570,14 @@ function ExampleField({
 
   return (
     <div className="space-y-1.5">
-      <FormField id={id} label={label} required={required} helper="">
+      <FormField
+        id={id}
+        label={label}
+        required={required}
+        helper=""
+        flashOnSave={flashOnSave}
+        error={error}
+      >
         {showExample && (
           <div className="rounded-md border border-dashed bg-muted/30 px-3 py-2 mb-2 text-xs text-muted-foreground whitespace-pre-line leading-relaxed">
             <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold block mb-1">
