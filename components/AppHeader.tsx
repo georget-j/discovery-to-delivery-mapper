@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { listScenarios } from "@/lib/scenarios";
+import { listLocalProjects } from "@/lib/project-store";
+import type { OnboardingProject } from "@/lib/types";
 
 export function AppHeader() {
   const pathname = usePathname();
@@ -59,10 +61,24 @@ export function AppHeader() {
 }
 
 function ScenarioSwitcher({ activeId }: { activeId: string }) {
-  const scenarios = listScenarios();
+  const seeded = listScenarios();
   const [open, setOpen] = useState(false);
+  const [local, setLocal] = useState<OnboardingProject[]>([]);
   const wrapRef = useRef<HTMLDivElement | null>(null);
-  const active = scenarios.find((s) => s.id === activeId);
+
+  // Read local projects each time the menu opens so newly-created ones
+  // show up without a route reload.
+  useEffect(() => {
+    if (open) setLocal(listLocalProjects());
+  }, [open]);
+
+  const active =
+    seeded.find((s) => s.id === activeId) ??
+    local.find((p) => p.id === activeId);
+  const activeLabel =
+    active?.customer.companyName?.trim() ||
+    active?.name ||
+    (activeId.startsWith("local-") ? "Untitled Project" : "Workspace");
 
   // Close on outside click + Escape.
   useEffect(() => {
@@ -92,10 +108,8 @@ function ScenarioSwitcher({ activeId }: { activeId: string }) {
         aria-expanded={open}
         className="hidden sm:inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-border bg-background hover:bg-muted/40 transition-colors max-w-[14rem]"
       >
-        <span className="text-muted-foreground">Scenario:</span>
-        <span className="font-medium truncate">
-          {active?.customer.companyName ?? "Workspace"}
-        </span>
+        <span className="text-muted-foreground">Project:</span>
+        <span className="font-medium truncate">{activeLabel}</span>
         <span className="text-muted-foreground" aria-hidden>
           ▾
         </span>
@@ -105,51 +119,82 @@ function ScenarioSwitcher({ activeId }: { activeId: string }) {
           role="menu"
           className="absolute right-0 top-full mt-1.5 w-72 rounded-md border bg-popover shadow-lg z-50 p-1 max-h-[70vh] overflow-y-auto"
         >
-          {scenarios.map((s) => {
-            const isActive = s.id === activeId;
-            return (
-              <Link
-                key={s.id}
-                href={`/workspace/${s.id}`}
-                onClick={() => setOpen(false)}
-                role="menuitem"
-                className={cn(
-                  "block px-3 py-2 rounded text-sm transition-colors",
-                  isActive
-                    ? "bg-muted font-medium"
-                    : "hover:bg-muted/50 text-muted-foreground hover:text-foreground",
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="truncate flex-1">
-                    {s.customer.companyName}
-                  </span>
-                  {isActive && (
-                    <span
-                      className="text-[10px] text-muted-foreground"
-                      aria-hidden
-                    >
-                      ●
-                    </span>
-                  )}
-                </div>
-                <div className="text-[10px] text-muted-foreground/70 capitalize truncate">
-                  {s.customer.industry.replace(/_/g, " ")}
-                </div>
-              </Link>
-            );
-          })}
+          {local.length > 0 && (
+            <>
+              <p className="px-3 pt-1.5 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold">
+                Your projects
+              </p>
+              {local.map((p) => (
+                <ProjectMenuItem
+                  key={p.id}
+                  project={p}
+                  isActive={p.id === activeId}
+                  onClick={() => setOpen(false)}
+                />
+              ))}
+              <div className="border-t my-1" />
+            </>
+          )}
+          <p className="px-3 pt-1.5 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold">
+            Demo scenarios
+          </p>
+          {seeded.map((s) => (
+            <ProjectMenuItem
+              key={s.id}
+              project={s}
+              isActive={s.id === activeId}
+              onClick={() => setOpen(false)}
+            />
+          ))}
           <div className="border-t mt-1 pt-1">
             <Link
               href="/scenarios"
               onClick={() => setOpen(false)}
               className="block px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
             >
-              ← All scenarios
+              ← All scenarios + new project
             </Link>
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+function ProjectMenuItem({
+  project,
+  isActive,
+  onClick,
+}: {
+  project: OnboardingProject;
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  const label =
+    project.customer.companyName?.trim() || project.name || "Untitled Project";
+  return (
+    <Link
+      href={`/workspace/${project.id}`}
+      onClick={onClick}
+      role="menuitem"
+      className={cn(
+        "block px-3 py-2 rounded text-sm transition-colors",
+        isActive
+          ? "bg-muted font-medium"
+          : "hover:bg-muted/50 text-muted-foreground hover:text-foreground",
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <span className="truncate flex-1">{label}</span>
+        {isActive && (
+          <span className="text-[10px] text-muted-foreground" aria-hidden>
+            ●
+          </span>
+        )}
+      </div>
+      <div className="text-[10px] text-muted-foreground/70 capitalize truncate">
+        {project.customer.industry.replace(/_/g, " ")}
+      </div>
+    </Link>
   );
 }
