@@ -264,6 +264,7 @@ function SystemRow({ system, onUpdate, onRemove }: SystemRowProps) {
         <>
           <Separator />
           <div className="px-4 py-4 space-y-4">
+            {/* Essentials — always visible when row is expanded */}
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>System Type</Label>
@@ -296,7 +297,7 @@ function SystemRow({ system, onUpdate, onRemove }: SystemRowProps) {
                   placeholder="e.g. IT, Compliance…"
                 />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 sm:col-span-2">
                 <Label>Access Method</Label>
                 <Select
                   value={system.accessMethod}
@@ -321,127 +322,150 @@ function SystemRow({ system, onUpdate, onRemove }: SystemRowProps) {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
-                <Label>API Available</Label>
-                <Select
-                  value={String(system.apiAvailable)}
-                  onValueChange={(v) =>
-                    onUpdate({
-                      apiAvailable: v === "unknown" ? "unknown" : v === "true",
-                    })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="true">Yes</SelectItem>
-                    <SelectItem value="false">No</SelectItem>
-                    <SelectItem value="unknown">Unknown</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="inline-flex items-center gap-1.5">
-                  Data Sensitivity
-                  <InfoTip
-                    label="Data sensitivity levels"
-                    items={[
-                      {
-                        term: "Low",
-                        hint: "Public or non-sensitive — fine to send to any LLM",
-                      },
-                      {
-                        term: "Medium",
-                        hint: "Internal business data — needs basic controls",
-                      },
-                      {
-                        term: "High",
-                        hint: "Confidential / customer data — needs encryption + access logs",
-                      },
-                      {
-                        term: "Regulated",
-                        hint: "PII, PHI, financial — needs DPA, residency, audit trail",
-                      },
-                    ]}
-                  />
-                </Label>
-                <Select
-                  value={system.dataSensitivity}
-                  onValueChange={(v) =>
-                    onUpdate({ dataSensitivity: v as DataSensitivity })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="regulated">Regulated</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="inline-flex items-center gap-1.5">
-                  Integration Complexity
-                  <InfoTip
-                    label="Integration complexity"
-                    items={[
-                      {
-                        term: "Low",
-                        hint: "Off-the-shelf API, well-documented, public SDK",
-                      },
-                      {
-                        term: "Medium",
-                        hint: "Custom auth, sandbox env, some schema mapping",
-                      },
-                      {
-                        term: "High",
-                        hint: "Legacy / undocumented, requires vendor engagement",
-                      },
-                    ]}
-                  />
-                </Label>
-                <Select
-                  value={system.integrationComplexity}
-                  onValueChange={(v) =>
-                    onUpdate({
-                      integrationComplexity: v as IntegrationComplexity,
-                    })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label>Authentication Method</Label>
-                <Input
-                  value={system.authenticationMethod}
-                  onChange={(e) =>
-                    onUpdate({ authenticationMethod: e.target.value })
-                  }
-                  placeholder="OAuth 2.0, API key, SSO…"
-                />
-              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Notes</Label>
-              <Textarea
-                rows={2}
-                value={system.notes}
-                onChange={(e) => onUpdate({ notes: e.target.value })}
-                placeholder="Integration caveats, known blockers…"
-              />
-            </div>
+
+            {/* Advanced — collapsed by default. Keeps the row short for fast
+                capture; users open this when they need to lock in security
+                + integration detail. */}
+            <details className="group/advanced rounded-md border bg-muted/10">
+              <summary className="cursor-pointer list-none flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors">
+                <span
+                  aria-hidden
+                  className="group-open/advanced:rotate-90 transition-transform"
+                >
+                  ▸
+                </span>
+                <span className="font-medium">+ Add detail</span>
+                <span className="text-muted-foreground/60">
+                  (API, sensitivity, complexity, auth, notes)
+                </span>
+              </summary>
+              <div className="px-3 pt-2 pb-3 space-y-4">
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>API Available</Label>
+                    <Select
+                      value={String(system.apiAvailable)}
+                      onValueChange={(v) =>
+                        onUpdate({
+                          apiAvailable:
+                            v === "unknown" ? "unknown" : v === "true",
+                        })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="true">Yes</SelectItem>
+                        <SelectItem value="false">No</SelectItem>
+                        <SelectItem value="unknown">Unknown</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="inline-flex items-center gap-1.5">
+                      Data Sensitivity
+                      <InfoTip
+                        label="Data sensitivity levels"
+                        items={[
+                          {
+                            term: "Low",
+                            hint: "Public or non-sensitive — fine to send to any LLM",
+                          },
+                          {
+                            term: "Medium",
+                            hint: "Internal business data — needs basic controls",
+                          },
+                          {
+                            term: "High",
+                            hint: "Confidential / customer data — needs encryption + access logs",
+                          },
+                          {
+                            term: "Regulated",
+                            hint: "PII, PHI, financial — needs DPA, residency, audit trail",
+                          },
+                        ]}
+                      />
+                    </Label>
+                    <Select
+                      value={system.dataSensitivity}
+                      onValueChange={(v) =>
+                        onUpdate({ dataSensitivity: v as DataSensitivity })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="regulated">Regulated</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="inline-flex items-center gap-1.5">
+                      Integration Complexity
+                      <InfoTip
+                        label="Integration complexity"
+                        items={[
+                          {
+                            term: "Low",
+                            hint: "Off-the-shelf API, well-documented, public SDK",
+                          },
+                          {
+                            term: "Medium",
+                            hint: "Custom auth, sandbox env, some schema mapping",
+                          },
+                          {
+                            term: "High",
+                            hint: "Legacy / undocumented, requires vendor engagement",
+                          },
+                        ]}
+                      />
+                    </Label>
+                    <Select
+                      value={system.integrationComplexity}
+                      onValueChange={(v) =>
+                        onUpdate({
+                          integrationComplexity: v as IntegrationComplexity,
+                        })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label>Authentication Method</Label>
+                    <Input
+                      value={system.authenticationMethod}
+                      onChange={(e) =>
+                        onUpdate({ authenticationMethod: e.target.value })
+                      }
+                      placeholder="OAuth 2.0, API key, SSO…"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Notes</Label>
+                  <Textarea
+                    rows={2}
+                    value={system.notes}
+                    onChange={(e) => onUpdate({ notes: e.target.value })}
+                    placeholder="Integration caveats, known blockers…"
+                  />
+                </div>
+              </div>
+            </details>
           </div>
         </>
       )}
