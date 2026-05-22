@@ -25,6 +25,7 @@ import { CHIP } from "@/lib/semantic-colors";
 import { Surface } from "@/components/ui/surface";
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { StarterPackPicker } from "@/components/StarterPackPicker";
+import { GenerateFromDiscoveryButton } from "@/components/GenerateFromDiscoveryButton";
 import type { WorkflowStep, FutureState, OnboardingProject } from "@/lib/types";
 
 type Props = {
@@ -356,6 +357,7 @@ export function WorkflowStepEditor({ steps, onChange }: Props) {
               >
                 + Add first step
               </button>
+              <GenerateFromDiscoveryButton target="workflows" />
               <StarterPackPicker
                 target="workflows"
                 label="Add a workflow pack"

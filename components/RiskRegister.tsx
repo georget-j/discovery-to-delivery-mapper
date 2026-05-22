@@ -18,6 +18,7 @@ import {
   FilterPillBar,
   type FilterPillGroup,
 } from "@/components/FilterPillBar";
+import { GenerateFromDiscoveryButton } from "@/components/GenerateFromDiscoveryButton";
 import { ProvenancePopover } from "@/components/ui/provenance-popover";
 import type {
   DeploymentRisk,
@@ -126,15 +127,18 @@ export function RiskRegister({
         title="No risks yet"
         body="As you add systems and data sources, we'll automatically identify integration and security risks. You can also add custom ones below."
         cta={
-          onDetect ? (
-            <button
-              type="button"
-              onClick={onDetect}
-              className="text-xs px-3 py-1.5 rounded-md bg-foreground text-background hover:bg-foreground/90 transition-colors font-medium"
-            >
-              Run risk detection now
-            </button>
-          ) : undefined
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            {onDetect && (
+              <button
+                type="button"
+                onClick={onDetect}
+                className="text-xs px-3 py-1.5 rounded-md bg-foreground text-background hover:bg-foreground/90 transition-colors font-medium"
+              >
+                Run risk detection now
+              </button>
+            )}
+            <GenerateFromDiscoveryButton target="risks" />
+          </div>
         }
       />
     );

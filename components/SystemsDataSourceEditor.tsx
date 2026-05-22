@@ -22,6 +22,7 @@ import { CHIP } from "@/lib/semantic-colors";
 import { Surface } from "@/components/ui/surface";
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { StarterPackPicker } from "@/components/StarterPackPicker";
+import { GenerateFromDiscoveryButton } from "@/components/GenerateFromDiscoveryButton";
 import type {
   CustomerSystem,
   DataSource,
@@ -867,6 +868,7 @@ export function SystemsDataSourceEditor({
                 >
                   + Add first system
                 </button>
+                <GenerateFromDiscoveryButton target="systems" />
                 <StarterPackPicker
                   target="systems"
                   label="Add a systems pack"

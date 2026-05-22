@@ -24,6 +24,7 @@ import { CHIP, ROLE_CHIP } from "@/lib/semantic-colors";
 import { Surface } from "@/components/ui/surface";
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { StarterPackPicker } from "@/components/StarterPackPicker";
+import { GenerateFromDiscoveryButton } from "@/components/GenerateFromDiscoveryButton";
 import type {
   Stakeholder,
   StakeholderInvolvement,
@@ -188,6 +189,7 @@ export function StakeholderEditor({ stakeholders, onChange }: Props) {
               >
                 + Add first stakeholder
               </button>
+              <GenerateFromDiscoveryButton target="stakeholders" />
               <StarterPackPicker
                 target="stakeholders"
                 label="Add a stakeholder pack"
