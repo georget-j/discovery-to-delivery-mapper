@@ -21,6 +21,7 @@ import { generateId } from "@/lib/utils";
 import { CHIP } from "@/lib/semantic-colors";
 import { Surface } from "@/components/ui/surface";
 import { useWorkspace } from "@/components/WorkspaceProvider";
+import { StarterPackPicker } from "@/components/StarterPackPicker";
 import type {
   CustomerSystem,
   DataSource,
@@ -856,15 +857,21 @@ export function SystemsDataSourceEditor({
             title="No systems yet"
             body="Add every tool the AI reads from or writes to — CRM, case manager, ticketing, document store, etc."
             cta={
-              <button
-                type="button"
-                onClick={() =>
-                  onSystemsChange([...systems, newSystem(project)])
-                }
-                className="text-xs px-3 py-1.5 rounded-md bg-foreground text-background hover:bg-foreground/90 transition-colors font-medium"
-              >
-                + Add first system
-              </button>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    onSystemsChange([...systems, newSystem(project)])
+                  }
+                  className="text-xs px-3 py-1.5 rounded-md bg-foreground text-background hover:bg-foreground/90 transition-colors font-medium"
+                >
+                  + Add first system
+                </button>
+                <StarterPackPicker
+                  target="systems"
+                  label="Add a systems pack"
+                />
+              </div>
             }
           />
         )}

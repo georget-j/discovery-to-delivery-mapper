@@ -24,6 +24,7 @@ import { generateId } from "@/lib/utils";
 import { CHIP } from "@/lib/semantic-colors";
 import { Surface } from "@/components/ui/surface";
 import { useWorkspace } from "@/components/WorkspaceProvider";
+import { StarterPackPicker } from "@/components/StarterPackPicker";
 import type { WorkflowStep, FutureState, OnboardingProject } from "@/lib/types";
 
 type Props = {
@@ -347,13 +348,19 @@ export function WorkflowStepEditor({ steps, onChange }: Props) {
           title="No workflow steps yet"
           body="Outline each step your customer uses today — who owns it, what system they use, and what slows them down. This powers the workflow visualisation."
           cta={
-            <button
-              type="button"
-              onClick={addStep}
-              className="text-xs px-3 py-1.5 rounded-md bg-foreground text-background hover:bg-foreground/90 transition-colors font-medium"
-            >
-              + Add first step
-            </button>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={addStep}
+                className="text-xs px-3 py-1.5 rounded-md bg-foreground text-background hover:bg-foreground/90 transition-colors font-medium"
+              >
+                + Add first step
+              </button>
+              <StarterPackPicker
+                target="workflows"
+                label="Add a workflow pack"
+              />
+            </div>
           }
         />
       )}

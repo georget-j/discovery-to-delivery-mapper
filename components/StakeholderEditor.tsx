@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { CHIP, ROLE_CHIP } from "@/lib/semantic-colors";
 import { Surface } from "@/components/ui/surface";
 import { useWorkspace } from "@/components/WorkspaceProvider";
+import { StarterPackPicker } from "@/components/StarterPackPicker";
 import type {
   Stakeholder,
   StakeholderInvolvement,
@@ -179,13 +180,19 @@ export function StakeholderEditor({ stakeholders, onChange }: Props) {
           title="No stakeholders added yet"
           body="Aim to identify at least an Executive Sponsor, a Technical Owner, and an End User."
           cta={
-            <button
-              type="button"
-              onClick={addOne}
-              className="text-xs px-3 py-1.5 rounded-md bg-foreground text-background hover:bg-foreground/90 transition-colors font-medium"
-            >
-              + Add first stakeholder
-            </button>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={addOne}
+                className="text-xs px-3 py-1.5 rounded-md bg-foreground text-background hover:bg-foreground/90 transition-colors font-medium"
+              >
+                + Add first stakeholder
+              </button>
+              <StarterPackPicker
+                target="stakeholders"
+                label="Add a stakeholder pack"
+              />
+            </div>
           }
         />
       )}
