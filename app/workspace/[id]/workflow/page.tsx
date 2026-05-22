@@ -7,6 +7,7 @@ import { WorkflowAtAGlance } from "@/components/WorkflowAtAGlance";
 import { WorkflowTabs, type WorkflowTabId } from "@/components/WorkflowTabs";
 import { CurrentStateWorkflowMap } from "@/components/visualisations/current-state-workflow/CurrentStateWorkflowMap";
 import { FutureStateAIWorkflowMap } from "@/components/visualisations/future-state-workflow/FutureStateAIWorkflowMap";
+import { FutureStateRecommendations } from "@/components/recommendations/FutureStateRecommendations";
 import { PageNav } from "@/components/PageNav";
 import {
   SaveIndicator,
@@ -61,7 +62,12 @@ export default function WorkflowPage() {
           </Surface>
         }
         current={<CurrentStateWorkflowMap />}
-        future={<FutureStateAIWorkflowMap />}
+        future={
+          <div className="space-y-4">
+            <FutureStateRecommendations />
+            <FutureStateAIWorkflowMap />
+          </div>
+        }
       />
 
       <PageNav />

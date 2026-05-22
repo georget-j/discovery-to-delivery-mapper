@@ -21,7 +21,25 @@ import type {
   RiskCategory,
   RiskSeverity,
   RiskLikelihood,
+  SourceRef,
 } from "@/lib/types";
+
+// Optional citation map: keys are chunk ids, values are the chunk labels
+// (e.g. "sales-deck.pdf · p.3"). When provided, applied entities get a
+// sourceRefs entry stamped with type="knowledge_base_chunk" for every
+// chunk in the supplied list. Until per-row citation arrives from the
+// generation endpoint, we apply the same global citation set to all
+// newly-merged entities for a single apply call.
+export type KbCitationMap = Record<string, string>;
+
+function citationRefs(citations?: KbCitationMap): SourceRef[] {
+  if (!citations) return [];
+  return Object.entries(citations).map(([refId, label]) => ({
+    type: "knowledge_base_chunk" as const,
+    refId,
+    label,
+  }));
+}
 
 // Suggestion row keys — same shape as NotesDiffPanel's `RowId`.
 export type SuggestionRowId =
@@ -102,7 +120,9 @@ export function applySuggestionsToProject(
   project: OnboardingProject,
   suggestions: NotesExtractionResult,
   selected: Set<SuggestionRowId>,
+  citations?: KbCitationMap,
 ): ApplyResult {
+  const kbRefs = citationRefs(citations);
   const isPicked = (id: SuggestionRowId) => selected.has(id);
   const patch: Partial<OnboardingProject> = {};
   const applied: string[] = [];
@@ -311,7 +331,7 @@ export function applySuggestionsToProject(
       escalationTrigger: "",
       status: "open",
       source: "manual",
-      sourceRefs: [],
+      sourceRefs: kbRefs,
     }));
   if (newRisks.length > 0) {
     patch.risks = [...project.risks, ...newRisks];

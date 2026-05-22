@@ -81,6 +81,8 @@ export function CoverageMatrix({ project, onPickArtifact }: Props) {
         return project.risks.length > 0;
       case "pilot":
         return !!project.pilotPlan?.objective;
+      case "knowledge_base":
+        return (project.knowledgeBase?.totalChunks ?? 0) > 0;
     }
   };
 

@@ -318,7 +318,8 @@ export type SourceRefType =
   | "stakeholder_concern" // a specific concern string on a stakeholder
   | "discovery_field" // a field on discovery / customer (use refId as the field name)
   | "session" // a DiscoverySession
-  | "regulatory_context"; // a regulatory tag
+  | "regulatory_context" // a regulatory tag
+  | "knowledge_base_chunk"; // a KB chunk (Pass 4)
 
 export type SourceRef = {
   type: SourceRefType;
@@ -444,6 +445,8 @@ export type OnboardingProject = {
   // ISO timestamp of the one-shot "draft suggestions?" modal so it never
   // re-fires for the same project.
   suggestionsOfferedAt?: string;
+  // Knowledge base summary — doc list lives here, chunks live in IndexedDB.
+  knowledgeBase?: KnowledgeBaseSummary;
 };
 
 // ────────────────────────────────────────────────────────────
@@ -453,7 +456,103 @@ export type OnboardingProject = {
 export type ProjectVisualisations = {
   currentStateWorkflowMap?: import("./visualisations/workflow-types").CurrentStateWorkflowMap;
   futureStateAIWorkflowMap?: import("./visualisations/workflow-types").FutureStateAIWorkflowMap;
+  futureStateRecommendations?: FutureStateRecommendationsState;
   // architecture, lineage, heatmap, kpiTree added in later phases
+};
+
+// ────────────────────────────────────────────────────────────
+// Knowledge Base (Pass 4)
+// ────────────────────────────────────────────────────────────
+
+export type KnowledgeBaseDocStatus =
+  | "queued"
+  | "parsing"
+  | "chunking"
+  | "embedding"
+  | "ready"
+  | "failed";
+
+export type KnowledgeBaseDocType =
+  | "pdf"
+  | "docx"
+  | "xlsx"
+  | "csv"
+  | "txt"
+  | "md"
+  | "json"
+  | "rawtext";
+
+export type KnowledgeBaseDoc = {
+  id: string;
+  projectId: string;
+  name: string;
+  mimeType: string;
+  byteSize: number;
+  type: KnowledgeBaseDocType;
+  addedAt: string;
+  status: KnowledgeBaseDocStatus;
+  statusDetail?: string;
+  chunkCount: number;
+  pageCount?: number;
+  sheetCount?: number;
+  source: "upload" | "paste";
+};
+
+export type KnowledgeBaseChunk = {
+  id: string;
+  projectId: string;
+  docId: string;
+  text: string;
+  page?: number;
+  sheet?: string;
+  rangeRef?: string;
+  chunkIndex: number;
+};
+
+export type KnowledgeBaseSummary = {
+  docs: KnowledgeBaseDoc[];
+  totalChunks: number;
+  totalTokensEmbedded: number;
+  lastIngestedAt?: string;
+};
+
+// ────────────────────────────────────────────────────────────
+// Future-state recommendations (Pass 4 Part B)
+// ────────────────────────────────────────────────────────────
+
+export type AutomationPatternFamily =
+  | "agent"
+  | "agent_with_validator"
+  | "multi_agent"
+  | "rag"
+  | "rules_plus_ai"
+  | "hitl"
+  | "continuous_learning"
+  | "copilot";
+
+export type FutureStateRecommendation = {
+  id: string;
+  stepId: string | null; // null = workflow-level
+  patternId: string;
+  patternFamily: AutomationPatternFamily;
+  title: string;
+  rationale: string;
+  confidence: number; // 0..1
+  valueProposition: string;
+  risks: string[];
+  apply: {
+    futureState: FutureState;
+    futureStateDescription: string;
+  };
+  sourceChunkIds?: string[];
+};
+
+export type FutureStateRecommendationsState = {
+  recommendations: FutureStateRecommendation[];
+  generatedAt: string;
+  workflowsHashAtGeneration: string;
+  dismissedIds: string[];
+  appliedIds: string[];
 };
 
 // ────────────────────────────────────────────────────────────

@@ -111,7 +111,7 @@ describe("getTabForPath", () => {
 
   it("falls back to first tab for an unknown subpath", () => {
     expect(getTabForPath(`/workspace/${PID}/nonsense`, PID).label).toBe(
-      "Overview",
+      "Intake",
     );
   });
 });
@@ -119,9 +119,15 @@ describe("getTabForPath", () => {
 // ── getPrevNext ────────────────────────────────────────────────────────────
 
 describe("getPrevNext", () => {
-  it("first tab (Overview) has no prev", () => {
-    const { prev, next } = getPrevNext(`/workspace/${PID}`, PID);
+  it("first tab (Intake) has no prev", () => {
+    const { prev, next } = getPrevNext(`/workspace/${PID}/intake`, PID);
     expect(prev).toBeNull();
+    expect(next?.tab.label).toBe("Overview");
+  });
+
+  it("Overview tab sits between Intake and Discovery", () => {
+    const { prev, next } = getPrevNext(`/workspace/${PID}`, PID);
+    expect(prev?.tab.label).toBe("Intake");
     expect(next?.tab.label).toBe("Discovery");
   });
 

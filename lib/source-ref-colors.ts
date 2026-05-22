@@ -9,10 +9,10 @@
 import type { SourceRefType } from "./types";
 
 export type SourceRefColor = {
-  label: string;        // Human-readable type name
-  dot: string;          // Tailwind solid-color class for dots
-  chipClass: string;    // Tailwind background+text+border for chips
-  borderColor: string;  // Tailwind ring/border color (used for hollow dots)
+  label: string; // Human-readable type name
+  dot: string; // Tailwind solid-color class for dots
+  chipClass: string; // Tailwind background+text+border for chips
+  borderColor: string; // Tailwind ring/border color (used for hollow dots)
 };
 
 export const SOURCE_REF_COLORS: Record<SourceRefType, SourceRefColor> = {
@@ -69,6 +69,13 @@ export const SOURCE_REF_COLORS: Record<SourceRefType, SourceRefColor> = {
     chipClass: "bg-rose-50 text-rose-800 border-rose-200",
     borderColor: "border-rose-500",
   },
+  // Pass 4: knowledge-base chunks — teal, distinct from session amber.
+  knowledge_base_chunk: {
+    label: "Knowledge base",
+    dot: "bg-teal-500",
+    chipClass: "bg-teal-50 text-teal-800 border-teal-200",
+    borderColor: "border-teal-500",
+  },
 };
 
 // Maps a SourceRef type to the workspace tab where the source lives.
@@ -82,4 +89,5 @@ export const TAB_FOR_SOURCE_REF: Record<SourceRefType, string> = {
   discovery_field: "discovery",
   session: "",
   regulatory_context: "discovery",
+  knowledge_base_chunk: "intake",
 };

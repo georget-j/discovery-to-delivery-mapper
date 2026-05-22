@@ -46,6 +46,12 @@ export const PHASES: Phase[] = [
     },
     tabs: [
       {
+        href: "/intake",
+        label: "Intake",
+        description:
+          "Drop customer docs and raw notes — the foundation for everything else",
+      },
+      {
         href: "",
         label: "Overview",
         description: "Project at a glance, open actions, and notes",

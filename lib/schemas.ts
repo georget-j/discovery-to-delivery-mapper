@@ -67,17 +67,19 @@ const ActionItemSuggestionSchema = z.object({
   urgency: z.string(),
 });
 
-const DiscoverySuggestionSchema = z.object({
-  businessProblem: z.string().optional(),
-  primaryUseCase: z.string().optional(),
-  desiredOutcome: z.string().optional(),
-  currentProcess: z.string().optional(),
-  successDefinition: z.string().optional(),
-  implementationDeadline: z.string().optional(),
-  buyerTeam: z.string().optional(),
-  constraints: z.string().optional(),
-  regulatoryContext: z.array(z.string()).optional(),
-}).optional();
+const DiscoverySuggestionSchema = z
+  .object({
+    businessProblem: z.string().optional(),
+    primaryUseCase: z.string().optional(),
+    desiredOutcome: z.string().optional(),
+    currentProcess: z.string().optional(),
+    successDefinition: z.string().optional(),
+    implementationDeadline: z.string().optional(),
+    buyerTeam: z.string().optional(),
+    constraints: z.string().optional(),
+    regulatoryContext: z.array(z.string()).optional(),
+  })
+  .optional();
 
 export const NotesExtractionResultSchema = z.object({
   discovery: DiscoverySuggestionSchema,
@@ -90,4 +92,74 @@ export const NotesExtractionResultSchema = z.object({
   summary: z.string(),
 });
 
-export type NotesExtractionResultSchema = z.infer<typeof NotesExtractionResultSchema>;
+export type NotesExtractionResultSchema = z.infer<
+  typeof NotesExtractionResultSchema
+>;
+
+// ────────────────────────────────────────────────────────────
+// Knowledge Base + Recommendations (Pass 4)
+// ────────────────────────────────────────────────────────────
+
+export const EmbedRequestSchema = z.object({
+  texts: z.array(z.string().min(1).max(32000)).min(1).max(100),
+});
+export type EmbedRequest = z.infer<typeof EmbedRequestSchema>;
+
+export const FromKbContextChunkSchema = z.object({
+  id: z.string(),
+  text: z.string(),
+  label: z.string().optional(),
+});
+
+export const FromKbRequestSchema = z.object({
+  projectId: z.string(),
+  target: z.enum([
+    "discovery",
+    "workflows",
+    "systems",
+    "stakeholders",
+    "risks",
+    "all",
+  ]),
+  contextChunks: z.array(FromKbContextChunkSchema).max(40),
+});
+
+const RecommendationApplySchema = z.object({
+  futureState: z.enum([
+    "human_led",
+    "ai_assisted",
+    "automated",
+    "requires_approval",
+  ]),
+  futureStateDescription: z.string(),
+});
+
+const RecommendationItemSchema = z.object({
+  id: z.string(),
+  stepId: z.string().nullable(),
+  patternId: z.string(),
+  patternFamily: z.enum([
+    "agent",
+    "agent_with_validator",
+    "multi_agent",
+    "rag",
+    "rules_plus_ai",
+    "hitl",
+    "continuous_learning",
+    "copilot",
+  ]),
+  title: z.string(),
+  rationale: z.string(),
+  confidence: z.number().min(0).max(1),
+  valueProposition: z.string(),
+  risks: z.array(z.string()),
+  apply: RecommendationApplySchema,
+  sourceChunkIds: z.array(z.string()).optional(),
+});
+
+export const RecommendationsResponseSchema = z.object({
+  recommendations: z.array(RecommendationItemSchema),
+});
+export type RecommendationsResponse = z.infer<
+  typeof RecommendationsResponseSchema
+>;

@@ -44,6 +44,13 @@ export function deleteProject(id: string): void {
   localStorage.removeItem(key);
   sessionStorage.removeItem(key);
   unregisterLocalProject(id);
+  // Cascade KB chunks + doc metadata in IDB. Fire-and-forget — if IDB
+  // is unavailable or busy we still want the localStorage delete to
+  // proceed; the next load won't find a project to associate stale
+  // chunks with anyway.
+  void import("./kb/storage")
+    .then((m) => m.deleteProjectChunks(id))
+    .catch(() => {});
 }
 
 // ── Blank project factory ─────────────────────────────────────────────────

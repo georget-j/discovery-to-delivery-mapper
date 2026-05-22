@@ -37,7 +37,7 @@ export function NewProjectButton({
     const project = createBlankProject(name);
     saveProject(project);
     registerLocalProject(project.id);
-    router.push(`/workspace/${project.id}`);
+    router.push(`/workspace/${project.id}/intake`);
   };
 
   return (
