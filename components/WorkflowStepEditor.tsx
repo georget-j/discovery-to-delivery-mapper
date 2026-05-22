@@ -21,6 +21,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { InfoTip } from "@/components/ui/info-tip";
 import { cn } from "@/lib/utils";
 import { generateId } from "@/lib/utils";
+import { CHIP } from "@/lib/semantic-colors";
 import type { WorkflowStep, FutureState } from "@/lib/types";
 
 type Props = {
@@ -36,16 +37,16 @@ const FUTURE_STATE_LABELS: Record<FutureState, string> = {
 };
 
 const FUTURE_STATE_COLORS: Record<FutureState, string> = {
-  human_led: "bg-muted text-muted-foreground border-muted-foreground/30",
-  ai_assisted: "bg-blue-100 text-blue-800 border-blue-200",
-  automated: "bg-green-100 text-green-800 border-green-200",
-  requires_approval: "bg-amber-100 text-amber-800 border-amber-200",
+  human_led: CHIP.neutral,
+  ai_assisted: CHIP.info,
+  automated: CHIP.success,
+  requires_approval: CHIP.medium,
 };
 
 const AUTO_COLORS: Record<string, string> = {
-  high: "bg-green-100 text-green-800 border-green-200",
-  medium: "bg-yellow-100 text-yellow-800 border-yellow-200",
-  low: "bg-muted text-muted-foreground border-muted-foreground/30",
+  high: CHIP.success,
+  medium: CHIP.medium,
+  low: CHIP.neutral,
 };
 
 function newStep(): WorkflowStep {

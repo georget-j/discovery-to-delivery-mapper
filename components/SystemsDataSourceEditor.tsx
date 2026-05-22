@@ -18,6 +18,7 @@ import { InfoTip } from "@/components/ui/info-tip";
 import { validateRequired } from "@/components/ui/form-field";
 import { cn } from "@/lib/utils";
 import { generateId } from "@/lib/utils";
+import { CHIP } from "@/lib/semantic-colors";
 import type {
   CustomerSystem,
   DataSource,
@@ -81,30 +82,30 @@ const DATA_FORMAT_LABELS: Record<DataFormat, string> = {
 // ─── Colour maps ───────────────────────────────────────────────────────────────
 
 const SENSITIVITY_COLOR: Record<DataSensitivity, string> = {
-  low: "bg-green-100 text-green-800 border-green-200",
-  medium: "bg-yellow-100 text-yellow-800 border-yellow-200",
-  high: "bg-orange-100 text-orange-800 border-orange-200",
-  regulated: "bg-red-100 text-red-800 border-red-200",
+  low: CHIP.low,
+  medium: CHIP.medium,
+  high: CHIP.high,
+  regulated: CHIP.critical,
 };
 
 const COMPLEXITY_COLOR: Record<IntegrationComplexity, string> = {
-  low: "bg-green-100 text-green-800 border-green-200",
-  medium: "bg-yellow-100 text-yellow-800 border-yellow-200",
-  high: "bg-orange-100 text-orange-800 border-orange-200",
+  low: CHIP.low,
+  medium: CHIP.medium,
+  high: CHIP.high,
 };
 
 const ACCESS_STATUS_COLOR: Record<AccessStatus, string> = {
-  available: "bg-green-100 text-green-800 border-green-200",
-  pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
-  blocked: "bg-red-100 text-red-800 border-red-200",
-  unknown: "bg-muted text-muted-foreground border-muted-foreground/30",
+  available: CHIP.success,
+  pending: CHIP.medium,
+  blocked: CHIP.critical,
+  unknown: CHIP.neutral,
 };
 
 const QUALITY_COLOR: Record<DataQuality, string> = {
-  good: "bg-green-100 text-green-800 border-green-200",
-  mixed: "bg-yellow-100 text-yellow-800 border-yellow-200",
-  poor: "bg-red-100 text-red-800 border-red-200",
-  unknown: "bg-muted text-muted-foreground border-muted-foreground/30",
+  good: CHIP.success,
+  mixed: CHIP.medium,
+  poor: CHIP.critical,
+  unknown: CHIP.neutral,
 };
 
 // ─── Factories ─────────────────────────────────────────────────────────────────

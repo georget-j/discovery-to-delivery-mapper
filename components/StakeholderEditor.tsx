@@ -20,6 +20,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { InfoTip } from "@/components/ui/info-tip";
 import { generateId } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { CHIP, ROLE_CHIP } from "@/lib/semantic-colors";
 import type {
   Stakeholder,
   StakeholderInvolvement,
@@ -78,19 +79,22 @@ const INVOLVEMENT_LABELS: Record<StakeholderInvolvement, string> =
     INVOLVEMENT_OPTIONS.map((o) => [o.value, o.label]),
   ) as Record<StakeholderInvolvement, string>;
 
+// Stakeholder involvement is an IDENTITY axis, not a severity axis — each
+// role gets a distinct hue from the ROLE_CHIP palette. The exceptions
+// (legal_security → critical, end_user → neutral) keep semantic weight.
 const INVOLVEMENT_COLORS: Record<StakeholderInvolvement, string> = {
-  sponsor: "bg-purple-100 text-purple-800 border-purple-200",
-  decision_maker: "bg-blue-100 text-blue-800 border-blue-200",
-  technical_owner: "bg-emerald-100 text-emerald-800 border-emerald-200",
-  business_owner: "bg-amber-100 text-amber-800 border-amber-200",
-  end_user: "bg-slate-100 text-slate-700 border-slate-200",
-  legal_security: "bg-red-100 text-red-800 border-red-200",
-  procurement: "bg-cyan-100 text-cyan-800 border-cyan-200",
+  sponsor: ROLE_CHIP.purple,
+  decision_maker: CHIP.info,
+  technical_owner: CHIP.success,
+  business_owner: ROLE_CHIP.amber,
+  end_user: ROLE_CHIP.slate,
+  legal_security: CHIP.critical,
+  procurement: ROLE_CHIP.cyan,
 };
 
 const INFLUENCE_COLORS: Record<StakeholderInfluence, string> = {
   high: "bg-foreground/10 text-foreground border-foreground/20",
-  medium: "bg-muted text-muted-foreground border-muted-foreground/20",
+  medium: CHIP.neutral,
   low: "bg-muted/50 text-muted-foreground/70 border-muted-foreground/10",
 };
 
@@ -260,16 +264,13 @@ function StakeholderRow({
           )}
           <Badge
             variant="outline"
-            className={cn("text-[10px]", INVOLVEMENT_COLORS[s.involvement])}
+            className={cn("text-xs", INVOLVEMENT_COLORS[s.involvement])}
           >
             {INVOLVEMENT_LABELS[s.involvement]}
           </Badge>
           <Badge
             variant="outline"
-            className={cn(
-              "text-[10px] capitalize",
-              INFLUENCE_COLORS[s.influence],
-            )}
+            className={cn("text-xs capitalize", INFLUENCE_COLORS[s.influence])}
           >
             {s.influence} infl.
           </Badge>

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
+import { CHIP } from "@/lib/semantic-colors";
 import { EvidenceTrail } from "@/components/EvidenceTrail";
 import { ProvenancePopover } from "@/components/ui/provenance-popover";
 import type {
@@ -33,15 +34,15 @@ const CATEGORY_LABELS: Record<RequirementCategory, string> = {
 };
 
 const PRIORITY_COLORS: Record<RequirementPriority, string> = {
-  must_have: "bg-red-100 text-red-800 border-red-200",
-  should_have: "bg-yellow-100 text-yellow-800 border-yellow-200",
-  nice_to_have: "bg-muted text-muted-foreground border-muted-foreground/30",
+  must_have: CHIP.critical,
+  should_have: CHIP.medium,
+  nice_to_have: CHIP.neutral,
 };
 
 const STATUS_COLORS: Record<Requirement["status"], string> = {
-  confirmed: "bg-green-100 text-green-800 border-green-200",
-  assumption: "bg-blue-100 text-blue-800 border-blue-200",
-  needs_validation: "bg-orange-100 text-orange-800 border-orange-200",
+  confirmed: CHIP.success,
+  assumption: CHIP.info,
+  needs_validation: CHIP.high,
 };
 
 const ALL_CATEGORIES = Object.keys(CATEGORY_LABELS) as RequirementCategory[];

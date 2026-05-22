@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/select";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
+import { CHIP, CHIP_SUBTLE, ROLE_CHIP } from "@/lib/semantic-colors";
 import { EvidenceTrail } from "@/components/EvidenceTrail";
 import { ProvenancePopover } from "@/components/ui/provenance-popover";
 import type {
@@ -30,23 +31,23 @@ type Props = {
 };
 
 const SEVERITY_COLORS: Record<RiskSeverity, string> = {
-  critical: "bg-red-100 text-red-800 border-red-200",
-  high: "bg-orange-100 text-orange-800 border-orange-200",
-  medium: "bg-yellow-100 text-yellow-800 border-yellow-200",
-  low: "bg-green-100 text-green-800 border-green-200",
+  critical: CHIP.critical,
+  high: CHIP.high,
+  medium: CHIP.medium,
+  low: CHIP.low,
 };
 
 const LIKELIHOOD_COLORS: Record<RiskLikelihood, string> = {
-  high: "bg-red-50 text-red-700 border-red-200",
-  medium: "bg-yellow-50 text-yellow-700 border-yellow-200",
-  low: "bg-green-50 text-green-700 border-green-200",
+  high: CHIP_SUBTLE.critical,
+  medium: CHIP_SUBTLE.medium,
+  low: CHIP_SUBTLE.low,
 };
 
 const STATUS_COLORS: Record<RiskStatus, string> = {
-  open: "bg-muted text-muted-foreground border-muted-foreground/30",
-  mitigating: "bg-blue-100 text-blue-800 border-blue-200",
-  resolved: "bg-green-100 text-green-800 border-green-200",
-  accepted: "bg-purple-100 text-purple-800 border-purple-200",
+  open: CHIP.neutral,
+  mitigating: CHIP.info,
+  resolved: CHIP.success,
+  accepted: ROLE_CHIP.purple,
 };
 
 const CATEGORY_LABELS: Record<RiskCategory, string> = {

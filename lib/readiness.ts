@@ -1,4 +1,5 @@
 import type { ArtifactReadiness } from "@/lib/artifact-sources";
+import { CHIP_DOT } from "@/lib/semantic-colors";
 
 // Shared presentation layer for artifact-readiness signals.
 // Thresholds mirror getArtifactReadiness() in artifact-sources.ts — keep in sync.
@@ -10,10 +11,10 @@ export const READINESS_LABEL: Record<ArtifactReadiness, string> = {
 };
 
 export const READINESS_DOT: Record<ArtifactReadiness, string> = {
-  rich: "bg-emerald-500",
-  usable: "bg-amber-500",
-  thin: "bg-muted-foreground/40",
-  empty: "bg-red-500",
+  rich: CHIP_DOT.success,
+  usable: CHIP_DOT.medium,
+  thin: CHIP_DOT.neutral,
+  empty: CHIP_DOT.critical,
 };
 
 export const READINESS_DESCRIPTION: Record<ArtifactReadiness, string> = {
