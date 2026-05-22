@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Surface } from "@/components/ui/surface";
 import { cn } from "@/lib/utils";
 import { CHIP, CHIP_SUBTLE, ROLE_CHIP } from "@/lib/semantic-colors";
 import { EvidenceTrail } from "@/components/EvidenceTrail";
@@ -235,9 +236,8 @@ function RiskRow({ risk, onStatusChange, onDelete }: RiskRowProps) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div
+    <Surface
       className={cn(
-        "rounded-lg border bg-background",
         risk.severity === "critical" && "border-red-200 bg-red-50/20",
         risk.status === "resolved" && "opacity-60",
       )}
@@ -369,6 +369,6 @@ function RiskRow({ risk, onStatusChange, onDelete }: RiskRowProps) {
           </div>
         </div>
       )}
-    </div>
+    </Surface>
   );
 }

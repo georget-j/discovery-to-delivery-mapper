@@ -19,6 +19,7 @@ import { validateRequired } from "@/components/ui/form-field";
 import { cn } from "@/lib/utils";
 import { generateId } from "@/lib/utils";
 import { CHIP } from "@/lib/semantic-colors";
+import { Surface } from "@/components/ui/surface";
 import type {
   CustomerSystem,
   DataSource,
@@ -155,10 +156,10 @@ function SystemRow({ system, onUpdate, onRemove }: SystemRowProps) {
   const apiFlag = system.apiAvailable === false;
 
   return (
-    <div
+    <Surface
       id={system.id}
       className={cn(
-        "rounded-lg border bg-background scroll-mt-20",
+        "scroll-mt-20",
         apiFlag && "border-orange-200 bg-orange-50/30",
         open && "ring-1 ring-primary/20",
       )}
@@ -432,7 +433,7 @@ function SystemRow({ system, onUpdate, onRemove }: SystemRowProps) {
           </div>
         </>
       )}
-    </div>
+    </Surface>
   );
 }
 
@@ -450,10 +451,10 @@ function DataSourceRow({ source, onUpdate, onRemove }: DataSourceRowProps) {
   const blocked = source.accessStatus === "blocked";
 
   return (
-    <div
+    <Surface
       id={source.id}
       className={cn(
-        "rounded-lg border bg-background scroll-mt-20",
+        "scroll-mt-20",
         blocked && "border-red-200 bg-red-50/30",
         open && "ring-1 ring-primary/20",
       )}
@@ -745,7 +746,7 @@ function DataSourceRow({ source, onUpdate, onRemove }: DataSourceRowProps) {
           </div>
         </>
       )}
-    </div>
+    </Surface>
   );
 }
 

@@ -21,6 +21,7 @@ import { InfoTip } from "@/components/ui/info-tip";
 import { generateId } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { CHIP, ROLE_CHIP } from "@/lib/semantic-colors";
+import { Surface } from "@/components/ui/surface";
 import type {
   Stakeholder,
   StakeholderInvolvement,
@@ -211,12 +212,9 @@ function StakeholderRow({
   const [nameError, setNameError] = useState<string | undefined>();
 
   return (
-    <div
+    <Surface
       id={s.id}
-      className={cn(
-        "rounded-lg border bg-background scroll-mt-20",
-        open && "ring-1 ring-primary/20",
-      )}
+      className={cn("scroll-mt-20", open && "ring-1 ring-primary/20")}
     >
       {/* Header row */}
       <div className="flex items-center gap-3 px-4 py-3">
@@ -396,6 +394,6 @@ function StakeholderRow({
           </div>
         </>
       )}
-    </div>
+    </Surface>
   );
 }

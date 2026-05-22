@@ -2,6 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Surface } from "@/components/ui/surface";
 import { cn } from "@/lib/utils";
 import type { MissingInfoItem, MissingInfoOwner } from "@/lib/types";
 
@@ -39,19 +40,32 @@ export function MissingInfoLog({ items }: Props) {
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-muted-foreground">{items.length} open item{items.length !== 1 ? "s" : ""} need attention before pilot launch.</p>
+      <p className="text-sm text-muted-foreground">
+        {items.length} open item{items.length !== 1 ? "s" : ""} need attention
+        before pilot launch.
+      </p>
       {owners.map((owner) => (
         <section key={owner} className="space-y-2">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-            <Badge variant="outline" className={cn("text-xs capitalize", OWNER_COLORS[owner])}>{owner}</Badge>
-            <span className="font-normal">({byOwner[owner]!.length} item{byOwner[owner]!.length !== 1 ? "s" : ""})</span>
+            <Badge
+              variant="outline"
+              className={cn("text-xs capitalize", OWNER_COLORS[owner])}
+            >
+              {owner}
+            </Badge>
+            <span className="font-normal">
+              ({byOwner[owner]!.length} item
+              {byOwner[owner]!.length !== 1 ? "s" : ""})
+            </span>
           </h3>
           <div className="space-y-2">
             {byOwner[owner]!.map((item) => (
-              <div key={item.id} className="rounded-lg border bg-background px-4 py-3 space-y-1">
+              <Surface key={item.id} className="px-4 py-3 space-y-1">
                 <p className="text-sm font-medium">{item.item}</p>
-                <p className="text-xs text-muted-foreground leading-relaxed">{item.whyItMatters}</p>
-              </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {item.whyItMatters}
+                </p>
+              </Surface>
             ))}
           </div>
         </section>

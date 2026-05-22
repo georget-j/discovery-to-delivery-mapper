@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { Surface } from "@/components/ui/surface";
 import { cn } from "@/lib/utils";
 import { detectMissingInfo } from "@/lib/missing-info-engine";
 import { JourneyOverview } from "@/components/JourneyOverview";
@@ -22,34 +23,39 @@ const SEVERITY_COLOR: Record<string, string> = {
 };
 
 const OWNER_CONFIG: Record<MissingInfoOwner, { label: string; dot: string }> = {
-  customer:    { label: "Customer",    dot: "bg-blue-500" },
+  customer: { label: "Customer", dot: "bg-blue-500" },
   engineering: { label: "Engineering", dot: "bg-purple-500" },
-  security:    { label: "Security",    dot: "bg-red-500" },
-  commercial:  { label: "Commercial",  dot: "bg-amber-500" },
-  product:     { label: "Product",     dot: "bg-green-500" },
-  unknown:     { label: "TBD",         dot: "bg-muted-foreground" },
+  security: { label: "Security", dot: "bg-red-500" },
+  commercial: { label: "Commercial", dot: "bg-amber-500" },
+  product: { label: "Product", dot: "bg-green-500" },
+  unknown: { label: "TBD", dot: "bg-muted-foreground" },
 };
 
 const TAB_LABELS: Record<string, string> = {
   discovery: "Discovery",
-  workflow:  "Workflow",
-  systems:   "Systems & Data",
-  pilot:     "Pilot Plan",
+  workflow: "Workflow",
+  systems: "Systems & Data",
+  pilot: "Pilot Plan",
 };
 
 // ── Open Actions Panel ────────────────────────────────────────────────────
 
-function OpenActionsPanel({ items, projectId }: { items: MissingInfoItem[]; projectId: string }) {
+function OpenActionsPanel({
+  items,
+  projectId,
+}: {
+  items: MissingInfoItem[];
+  projectId: string;
+}) {
   const [open, setOpen] = useState(false);
 
-  const grouped = (Object.keys(OWNER_CONFIG) as MissingInfoOwner[]).reduce<Record<string, MissingInfoItem[]>>(
-    (acc, owner) => {
-      const ownerItems = items.filter((i) => i.suggestedOwner === owner);
-      if (ownerItems.length > 0) acc[owner] = ownerItems;
-      return acc;
-    },
-    {}
-  );
+  const grouped = (Object.keys(OWNER_CONFIG) as MissingInfoOwner[]).reduce<
+    Record<string, MissingInfoItem[]>
+  >((acc, owner) => {
+    const ownerItems = items.filter((i) => i.suggestedOwner === owner);
+    if (ownerItems.length > 0) acc[owner] = ownerItems;
+    return acc;
+  }, {});
 
   if (items.length === 0) {
     return (
@@ -72,19 +78,24 @@ function OpenActionsPanel({ items, projectId }: { items: MissingInfoItem[]; proj
           {items.length}
         </span>
         <span className="font-medium text-amber-900">
-          {items.length} open action{items.length !== 1 ? "s" : ""} — review before pilot launch
+          {items.length} open action{items.length !== 1 ? "s" : ""} — review
+          before pilot launch
         </span>
-        <span className="ml-auto text-amber-700/60 text-xs">{open ? "Hide ↑" : "Review ↓"}</span>
+        <span className="ml-auto text-amber-700/60 text-xs">
+          {open ? "Hide ↑" : "Review ↓"}
+        </span>
       </button>
 
       {open && (
-        <div className="rounded-lg border bg-background divide-y">
+        <Surface className="divide-y">
           {Object.entries(grouped).map(([owner, ownerItems]) => {
             const config = OWNER_CONFIG[owner as MissingInfoOwner];
             return (
               <div key={owner} className="px-4 py-3 space-y-2.5">
                 <div className="flex items-center gap-2">
-                  <span className={cn("w-2 h-2 rounded-full shrink-0", config.dot)} />
+                  <span
+                    className={cn("w-2 h-2 rounded-full shrink-0", config.dot)}
+                  />
                   <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     {config.label}
                   </span>
@@ -92,8 +103,12 @@ function OpenActionsPanel({ items, projectId }: { items: MissingInfoItem[]; proj
                 {ownerItems.map((action) => (
                   <div key={action.id} className="flex items-start gap-3 pl-4">
                     <div className="flex-1 min-w-0 space-y-0.5">
-                      <p className="text-sm font-medium leading-snug">{action.item}</p>
-                      <p className="text-xs text-muted-foreground leading-relaxed">{action.whyItMatters}</p>
+                      <p className="text-sm font-medium leading-snug">
+                        {action.item}
+                      </p>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        {action.whyItMatters}
+                      </p>
                     </div>
                     <Link
                       href={`/workspace/${projectId}/${action.relatedTab}`}
@@ -106,7 +121,7 @@ function OpenActionsPanel({ items, projectId }: { items: MissingInfoItem[]; proj
               </div>
             );
           })}
-        </div>
+        </Surface>
       )}
     </div>
   );
@@ -118,14 +133,21 @@ export default function WorkspaceDashboard() {
   const { project, loading } = useWorkspace();
 
   if (loading) {
-    return <div className="p-8 text-muted-foreground text-sm">Loading workspace…</div>;
+    return (
+      <div className="p-8 text-muted-foreground text-sm">
+        Loading workspace…
+      </div>
+    );
   }
 
   if (!project) {
     return (
       <div className="p-8 space-y-3">
         <p className="text-muted-foreground">Scenario not found.</p>
-        <Link href="/scenarios" className={buttonVariants({ variant: "outline", size: "sm" })}>
+        <Link
+          href="/scenarios"
+          className={buttonVariants({ variant: "outline", size: "sm" })}
+        >
           Browse Scenarios
         </Link>
       </div>
@@ -147,7 +169,9 @@ export default function WorkspaceDashboard() {
       {/* Header */}
       <div className="space-y-2">
         <div className="flex items-center gap-2 flex-wrap">
-          <Badge variant="outline" className="text-xs capitalize">{project.status}</Badge>
+          <Badge variant="outline" className="text-xs capitalize">
+            {project.status}
+          </Badge>
           <span className="text-xs text-muted-foreground capitalize">
             {project.customer.industry.replace(/_/g, " ")}
           </span>
@@ -166,7 +190,9 @@ export default function WorkspaceDashboard() {
 
       {/* Discovery session log — multi-session capture, replaces the old single notes textarea */}
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Discovery Sessions</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          Discovery Sessions
+        </h2>
         <SessionLog />
       </section>
 
@@ -182,45 +208,83 @@ export default function WorkspaceDashboard() {
       {/* Two-column: Open actions (left) + Key risks/quick stats (right) */}
       <div className="grid lg:grid-cols-3 gap-6">
         <section className="lg:col-span-2 space-y-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Open Actions</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Open Actions
+          </h2>
           <OpenActionsPanel items={missingInfo} projectId={project.id} />
         </section>
 
         <aside className="space-y-5">
           {topRisks.length > 0 && (
             <div className="space-y-2">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Key Risks</h2>
-              <div className="rounded-lg border bg-background divide-y">
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                Key Risks
+              </h2>
+              <Surface className="divide-y">
                 {topRisks.map((risk) => (
-                  <div key={risk.id} className="flex items-start gap-2 px-3 py-2 text-sm">
-                    <Badge variant="outline" className={cn("text-[10px] shrink-0 capitalize", SEVERITY_COLOR[risk.severity])}>
+                  <div
+                    key={risk.id}
+                    className="flex items-start gap-2 px-3 py-2 text-sm"
+                  >
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-[10px] shrink-0 capitalize",
+                        SEVERITY_COLOR[risk.severity],
+                      )}
+                    >
                       {risk.severity}
                     </Badge>
-                    <span className="text-foreground text-xs leading-snug">{risk.title}</span>
+                    <span className="text-foreground text-xs leading-snug">
+                      {risk.title}
+                    </span>
                   </div>
                 ))}
-              </div>
-              <Link href={`/workspace/${project.id}/risks`} className="text-xs text-muted-foreground hover:text-foreground transition-colors block">
+              </Surface>
+              <Link
+                href={`/workspace/${project.id}/risks`}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors block"
+              >
                 View all {project.risks.length} risks →
               </Link>
             </div>
           )}
 
           <div className="space-y-2">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Project Stats</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              Project Stats
+            </h2>
             <div className="grid grid-cols-2 gap-2">
               {[
-                { label: "Workflow Steps", value: project.workflows.length, href: "/workflow" },
-                { label: "Systems",        value: project.systems.length, href: "/systems" },
-                { label: "Data Sources",   value: project.dataSources.length, href: "/systems" },
-                { label: "Stakeholders",   value: project.stakeholders.length, href: "/discovery" },
+                {
+                  label: "Workflow Steps",
+                  value: project.workflows.length,
+                  href: "/workflow",
+                },
+                {
+                  label: "Systems",
+                  value: project.systems.length,
+                  href: "/systems",
+                },
+                {
+                  label: "Data Sources",
+                  value: project.dataSources.length,
+                  href: "/systems",
+                },
+                {
+                  label: "Stakeholders",
+                  value: project.stakeholders.length,
+                  href: "/discovery",
+                },
               ].map(({ label, value, href }) => (
                 <Link
                   key={label}
                   href={`/workspace/${project.id}${href}`}
                   className="rounded-md border bg-background hover:bg-muted/30 transition-colors px-3 py-2 block"
                 >
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                    {label}
+                  </p>
                   <p className="text-lg font-semibold">{value}</p>
                 </Link>
               ))}

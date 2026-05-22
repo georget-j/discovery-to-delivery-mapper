@@ -4,6 +4,7 @@ import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { FormField, ChipInput } from "@/components/ui/form-field";
+import { Surface } from "@/components/ui/surface";
 import { cn, generateId } from "@/lib/utils";
 import { toast } from "@/lib/toast";
 import { NotesDiffPanel, type RowId } from "@/components/NotesDiffPanel";
@@ -502,7 +503,7 @@ export function SessionEditor({
   };
 
   return (
-    <div className="rounded-lg border bg-background">
+    <Surface>
       {/* Header — date + title + collapse */}
       <button
         type="button"
@@ -678,7 +679,7 @@ export function SessionEditor({
           </div>
         </div>
       )}
-    </div>
+    </Surface>
   );
 }
 

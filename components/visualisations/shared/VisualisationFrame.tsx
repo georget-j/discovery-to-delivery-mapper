@@ -2,6 +2,7 @@
 
 import { ReactNode, useState } from "react";
 import { Sheet } from "@/components/ui/sheet";
+import { Surface } from "@/components/ui/surface";
 import {
   SaveIndicator,
   useSaveIndicator,
@@ -42,7 +43,7 @@ export function VisualisationFrame({
   const saveState = useSaveIndicator(lastSavedAt);
 
   return (
-    <div className="rounded-lg border bg-background overflow-hidden">
+    <Surface className="overflow-hidden">
       <div className="flex items-start justify-between gap-4 border-b px-4 py-3 flex-wrap sm:flex-nowrap">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
@@ -152,6 +153,6 @@ export function VisualisationFrame({
           )}
         </Sheet>
       )}
-    </div>
+    </Surface>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
+import { Surface } from "@/components/ui/surface";
 import type { OnboardingProject } from "@/lib/types";
 import {
   ARTIFACT_KEYS_ORDERED,
@@ -195,7 +196,7 @@ export function CoverageMatrix({ project, onPickArtifact }: Props) {
       </div>
 
       {/* Desktop table */}
-      <div className="hidden md:block rounded-lg border bg-background overflow-x-auto">
+      <Surface className="hidden md:block overflow-x-auto">
         <table className="w-full text-xs">
           <thead className="bg-muted/30 border-b">
             <tr>
@@ -271,7 +272,7 @@ export function CoverageMatrix({ project, onPickArtifact }: Props) {
             })}
           </tbody>
         </table>
-      </div>
+      </Surface>
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
         <span className="flex items-center gap-1.5">

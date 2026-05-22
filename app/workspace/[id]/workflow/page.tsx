@@ -12,6 +12,7 @@ import {
   SaveIndicator,
   useSaveIndicator,
 } from "@/components/ui/save-indicator";
+import { Surface } from "@/components/ui/surface";
 
 export default function WorkflowPage() {
   const { project, loading, updateProject } = useWorkspace();
@@ -49,12 +50,12 @@ export default function WorkflowPage() {
         active={activeTab}
         onChange={setActiveTab}
         steps={
-          <div className="rounded-lg border bg-background p-4">
+          <Surface className="p-4">
             <WorkflowStepEditor
               steps={project.workflows}
               onChange={(workflows) => updateProject({ workflows })}
             />
-          </div>
+          </Surface>
         }
         current={<CurrentStateWorkflowMap />}
         future={<FutureStateAIWorkflowMap />}

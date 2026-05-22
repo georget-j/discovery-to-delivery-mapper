@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Surface } from "@/components/ui/surface";
 import { cn } from "@/lib/utils";
 import { CHIP } from "@/lib/semantic-colors";
 import { EvidenceTrail } from "@/components/EvidenceTrail";
@@ -220,10 +221,10 @@ export function RequirementsMatrix({
                   ? "Needs Validation"
                   : req.status.charAt(0).toUpperCase() + req.status.slice(1);
               return (
-                <div
+                <Surface
                   key={req.id}
                   className={cn(
-                    "rounded-lg border bg-background px-4 py-3 space-y-1.5",
+                    "px-4 py-3 space-y-1.5",
                     isManual && "border-primary/30",
                   )}
                 >
@@ -283,7 +284,7 @@ export function RequirementsMatrix({
                       </span>
                     </span>
                   </div>
-                </div>
+                </Surface>
               );
             })}
           </div>

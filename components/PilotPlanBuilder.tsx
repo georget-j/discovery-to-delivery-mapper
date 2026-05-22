@@ -10,6 +10,7 @@ import {
   ChipInput,
   validateMinLength,
 } from "@/components/ui/form-field";
+import { Surface } from "@/components/ui/surface";
 import { generateId } from "@/lib/utils";
 import type { PilotPlan, SuccessMetric } from "@/lib/types";
 
@@ -54,7 +55,7 @@ type MetricRowProps = {
 
 function MetricRow({ metric, onUpdate, onRemove }: MetricRowProps) {
   return (
-    <div className="rounded-lg border bg-background px-4 py-3 space-y-3">
+    <Surface className="px-4 py-3 space-y-3">
       <div className="grid sm:grid-cols-2 gap-3">
         <div className="space-y-1">
           <Label className="text-xs">Metric Name</Label>
@@ -109,7 +110,7 @@ function MetricRow({ metric, onUpdate, onRemove }: MetricRowProps) {
       >
         Remove metric
       </button>
-    </div>
+    </Surface>
   );
 }
 

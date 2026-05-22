@@ -22,6 +22,7 @@ import { InfoTip } from "@/components/ui/info-tip";
 import { cn } from "@/lib/utils";
 import { generateId } from "@/lib/utils";
 import { CHIP } from "@/lib/semantic-colors";
+import { Surface } from "@/components/ui/surface";
 import type { WorkflowStep, FutureState } from "@/lib/types";
 
 type Props = {
@@ -79,12 +80,7 @@ function StepRow({ step, index, onUpdate, onRemove }: StepRowProps) {
   const [nameError, setNameError] = useState<string | undefined>();
 
   return (
-    <div
-      className={cn(
-        "rounded-lg border bg-background",
-        open && "ring-1 ring-primary/20",
-      )}
-    >
+    <Surface className={cn(open && "ring-1 ring-primary/20")}>
       {/* Header row */}
       <div className="flex items-center gap-3 px-4 py-3">
         <span className="text-xs font-mono text-muted-foreground w-5 shrink-0">
@@ -318,7 +314,7 @@ function StepRow({ step, index, onUpdate, onRemove }: StepRowProps) {
           </div>
         </>
       )}
-    </div>
+    </Surface>
   );
 }
 
