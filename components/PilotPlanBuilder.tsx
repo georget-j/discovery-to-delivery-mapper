@@ -11,8 +11,9 @@ import {
   validateMinLength,
 } from "@/components/ui/form-field";
 import { Surface } from "@/components/ui/surface";
+import { useWorkspace } from "@/components/WorkspaceProvider";
 import { generateId } from "@/lib/utils";
-import type { PilotPlan, SuccessMetric } from "@/lib/types";
+import type { PilotPlan, SuccessMetric, OnboardingProject } from "@/lib/types";
 
 type Props = {
   plan: PilotPlan | null;
@@ -20,9 +21,21 @@ type Props = {
   onChange: (plan: PilotPlan) => void;
 };
 
-function blankPlan(workflowNames: string[]): PilotPlan {
+// Smart defaults from Discovery: pre-seed the objective sentence using
+// primaryUseCase + desiredOutcome when both are present. Users can rewrite
+// freely; the seed just kills the blank-page problem.
+function blankPlan(
+  workflowNames: string[],
+  project?: OnboardingProject | null,
+): PilotPlan {
+  const useCase = project?.customer.primaryUseCase?.trim();
+  const outcome = project?.customer.desiredOutcome?.trim();
+  const seededObjective =
+    useCase && outcome
+      ? `Validate that AI ${useCase} achieves: ${outcome}`
+      : "";
   return {
-    objective: "",
+    objective: seededObjective,
     scope: "",
     pilotUsers: [],
     includedWorkflows: workflowNames,
@@ -32,7 +45,7 @@ function blankPlan(workflowNames: string[]): PilotPlan {
     launchCriteria: [],
     rollbackCriteria: [],
     baselineMeasurement: "",
-    targetOutcome: "",
+    targetOutcome: outcome ?? "",
   };
 }
 
@@ -115,7 +128,8 @@ function MetricRow({ metric, onUpdate, onRemove }: MetricRowProps) {
 }
 
 export function PilotPlanBuilder({ plan, workflowNames, onChange }: Props) {
-  const p = plan ?? blankPlan(workflowNames);
+  const { project } = useWorkspace();
+  const p = plan ?? blankPlan(workflowNames, project);
   const [objectiveError, setObjectiveError] = useState<string | undefined>();
 
   const set = (patch: Partial<PilotPlan>) => onChange({ ...p, ...patch });

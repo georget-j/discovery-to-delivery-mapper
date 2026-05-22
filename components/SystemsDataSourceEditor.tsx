@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { generateId } from "@/lib/utils";
 import { CHIP } from "@/lib/semantic-colors";
 import { Surface } from "@/components/ui/surface";
+import { useWorkspace } from "@/components/WorkspaceProvider";
 import type {
   CustomerSystem,
   DataSource,
@@ -31,6 +32,7 @@ import type {
   DataFormat,
   DataQuality,
   AccessStatus,
+  OnboardingProject,
 } from "@/lib/types";
 
 // ─── Label maps ────────────────────────────────────────────────────────────────
@@ -111,32 +113,42 @@ const QUALITY_COLOR: Record<DataQuality, string> = {
 
 // ─── Factories ─────────────────────────────────────────────────────────────────
 
-function newSystem(): CustomerSystem {
+// Smart defaults from Discovery: owner from buyerTeam; sensitivity bumps to
+// "regulated" when the project has any regulatory context (GDPR, HIPAA, etc.).
+function newSystem(project?: OnboardingProject | null): CustomerSystem {
+  const hasRegulatory = (project?.customer.regulatoryContext?.length ?? 0) > 0;
   return {
     id: generateId(),
     name: "",
     type: "other",
-    owner: "",
+    owner: project?.discovery.buyerTeam ?? "",
     accessMethod: "api",
     apiAvailable: "unknown",
     authenticationMethod: "",
-    dataSensitivity: "medium",
+    dataSensitivity: hasRegulatory ? "regulated" : "medium",
     integrationComplexity: "medium",
     notes: "",
   };
 }
 
-function newDataSource(): DataSource {
+// Smart defaults from Discovery: sourceSystem from the first named system on
+// the project; pii from regulatory context (GDPR/HIPAA/PCI imply PII).
+function newDataSource(project?: OnboardingProject | null): DataSource {
+  const firstSystemName = project?.systems.find((s) => s.name)?.name ?? "";
+  const piiRegs = ["GDPR", "HIPAA", "PCI", "DPA", "CCPA"];
+  const hasPiiReg = (project?.customer.regulatoryContext ?? []).some((r) =>
+    piiRegs.some((p) => r.toUpperCase().includes(p)),
+  );
   return {
     id: generateId(),
     name: "",
-    sourceSystem: "",
+    sourceSystem: firstSystemName,
     dataType: "other",
     format: "unknown",
     quality: "unknown",
     volumeEstimate: "",
     updateFrequency: "",
-    pii: "unknown",
+    pii: hasPiiReg ? true : "unknown",
     accessStatus: "unknown",
     openQuestions: [],
   };
@@ -765,6 +777,7 @@ export function SystemsDataSourceEditor({
   onSystemsChange,
   onDataSourcesChange,
 }: Props) {
+  const { project } = useWorkspace();
   const updateSystem = (id: string, patch: Partial<CustomerSystem>) =>
     onSystemsChange(systems.map((s) => (s.id === id ? { ...s, ...patch } : s)));
   const removeSystem = (id: string) =>
@@ -821,7 +834,9 @@ export function SystemsDataSourceEditor({
             cta={
               <button
                 type="button"
-                onClick={() => onSystemsChange([...systems, newSystem()])}
+                onClick={() =>
+                  onSystemsChange([...systems, newSystem(project)])
+                }
                 className="text-xs px-3 py-1.5 rounded-md bg-foreground text-background hover:bg-foreground/90 transition-colors font-medium"
               >
                 + Add first system
@@ -839,7 +854,7 @@ export function SystemsDataSourceEditor({
         ))}
         <button
           type="button"
-          onClick={() => onSystemsChange([...systems, newSystem()])}
+          onClick={() => onSystemsChange([...systems, newSystem(project)])}
           className="w-full rounded-lg border border-dashed px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:border-border hover:bg-muted/30 transition-colors"
         >
           + Add system
@@ -884,7 +899,7 @@ export function SystemsDataSourceEditor({
               <button
                 type="button"
                 onClick={() =>
-                  onDataSourcesChange([...dataSources, newDataSource()])
+                  onDataSourcesChange([...dataSources, newDataSource(project)])
                 }
                 className="text-xs px-3 py-1.5 rounded-md bg-foreground text-background hover:bg-foreground/90 transition-colors font-medium"
               >
@@ -903,7 +918,9 @@ export function SystemsDataSourceEditor({
         ))}
         <button
           type="button"
-          onClick={() => onDataSourcesChange([...dataSources, newDataSource()])}
+          onClick={() =>
+            onDataSourcesChange([...dataSources, newDataSource(project)])
+          }
           className="w-full rounded-lg border border-dashed px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:border-border hover:bg-muted/30 transition-colors"
         >
           + Add data source

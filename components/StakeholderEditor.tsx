@@ -22,10 +22,12 @@ import { generateId } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { CHIP, ROLE_CHIP } from "@/lib/semantic-colors";
 import { Surface } from "@/components/ui/surface";
+import { useWorkspace } from "@/components/WorkspaceProvider";
 import type {
   Stakeholder,
   StakeholderInvolvement,
   StakeholderInfluence,
+  OnboardingProject,
 } from "@/lib/types";
 
 type Props = {
@@ -110,12 +112,14 @@ const COMMON_CONCERNS = [
   "Vendor lock-in",
 ];
 
-function blankStakeholder(): Stakeholder {
+// Smart default: team from Discovery.buyerTeam so users don't retype the
+// Sponsoring Team for every stakeholder.
+function blankStakeholder(project?: OnboardingProject | null): Stakeholder {
   return {
     id: generateId(),
     name: "",
     role: "",
-    team: "",
+    team: project?.discovery.buyerTeam ?? "",
     influence: "medium",
     involvement: "end_user",
     concerns: [],
@@ -124,6 +128,7 @@ function blankStakeholder(): Stakeholder {
 }
 
 export function StakeholderEditor({ stakeholders, onChange }: Props) {
+  const { project } = useWorkspace();
   const updateOne = (id: string, patch: Partial<Stakeholder>) => {
     onChange(stakeholders.map((s) => (s.id === id ? { ...s, ...patch } : s)));
   };
@@ -131,7 +136,7 @@ export function StakeholderEditor({ stakeholders, onChange }: Props) {
     onChange(stakeholders.filter((s) => s.id !== id));
   };
   const addOne = () => {
-    onChange([...stakeholders, blankStakeholder()]);
+    onChange([...stakeholders, blankStakeholder(project)]);
   };
 
   // Coverage hints — used to guide users toward including the key roles.

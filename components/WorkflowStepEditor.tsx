@@ -23,7 +23,8 @@ import { cn } from "@/lib/utils";
 import { generateId } from "@/lib/utils";
 import { CHIP } from "@/lib/semantic-colors";
 import { Surface } from "@/components/ui/surface";
-import type { WorkflowStep, FutureState } from "@/lib/types";
+import { useWorkspace } from "@/components/WorkspaceProvider";
+import type { WorkflowStep, FutureState, OnboardingProject } from "@/lib/types";
 
 type Props = {
   steps: WorkflowStep[];
@@ -50,13 +51,19 @@ const AUTO_COLORS: Record<string, string> = {
   low: CHIP.neutral,
 };
 
-function newStep(): WorkflowStep {
+// Smart defaults from Discovery: ownerTeam from buyerTeam, currentSystem
+// from the first non-blocked system already on the project. Reduces repeated
+// typing of the same Sponsoring Team across every step.
+function newStep(project?: OnboardingProject | null): WorkflowStep {
+  const firstUsableSystem = project?.systems.find(
+    (s) => s.name && s.apiAvailable !== false,
+  );
   return {
     id: generateId(),
     name: "",
     description: "",
-    ownerTeam: "",
-    currentSystem: "",
+    ownerTeam: project?.discovery.buyerTeam ?? "",
+    currentSystem: firstUsableSystem?.name ?? "",
     inputData: [],
     outputArtifact: [],
     painPoints: [],
@@ -319,6 +326,7 @@ function StepRow({ step, index, onUpdate, onRemove }: StepRowProps) {
 }
 
 export function WorkflowStepEditor({ steps, onChange }: Props) {
+  const { project } = useWorkspace();
   const updateStep = (id: string, patch: Partial<WorkflowStep>) => {
     onChange(steps.map((s) => (s.id === id ? { ...s, ...patch } : s)));
   };
@@ -328,7 +336,7 @@ export function WorkflowStepEditor({ steps, onChange }: Props) {
   };
 
   const addStep = () => {
-    onChange([...steps, newStep()]);
+    onChange([...steps, newStep(project)]);
   };
 
   return (
