@@ -53,24 +53,30 @@ export function WorkflowTabs({
 
   return (
     <div>
-      <div role="tablist" className="flex gap-1 border-b mb-3">
+      <div role="tablist" className="flex items-center gap-1 border-b mb-3">
         <TabButton
           active={activeTab === "steps"}
           onClick={() => setActive("steps")}
           label="Steps"
           status={status.steps}
         />
+        <span
+          className="text-[10px] text-muted-foreground/60 italic mr-2"
+          title="Step list is the source of truth — the two visualisations are derived from it"
+        >
+          ← source of truth
+        </span>
         <TabButton
           active={activeTab === "current"}
           onClick={() => setActive("current")}
-          label="Current-State Map"
+          label="Visualise current"
           status={status.current}
           onSync={() => syncFromStaleBadge("current")}
         />
         <TabButton
           active={activeTab === "future"}
           onClick={() => setActive("future")}
-          label="Future-State Map"
+          label="Visualise future"
           status={status.future}
           onSync={() => syncFromStaleBadge("future")}
         />

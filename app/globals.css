@@ -127,6 +127,21 @@
   html {
     @apply font-sans;
   }
+  /* Global focus-visible ring on every interactive element. Replaces the
+     scattered `focus-visible:outline-*` snippets sprinkled across components
+     that were easy to forget. Components can still override per-instance. */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  summary:focus-visible,
+  [tabindex]:focus-visible,
+  [role="button"]:focus-visible,
+  [role="menuitem"]:focus-visible,
+  [role="tab"]:focus-visible {
+    @apply outline-2 outline-offset-2 outline-ring;
+  }
 }
 
 @layer utilities {

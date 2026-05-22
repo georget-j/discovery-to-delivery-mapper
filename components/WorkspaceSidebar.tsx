@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import {
@@ -22,6 +23,24 @@ export function WorkspaceSidebarContent({
   const pathname = usePathname();
   const { project } = useWorkspace();
   const base = project ? `/workspace/${project.id}` : "";
+
+  // Persist mobile sidebar scroll offset across Sheet open/close so users
+  // don't lose their place after picking a tab. Keyed per project so two
+  // workspaces don't fight over the same offset.
+  const navRef = useRef<HTMLElement | null>(null);
+  const scrollKey = project ? `sidebar-scroll-${project.id}` : "sidebar-scroll";
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const nav = navRef.current;
+    if (!nav) return;
+    const saved = sessionStorage.getItem(scrollKey);
+    if (saved) nav.scrollTop = parseInt(saved, 10) || 0;
+    const onScroll = () => {
+      sessionStorage.setItem(scrollKey, String(nav.scrollTop));
+    };
+    nav.addEventListener("scroll", onScroll, { passive: true });
+    return () => nav.removeEventListener("scroll", onScroll);
+  }, [scrollKey]);
 
   return (
     <>
@@ -44,7 +63,7 @@ export function WorkspaceSidebarContent({
         )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-2">
+      <nav ref={navRef} className="flex-1 overflow-y-auto py-2">
         {PHASES.map((phase) => {
           const isActivePhase = phase.tabs.some(
             (t) => pathname === `${base}${t.href}`,

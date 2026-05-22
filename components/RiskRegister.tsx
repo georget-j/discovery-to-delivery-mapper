@@ -14,6 +14,10 @@ import { Surface } from "@/components/ui/surface";
 import { cn } from "@/lib/utils";
 import { CHIP, CHIP_SUBTLE, ROLE_CHIP } from "@/lib/semantic-colors";
 import { EvidenceTrail } from "@/components/EvidenceTrail";
+import {
+  FilterPillBar,
+  type FilterPillGroup,
+} from "@/components/FilterPillBar";
 import { ProvenancePopover } from "@/components/ui/provenance-popover";
 import type {
   DeploymentRisk,
@@ -154,57 +158,40 @@ export function RiskRegister({
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-2">
-        {(
-          [
-            ["all", "All Severities"],
-            ["critical", "Critical"],
-            ["high", "High"],
-            ["medium", "Medium"],
-            ["low", "Low"],
-          ] as const
-        ).map(([val, label]) => (
-          <button
-            key={val}
-            type="button"
-            onClick={() => setFilterSeverity(val)}
-            className={cn(
-              "text-xs px-2.5 py-1 rounded-full border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-              filterSeverity === val
-                ? "bg-foreground text-background border-foreground"
-                : "border-border text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {(
-          [
-            ["open_only", "Open Only"],
-            ["all", "All Statuses"],
-            ["open", "Open"],
-            ["mitigating", "Mitigating"],
-            ["accepted", "Accepted"],
-            ["resolved", "Resolved"],
-          ] as const
-        ).map(([val, label]) => (
-          <button
-            key={val}
-            type="button"
-            onClick={() => setFilterStatus(val)}
-            className={cn(
-              "text-xs px-2.5 py-1 rounded-full border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-              filterStatus === val
-                ? "bg-foreground text-background border-foreground"
-                : "border-border text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <FilterPillBar
+        groups={[
+          {
+            label: "Severity",
+            value: filterSeverity,
+            options: [
+              { value: "all", label: "All" },
+              { value: "critical", label: "Critical" },
+              { value: "high", label: "High" },
+              { value: "medium", label: "Medium" },
+              { value: "low", label: "Low" },
+            ],
+            onChange: (v) => setFilterSeverity(v as RiskSeverity | "all"),
+          } as FilterPillGroup<string>,
+          {
+            label: "Status",
+            value: filterStatus,
+            options: [
+              { value: "open_only", label: "Open only" },
+              { value: "all", label: "All" },
+              { value: "open", label: "Open" },
+              { value: "mitigating", label: "Mitigating" },
+              { value: "accepted", label: "Accepted" },
+              { value: "resolved", label: "Resolved" },
+            ],
+            onChange: (v) =>
+              setFilterStatus(v as RiskStatus | "all" | "open_only"),
+          } as FilterPillGroup<string>,
+        ]}
+        onClearAll={() => {
+          setFilterSeverity("all");
+          setFilterStatus("open_only");
+        }}
+      />
 
       {/* Risk list */}
       {filtered.length === 0 && (

@@ -7,6 +7,10 @@ import { Surface } from "@/components/ui/surface";
 import { cn } from "@/lib/utils";
 import { CHIP } from "@/lib/semantic-colors";
 import { EvidenceTrail } from "@/components/EvidenceTrail";
+import {
+  FilterPillBar,
+  type FilterPillGroup,
+} from "@/components/FilterPillBar";
 import { ProvenancePopover } from "@/components/ui/provenance-popover";
 import type {
   Requirement,
@@ -132,68 +136,39 @@ export function RequirementsMatrix({
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => setFilterCategory("all")}
-          className={cn(
-            "text-xs px-2.5 py-1 rounded-full border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-            filterCategory === "all"
-              ? "bg-foreground text-background border-foreground"
-              : "border-border text-muted-foreground hover:text-foreground",
-          )}
-        >
-          All categories
-        </button>
-        {ALL_CATEGORIES.map((c) => (
-          <button
-            key={c}
-            type="button"
-            onClick={() => setFilterCategory(c)}
-            className={cn(
-              "text-xs px-2.5 py-1 rounded-full border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-              filterCategory === c
-                ? "bg-foreground text-background border-foreground"
-                : "border-border text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {CATEGORY_LABELS[c]}
-          </button>
-        ))}
-      </div>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => setFilterPriority("all")}
-          className={cn(
-            "text-xs px-2.5 py-1 rounded-full border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-            filterPriority === "all"
-              ? "bg-foreground text-background border-foreground"
-              : "border-border text-muted-foreground hover:text-foreground",
-          )}
-        >
-          All priorities
-        </button>
-        {ALL_PRIORITIES.map((p) => (
-          <button
-            key={p}
-            type="button"
-            onClick={() => setFilterPriority(p)}
-            className={cn(
-              "text-xs px-2.5 py-1 rounded-full border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-              filterPriority === p
-                ? "bg-foreground text-background border-foreground"
-                : "border-border text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {p === "must_have"
-              ? "Must Have"
-              : p === "should_have"
-                ? "Should Have"
-                : "Nice to Have"}
-          </button>
-        ))}
-      </div>
+      <FilterPillBar
+        groups={[
+          {
+            label: "Category",
+            value: filterCategory,
+            options: [
+              { value: "all", label: "All" },
+              ...ALL_CATEGORIES.map((c) => ({
+                value: c,
+                label: CATEGORY_LABELS[c],
+              })),
+            ],
+            onChange: (v) =>
+              setFilterCategory(v as RequirementCategory | "all"),
+          } as FilterPillGroup<string>,
+          {
+            label: "Priority",
+            value: filterPriority,
+            options: [
+              { value: "all", label: "All" },
+              { value: "must_have", label: "Must have" },
+              { value: "should_have", label: "Should have" },
+              { value: "nice_to_have", label: "Nice to have" },
+            ],
+            onChange: (v) =>
+              setFilterPriority(v as RequirementPriority | "all"),
+          } as FilterPillGroup<string>,
+        ]}
+        onClearAll={() => {
+          setFilterCategory("all");
+          setFilterPriority("all");
+        }}
+      />
 
       {/* Grouped requirements */}
       {categoriesWithResults.length === 0 && (

@@ -325,6 +325,7 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
         title="Discovery Call"
         helper="What you learned in conversations. Feeds workflow mapping, risk detection, and pilot scoping."
         status={`${discoveryComplete}/${discoveryFields.length} filled`}
+        defaultOpen={false}
       >
         <SubSectionHeader>Engagement context</SubSectionHeader>
         <div className="grid sm:grid-cols-2 gap-4">
@@ -508,6 +509,7 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
         title="Stakeholders"
         helper="Individual named people. Each one has a role, team, and influence level. Different from the Sponsoring Team field above (which is the department) and Affected User Population (which is a count)."
         status={`${project.stakeholders.length} added`}
+        defaultOpen={false}
       >
         <StakeholderEditor
           stakeholders={project.stakeholders}

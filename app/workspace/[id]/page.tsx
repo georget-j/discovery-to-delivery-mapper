@@ -188,6 +188,42 @@ export default function WorkspaceDashboard() {
         )}
       </div>
 
+      {/* Top blocker banner — single CTA so the user knows what to do next.
+          Open actions take priority over phase-complete signals. */}
+      {(() => {
+        const openCount = missingInfo.length;
+        if (openCount > 0) {
+          return (
+            <Surface
+              variant="muted"
+              className="px-4 py-3 flex items-center gap-3 border-amber-200 bg-amber-50/40"
+            >
+              <span
+                className="w-2 h-2 rounded-full bg-amber-500 shrink-0"
+                aria-hidden
+              />
+              <p className="text-sm flex-1">
+                <span className="font-semibold">
+                  {openCount} open action{openCount !== 1 ? "s" : ""}
+                </span>{" "}
+                before pilot can launch — review and resolve to unblock the
+                pack.
+              </p>
+              <a
+                href="#open-actions"
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "sm" }),
+                  "shrink-0",
+                )}
+              >
+                Resolve →
+              </a>
+            </Surface>
+          );
+        }
+        return null;
+      })()}
+
       {/* Discovery session log — multi-session capture, replaces the old single notes textarea */}
       <section className="space-y-2">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
@@ -207,7 +243,10 @@ export default function WorkspaceDashboard() {
 
       {/* Two-column: Open actions (left) + Key risks/quick stats (right) */}
       <div className="grid lg:grid-cols-3 gap-6">
-        <section className="lg:col-span-2 space-y-2">
+        <section
+          id="open-actions"
+          className="lg:col-span-2 space-y-2 scroll-mt-20"
+        >
           <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             Open Actions
           </h2>
