@@ -22,6 +22,7 @@ import {
   SaveIndicator,
 } from "@/components/ui/save-indicator";
 import { StakeholderEditor } from "@/components/StakeholderEditor";
+import { VoiceInputButton } from "@/components/ui/voice-input-button";
 import type {
   OnboardingProject,
   CustomerProfile,
@@ -450,13 +451,26 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
           required
           flashOnSave={discovery.currentProcess}
         >
-          <Textarea
-            id="currentProcess"
-            rows={5}
-            value={discovery.currentProcess}
-            onChange={(e) => setDiscovery({ currentProcess: e.target.value })}
-            placeholder="A few sentences, or 3–6 numbered steps. Click ‘See example’ for a sample."
-          />
+          <div className="space-y-1.5">
+            <Textarea
+              id="currentProcess"
+              rows={5}
+              value={discovery.currentProcess}
+              onChange={(e) => setDiscovery({ currentProcess: e.target.value })}
+              placeholder="A few sentences, or 3–6 numbered steps. Click ‘See example’ for a sample."
+            />
+            <div className="flex items-center justify-end">
+              <VoiceInputButton
+                label="Speak instead"
+                onTranscript={(text) => {
+                  const next = discovery.currentProcess
+                    ? `${discovery.currentProcess} ${text}`
+                    : text;
+                  setDiscovery({ currentProcess: next });
+                }}
+              />
+            </div>
+          </div>
         </ExampleField>
 
         <FormField

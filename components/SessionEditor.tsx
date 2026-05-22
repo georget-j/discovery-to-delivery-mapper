@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { FormField, ChipInput } from "@/components/ui/form-field";
 import { Surface } from "@/components/ui/surface";
+import { VoiceInputButton } from "@/components/ui/voice-input-button";
 import { cn, generateId } from "@/lib/utils";
 import { toast } from "@/lib/toast";
 import { NotesDiffPanel, type RowId } from "@/components/NotesDiffPanel";
@@ -590,18 +591,30 @@ export function SessionEditor({
             label="Raw notes"
             helper="Paste your raw notes, transcript, or shared document. AI extracts structured data + action items."
           >
-            <textarea
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
-              rows={8}
-              value={notesDraft}
-              onChange={(e) => {
-                setNotesDraft(e.target.value);
-                setField("notes", e.target.value);
-              }}
-              placeholder={
-                "Paste meeting notes, transcript, customer brief, or email thread…"
-              }
-            />
+            <div className="space-y-1.5">
+              <textarea
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+                rows={8}
+                value={notesDraft}
+                onChange={(e) => {
+                  setNotesDraft(e.target.value);
+                  setField("notes", e.target.value);
+                }}
+                placeholder={
+                  "Paste meeting notes, transcript, customer brief, or email thread…"
+                }
+              />
+              <div className="flex items-center justify-end">
+                <VoiceInputButton
+                  label="Speak instead"
+                  onTranscript={(text) => {
+                    const next = notesDraft ? `${notesDraft} ${text}` : text;
+                    setNotesDraft(next);
+                    setField("notes", next);
+                  }}
+                />
+              </div>
+            </div>
           </FormField>
 
           <div className="flex items-center gap-3 flex-wrap">
