@@ -4,9 +4,12 @@ import {
   useState,
   useCallback,
   useMemo,
+  useEffect,
   Fragment,
   type ReactNode,
 } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { cn } from "@/lib/utils";
@@ -18,10 +21,10 @@ import {
 import { PageNav } from "@/components/PageNav";
 import { StaleArtifactsBanner } from "@/components/outputs/StaleArtifactsBanner";
 import { ArtifactSourcesPanel } from "@/components/outputs/ArtifactSourcesPanel";
-import { CoverageMatrix } from "@/components/outputs/CoverageMatrix";
 import { PackOverview } from "@/components/outputs/PackOverview";
 import { SourceChip } from "@/components/outputs/SourceChip";
 import { Sheet } from "@/components/ui/sheet";
+import { Modal } from "@/components/ui/modal";
 import { hashGenerationInputs } from "@/lib/artifact-helpers";
 import { getArtifactReadiness, type ArtifactKey } from "@/lib/artifact-sources";
 import {
@@ -30,7 +33,6 @@ import {
   readinessTooltip,
 } from "@/lib/readiness";
 import { assessGenerationReadiness } from "@/lib/generation-readiness";
-import Link from "next/link";
 
 // Transform plain text children inside markdown nodes — split any [N] tokens
 // out as <SourceChip n={N} /> components, leaving everything else as text.
@@ -68,7 +70,7 @@ function renderChildrenWithChips(
 }
 
 type Tab = ArtifactKey;
-type ViewMode = "overview" | "artifact" | "matrix";
+type ViewMode = "overview" | "artifact";
 
 type TabMeta = {
   key: Tab;
@@ -198,24 +200,38 @@ const GROUPS: Group[] = [
 ];
 
 const ALL_TABS: TabMeta[] = GROUPS.flatMap((g) => g.tabs);
+const ALL_TAB_KEYS = new Set<string>(ALL_TABS.map((t) => t.key));
 
 export default function OutputsPage() {
   const { project, loading, updateProject } = useWorkspace();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>("executiveSummary");
   const [viewMode, setViewMode] = useState<ViewMode>("overview");
   const [generating, setGenerating] = useState(false);
   const [source, setSource] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [panelFlash, setPanelFlash] = useState(0);
-  // Mobile-only: sources panel becomes a Sheet, artifact picker becomes a Sheet.
-  const [mobileSourcesOpen, setMobileSourcesOpen] = useState(false);
+  // Sources panel is now a Sheet on all viewports — opens on chip click or via
+  // an explicit "Sources" button in the artifact toolbar.
+  const [sourcesOpen, setSourcesOpen] = useState(false);
+  // Mobile-only: artifact picker also opens as a bottom Sheet.
   const [mobilePickerOpen, setMobilePickerOpen] = useState(false);
   const [preflightOpen, setPreflightOpen] = useState(false);
 
-  const flashSourcesPanel = useCallback(() => {
-    setPanelFlash((n) => n + 1);
-    setMobileSourcesOpen(true);
-  }, []);
+  // Deep-link from /outputs/matrix → ?artifact=KEY. Switch to that artifact
+  // on mount, then drop the param via history.replaceState so it's a one-shot.
+  useEffect(() => {
+    const requested = searchParams.get("artifact");
+    if (requested && ALL_TAB_KEYS.has(requested)) {
+      setActiveTab(requested as Tab);
+      setViewMode("artifact");
+      // Strip the query so refreshing doesn't keep snapping you back.
+      const url = new URL(window.location.href);
+      url.searchParams.delete("artifact");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [searchParams]);
+
+  const openSources = useCallback(() => setSourcesOpen(true), []);
 
   const runGenerate = useCallback(async () => {
     if (!project) return;
@@ -422,18 +438,12 @@ export default function OutputsPage() {
             >
               📦 Overview
             </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("matrix")}
-              className={cn(
-                "shrink-0 text-xs px-3 py-1.5 rounded-full border transition-colors",
-                viewMode === "matrix"
-                  ? "bg-foreground text-background border-foreground"
-                  : "border-border text-muted-foreground",
-              )}
+            <Link
+              href={`/workspace/${project.id}/outputs/matrix`}
+              className="shrink-0 text-xs px-3 py-1.5 rounded-full border border-border text-muted-foreground"
             >
               📊 Matrix
-            </button>
+            </Link>
             <button
               type="button"
               onClick={() => setMobilePickerOpen(true)}
@@ -449,7 +459,7 @@ export default function OutputsPage() {
             {viewMode === "artifact" && (
               <button
                 type="button"
-                onClick={() => setMobileSourcesOpen(true)}
+                onClick={openSources}
                 className="shrink-0 text-xs px-3 py-1.5 rounded-full border border-border text-muted-foreground"
               >
                 🔍 Sources
@@ -492,18 +502,6 @@ export default function OutputsPage() {
               >
                 <span>📦</span> Pack Overview
               </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("matrix")}
-                className={cn(
-                  "w-full text-left px-3 py-1.5 text-sm rounded-md transition-colors flex items-center gap-2",
-                  viewMode === "matrix"
-                    ? "bg-muted text-foreground font-medium"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
-                )}
-              >
-                <span>📊</span> Coverage Matrix
-              </button>
             </div>
 
             {GROUPS.map((group) => (
@@ -544,7 +542,8 @@ export default function OutputsPage() {
             ))}
           </div>
 
-          {/* Content */}
+          {/* Content — desktop is now 2-column (sidebar + main). Sources opens
+              as a right Sheet on demand for all viewports. */}
           {viewMode === "overview" ? (
             <div className="flex-1 overflow-y-auto bg-muted/20">
               <PackOverview
@@ -558,127 +557,97 @@ export default function OutputsPage() {
                 stale={stale}
               />
             </div>
-          ) : viewMode === "matrix" ? (
-            <div className="flex-1 overflow-y-auto bg-muted/20">
-              <div className="px-8 py-6 max-w-6xl mx-auto">
-                <CoverageMatrix
-                  project={project}
-                  onPickArtifact={(key) => {
-                    setActiveTab(key);
-                    setViewMode("artifact");
-                  }}
-                />
-              </div>
-            </div>
           ) : (
-            <>
-              {/* Artifact content panel */}
-              <div className="flex-1 overflow-y-auto bg-muted/20">
-                <div className="px-8 py-6 max-w-3xl mx-auto space-y-4">
-                  <div className="flex items-center justify-between gap-4 flex-wrap">
-                    <div className="rounded-md bg-background border px-4 py-2.5 flex-1 min-w-0">
-                      <div className="flex items-baseline gap-2 text-sm flex-wrap">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                          For
-                        </span>
-                        <span className="font-medium">
-                          {activeTabMeta.audience}
-                        </span>
-                        <span className="text-muted-foreground/40">·</span>
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                          Purpose
-                        </span>
-                        <span className="text-muted-foreground">
-                          {activeTabMeta.purpose}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        type="button"
-                        onClick={copyTab}
-                        className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-md border border-border hover:bg-muted/50 transition-colors bg-background"
-                      >
-                        {copied ? "Copied" : "Copy"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={downloadTab}
-                        className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-md border border-border hover:bg-muted/50 transition-colors bg-background"
-                      >
-                        Download .md
-                      </button>
+            <div className="flex-1 overflow-y-auto bg-muted/20">
+              <div className="px-8 py-6 max-w-3xl mx-auto space-y-4">
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div className="rounded-md bg-background border px-4 py-2.5 flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2 text-sm flex-wrap">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                        For
+                      </span>
+                      <span className="font-medium">
+                        {activeTabMeta.audience}
+                      </span>
+                      <span className="text-muted-foreground/40">·</span>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Purpose
+                      </span>
+                      <span className="text-muted-foreground">
+                        {activeTabMeta.purpose}
+                      </span>
                     </div>
                   </div>
-
-                  {activeContent ? (
-                    <div className="bg-background rounded-lg border shadow-sm px-8 py-8">
-                      <div className="prose prose-sm max-w-none text-foreground [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mb-6 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-6 [&_h2]:mb-3 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-2 [&_p]:leading-relaxed [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded [&_code]:text-xs [&_blockquote]:border-l-4 [&_blockquote]:border-amber-300 [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_blockquote]:italic [&_table]:w-full [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-muted-foreground [&_th]:pb-2 [&_td]:py-1.5 [&_td]:text-sm [&_tr]:border-b [&_tr]:border-border/50 [&_ul]:space-y-1 [&_li]:leading-relaxed [&_input[type=checkbox]]:mr-2">
-                        <ReactMarkdown
-                          components={{
-                            p: ({ children }) => (
-                              <p>
-                                {renderChildrenWithChips(
-                                  children,
-                                  flashSourcesPanel,
-                                )}
-                              </p>
-                            ),
-                            li: ({ children }) => (
-                              <li>
-                                {renderChildrenWithChips(
-                                  children,
-                                  flashSourcesPanel,
-                                )}
-                              </li>
-                            ),
-                            td: ({ children }) => (
-                              <td>
-                                {renderChildrenWithChips(
-                                  children,
-                                  flashSourcesPanel,
-                                )}
-                              </td>
-                            ),
-                          }}
-                        >
-                          {activeContent}
-                        </ReactMarkdown>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="bg-background rounded-lg border px-8 py-8">
-                      <p className="text-sm text-muted-foreground italic">
-                        No content generated for this artifact.
-                      </p>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={openSources}
+                      className="hidden md:inline-flex text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-md border border-border hover:bg-muted/50 transition-colors bg-background items-center gap-1"
+                    >
+                      🔍 Sources
+                    </button>
+                    <button
+                      type="button"
+                      onClick={copyTab}
+                      className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-md border border-border hover:bg-muted/50 transition-colors bg-background"
+                    >
+                      {copied ? "Copied" : "Copy"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={downloadTab}
+                      className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-md border border-border hover:bg-muted/50 transition-colors bg-background"
+                    >
+                      Download .md
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              {/* Sources panel (right) — desktop only; mobile uses the Sheet below */}
-              <div
-                key={
-                  panelFlash /* re-key on flash to re-trigger CSS animation */
-                }
-                className="hidden md:flex flex-col w-72 shrink-0 border-l bg-background overflow-y-auto animate-in fade-in slide-in-from-right-2 duration-200"
-              >
-                <ArtifactSourcesPanel
-                  project={project}
-                  artifactKey={activeTab}
-                />
+                {activeContent ? (
+                  <div className="bg-background rounded-lg border shadow-sm px-8 py-8">
+                    <div className="prose prose-sm max-w-none text-foreground [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mb-6 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-6 [&_h2]:mb-3 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-2 [&_p]:leading-relaxed [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded [&_code]:text-xs [&_blockquote]:border-l-4 [&_blockquote]:border-amber-300 [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_blockquote]:italic [&_table]:w-full [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-muted-foreground [&_th]:pb-2 [&_td]:py-1.5 [&_td]:text-sm [&_tr]:border-b [&_tr]:border-border/50 [&_ul]:space-y-1 [&_li]:leading-relaxed [&_input[type=checkbox]]:mr-2">
+                      <ReactMarkdown
+                        components={{
+                          p: ({ children }) => (
+                            <p>
+                              {renderChildrenWithChips(children, openSources)}
+                            </p>
+                          ),
+                          li: ({ children }) => (
+                            <li>
+                              {renderChildrenWithChips(children, openSources)}
+                            </li>
+                          ),
+                          td: ({ children }) => (
+                            <td>
+                              {renderChildrenWithChips(children, openSources)}
+                            </td>
+                          ),
+                        }}
+                      >
+                        {activeContent}
+                      </ReactMarkdown>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-background rounded-lg border px-8 py-8">
+                    <p className="text-sm text-muted-foreground italic">
+                      No content generated for this artifact.
+                    </p>
+                  </div>
+                )}
               </div>
-            </>
+            </div>
           )}
         </div>
       )}
 
-      {/* Mobile sources sheet — appears when a [N] chip is tapped or via the
-          "Sources" tab in the mobile view-mode strip */}
+      {/* Sources sheet — single sheet for all viewports. Opens via [N] chip,
+          mobile-strip "Sources" pill, or the desktop toolbar button. */}
       {project && (
         <Sheet
-          open={mobileSourcesOpen}
-          onOpenChange={setMobileSourcesOpen}
+          open={sourcesOpen}
+          onOpenChange={setSourcesOpen}
           side="right"
           ariaLabel="Sources used by this artifact"
         >
@@ -686,7 +655,7 @@ export default function OutputsPage() {
             <p className="text-sm font-semibold">Sources</p>
             <button
               type="button"
-              onClick={() => setMobileSourcesOpen(false)}
+              onClick={() => setSourcesOpen(false)}
               className="text-xs px-2 py-1 rounded hover:bg-muted/50"
               aria-label="Close sources panel"
             >
@@ -762,26 +731,32 @@ export default function OutputsPage() {
           </div>
         </Sheet>
       )}
+
+      {/* Pre-flight — centered modal. No swipe-away; user picks one of two
+          explicit buttons. */}
       {project && (
-        <Sheet
+        <Modal
           open={preflightOpen}
           onOpenChange={setPreflightOpen}
-          side="bottom"
-          ariaLabel="Generation pre-flight"
+          ariaLabel="Generation pre-flight check"
         >
-          <div className="mx-auto max-w-lg w-full bg-background rounded-t-lg sm:rounded-lg sm:mt-20 shadow-lg border p-4 space-y-3">
-            <p className="text-sm font-semibold">Inputs are thin</p>
+          <div className="p-5 space-y-3">
+            <div>
+              <p className="text-sm font-semibold">Inputs are thin</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Some artifacts will be light-weight if you generate now.
+              </p>
+            </div>
             {(() => {
               const r = assessGenerationReadiness(project);
               return (
                 <>
                   <p className="text-xs text-muted-foreground">
                     {r.gaps.length} of {r.totalCount} artifacts have thin or
-                    empty inputs. Generating now will produce light-weight
-                    output for these — you can fill the gaps first, or generate
-                    anyway.
+                    empty inputs. Fill the gaps first for stronger output, or
+                    generate anyway.
                   </p>
-                  <ul className="space-y-1 max-h-48 overflow-y-auto">
+                  <ul className="space-y-1 max-h-56 overflow-y-auto -mx-1 px-1">
                     {r.gaps.slice(0, 8).map((g) => (
                       <li
                         key={g.key}
@@ -803,7 +778,7 @@ export default function OutputsPage() {
                           <Link
                             href={`/workspace/${project.id}/${g.hintTab}`}
                             onClick={() => setPreflightOpen(false)}
-                            className="text-[11px] text-foreground/80 hover:text-foreground underline-offset-2 hover:underline"
+                            className="text-[11px] text-foreground/80 hover:text-foreground underline-offset-2 hover:underline shrink-0"
                           >
                             Fix in {g.hintTab} →
                           </Link>
@@ -836,7 +811,7 @@ export default function OutputsPage() {
               );
             })()}
           </div>
-        </Sheet>
+        </Modal>
       )}
     </div>
   );

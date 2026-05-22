@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/toast";
 import { assembleScopedPack, type PackScope } from "@/lib/markdown-export";
@@ -152,27 +153,35 @@ export function PackOverview({
         )}
       </header>
 
-      {/* Suggested read order */}
-      <section className="rounded-lg border bg-muted/20 px-4 py-3">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
-          Suggested first read
-        </p>
-        <div className="flex flex-wrap items-center gap-1.5 text-xs">
-          {SUGGESTED_READ_ORDER.map((key, i) => (
-            <span key={key} className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => onPickArtifact(key)}
-                className="px-2 py-0.5 rounded border bg-background hover:bg-muted/50 transition-colors font-medium"
-              >
-                {ARTIFACT_LABEL_SHORT[key]}
-              </button>
-              {i < SUGGESTED_READ_ORDER.length - 1 && (
-                <span className="text-muted-foreground">→</span>
-              )}
-            </span>
-          ))}
+      {/* Suggested read order + matrix link */}
+      <section className="rounded-lg border bg-muted/20 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
+            Suggested first read
+          </p>
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            {SUGGESTED_READ_ORDER.map((key, i) => (
+              <span key={key} className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => onPickArtifact(key)}
+                  className="px-2 py-0.5 rounded border bg-background hover:bg-muted/50 transition-colors font-medium"
+                >
+                  {ARTIFACT_LABEL_SHORT[key]}
+                </button>
+                {i < SUGGESTED_READ_ORDER.length - 1 && (
+                  <span className="text-muted-foreground">→</span>
+                )}
+              </span>
+            ))}
+          </div>
         </div>
+        <Link
+          href={`/workspace/${project.id}/outputs/matrix`}
+          className="text-xs px-3 py-1.5 rounded-md border border-border bg-background hover:bg-muted/50 transition-colors font-medium inline-flex items-center gap-1.5 shrink-0"
+        >
+          📊 View coverage matrix →
+        </Link>
       </section>
 
       {/* Audience bundles */}
