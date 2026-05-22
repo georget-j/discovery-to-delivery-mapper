@@ -45,26 +45,22 @@ export function WorkspaceSidebarContent({
       </div>
 
       <nav className="flex-1 overflow-y-auto py-2">
-        {PHASES.map((phase) => (
-          <PhaseGroup
-            key={phase.id}
-            phase={phase}
-            base={base}
-            pathname={pathname}
-            onNavigate={onNavigate}
-          />
-        ))}
+        {PHASES.map((phase) => {
+          const isActivePhase = phase.tabs.some(
+            (t) => pathname === `${base}${t.href}`,
+          );
+          return (
+            <PhaseGroup
+              key={phase.id}
+              phase={phase}
+              base={base}
+              pathname={pathname}
+              isActivePhase={isActivePhase}
+              onNavigate={onNavigate}
+            />
+          );
+        })}
       </nav>
-
-      <div className="px-4 py-3 border-t border-border">
-        <Link
-          href="/scenarios"
-          onClick={onNavigate}
-          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          ← All Scenarios
-        </Link>
-      </div>
     </>
   );
 }
@@ -83,11 +79,13 @@ function PhaseGroup({
   phase,
   base,
   pathname,
+  isActivePhase,
   onNavigate,
 }: {
   phase: Phase;
   base: string;
   pathname: string;
+  isActivePhase: boolean;
   onNavigate?: () => void;
 }) {
   const { project } = useWorkspace();
@@ -95,7 +93,12 @@ function PhaseGroup({
   const progress = phaseProgress(project, phase.id);
 
   return (
-    <div className="px-2 py-1.5">
+    <div
+      className={cn(
+        "pl-2 pr-2 py-1.5 border-l-2 transition-colors",
+        isActivePhase ? phase.color.border : "border-transparent",
+      )}
+    >
       <div className="px-3 pb-1 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span
