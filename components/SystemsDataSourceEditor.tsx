@@ -818,6 +818,15 @@ export function SystemsDataSourceEditor({
             icon="🔌"
             title="No systems yet"
             body="Add every tool the AI reads from or writes to — CRM, case manager, ticketing, document store, etc."
+            cta={
+              <button
+                type="button"
+                onClick={() => onSystemsChange([...systems, newSystem()])}
+                className="text-xs px-3 py-1.5 rounded-md bg-foreground text-background hover:bg-foreground/90 transition-colors font-medium"
+              >
+                + Add first system
+              </button>
+            }
           />
         )}
         {systems.map((s) => (
@@ -871,6 +880,17 @@ export function SystemsDataSourceEditor({
             icon="🗂"
             title="No data sources yet"
             body="Add datasets the AI ingests — transactions, tickets, contracts, telemetry. Quality and PII flags drive risks."
+            cta={
+              <button
+                type="button"
+                onClick={() =>
+                  onDataSourcesChange([...dataSources, newDataSource()])
+                }
+                className="text-xs px-3 py-1.5 rounded-md bg-foreground text-background hover:bg-foreground/90 transition-colors font-medium"
+              >
+                + Add first data source
+              </button>
+            }
           />
         )}
         {dataSources.map((s) => (

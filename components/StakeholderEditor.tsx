@@ -173,6 +173,15 @@ export function StakeholderEditor({ stakeholders, onChange }: Props) {
           icon="👥"
           title="No stakeholders added yet"
           body="Aim to identify at least an Executive Sponsor, a Technical Owner, and an End User."
+          cta={
+            <button
+              type="button"
+              onClick={addOne}
+              className="text-xs px-3 py-1.5 rounded-md bg-foreground text-background hover:bg-foreground/90 transition-colors font-medium"
+            >
+              + Add first stakeholder
+            </button>
+          }
         />
       )}
 

@@ -214,7 +214,6 @@ export default function OutputsPage() {
   // an explicit "Sources" button in the artifact toolbar.
   const [sourcesOpen, setSourcesOpen] = useState(false);
   // Mobile-only: artifact picker also opens as a bottom Sheet.
-  const [mobilePickerOpen, setMobilePickerOpen] = useState(false);
   const [preflightOpen, setPreflightOpen] = useState(false);
 
   // Deep-link from /outputs/matrix → ?artifact=KEY. Switch to that artifact
@@ -424,7 +423,7 @@ export default function OutputsPage() {
 
       {hasOutputs && (
         <div className="flex flex-1 min-h-0 flex-col md:flex-row">
-          {/* Mobile: horizontal view-mode tab strip + artifact picker trigger */}
+          {/* Mobile: view-mode strip on top */}
           <div className="md:hidden flex items-center gap-1 px-3 py-2 border-b overflow-x-auto bg-background">
             <button
               type="button"
@@ -444,18 +443,6 @@ export default function OutputsPage() {
             >
               📊 Matrix
             </Link>
-            <button
-              type="button"
-              onClick={() => setMobilePickerOpen(true)}
-              className={cn(
-                "shrink-0 text-xs px-3 py-1.5 rounded-full border transition-colors flex items-center gap-1.5",
-                viewMode === "artifact"
-                  ? "bg-foreground text-background border-foreground"
-                  : "border-border text-muted-foreground",
-              )}
-            >
-              📄 {viewMode === "artifact" ? activeTabMeta.label : "Artifacts"} ▾
-            </button>
             {viewMode === "artifact" && (
               <button
                 type="button"
@@ -465,6 +452,48 @@ export default function OutputsPage() {
                 🔍 Sources
               </button>
             )}
+          </div>
+
+          {/* Mobile: horizontal artifact-picker strip — visible whenever there
+              are outputs. Tap a pill to switch the active artifact. Replaces
+              the bottom-sheet artifact picker (less friction than open → tap → close). */}
+          <div
+            className="md:hidden flex items-center gap-1.5 px-3 py-2 border-b overflow-x-auto bg-background/95 backdrop-blur"
+            role="tablist"
+            aria-label="Pick an artifact"
+          >
+            {ALL_TABS.map((tab) => {
+              const readiness = getArtifactReadiness(project, tab.key);
+              const isActive = viewMode === "artifact" && activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => {
+                    setActiveTab(tab.key);
+                    setViewMode("artifact");
+                  }}
+                  className={cn(
+                    "shrink-0 text-xs px-3 py-1.5 rounded-full border transition-colors flex items-center gap-1.5",
+                    isActive
+                      ? "bg-foreground text-background border-foreground"
+                      : "border-border text-muted-foreground bg-background hover:bg-muted/40",
+                  )}
+                  title={`${tab.label} · ${readinessTooltip(readiness)}`}
+                >
+                  <span
+                    className={cn(
+                      "w-1.5 h-1.5 rounded-full shrink-0",
+                      READINESS_DOT[readiness],
+                    )}
+                    aria-hidden
+                  />
+                  <span className="truncate">{tab.label}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Sidebar (desktop only) */}
@@ -664,70 +693,6 @@ export default function OutputsPage() {
           </div>
           <div className="flex-1 overflow-y-auto">
             <ArtifactSourcesPanel project={project} artifactKey={activeTab} />
-          </div>
-        </Sheet>
-      )}
-
-      {/* Mobile artifact picker — opens from the bottom; bundles + readiness dots */}
-      {project && hasOutputs && (
-        <Sheet
-          open={mobilePickerOpen}
-          onOpenChange={setMobilePickerOpen}
-          side="bottom"
-          ariaLabel="Pick an artifact"
-        >
-          <div className="flex items-center justify-between px-4 py-3 border-b">
-            <p className="text-sm font-semibold">Pick an artifact</p>
-            <button
-              type="button"
-              onClick={() => setMobilePickerOpen(false)}
-              className="text-xs px-2 py-1 rounded hover:bg-muted/50"
-              aria-label="Close artifact picker"
-            >
-              ✕
-            </button>
-          </div>
-          <div className="overflow-y-auto p-3 pb-[max(1rem,env(safe-area-inset-bottom))] space-y-3">
-            {GROUPS.map((group) => (
-              <div key={group.label}>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-1.5 px-1">
-                  {group.label}
-                </p>
-                <div className="grid grid-cols-1 gap-1">
-                  {group.tabs.map((tab) => {
-                    const readiness = getArtifactReadiness(project, tab.key);
-                    const isActive =
-                      viewMode === "artifact" && activeTab === tab.key;
-                    return (
-                      <button
-                        key={tab.key}
-                        type="button"
-                        onClick={() => {
-                          setActiveTab(tab.key);
-                          setViewMode("artifact");
-                          setMobilePickerOpen(false);
-                        }}
-                        className={cn(
-                          "w-full text-left px-3 py-2.5 rounded-md border text-sm flex items-center gap-2 transition-colors",
-                          isActive
-                            ? "bg-muted border-foreground/20 font-medium"
-                            : "bg-background border-border hover:bg-muted/30",
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "w-2 h-2 rounded-full shrink-0",
-                            READINESS_DOT[readiness],
-                          )}
-                          aria-hidden
-                        />
-                        <span className="flex-1 truncate">{tab.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
           </div>
         </Sheet>
       )}

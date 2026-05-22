@@ -338,6 +338,15 @@ export function WorkflowStepEditor({ steps, onChange }: Props) {
           icon="🛠"
           title="No workflow steps yet"
           body="Outline each step your customer uses today — who owns it, what system they use, and what slows them down. This powers the workflow visualisation."
+          cta={
+            <button
+              type="button"
+              onClick={addStep}
+              className="text-xs px-3 py-1.5 rounded-md bg-foreground text-background hover:bg-foreground/90 transition-colors font-medium"
+            >
+              + Add first step
+            </button>
+          }
         />
       )}
       {steps.map((step, i) => (

@@ -37,7 +37,9 @@ export function FilterPillBar({ groups, onClearAll, className }: Props) {
       {groups.map((group) => (
         <div
           key={group.label}
-          className="flex flex-wrap items-center gap-1.5 overflow-x-auto"
+          // On mobile, nowrap + horizontal scroll so a long filter set stays
+          // out of the way of the list. Desktop wraps so all pills are visible.
+          className="flex flex-nowrap md:flex-wrap items-center gap-1.5 overflow-x-auto"
         >
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold shrink-0 w-20">
             {group.label}
