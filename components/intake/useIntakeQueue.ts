@@ -3,9 +3,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { generateId } from "@/lib/utils";
+import { toast } from "@/lib/toast";
 import { embedBatched } from "@/lib/kb/embed-client";
-import { putChunks, putDoc, deleteDoc } from "@/lib/kb/storage";
-import { approxTokenCount } from "@/lib/kb/chunker";
+import {
+  putChunks,
+  putDoc,
+  deleteDoc,
+  getProjectChunksWithEmbeddings,
+} from "@/lib/kb/storage";
+import { approxTokenCount, chunkSources, chunkText } from "@/lib/kb/chunker";
 import {
   MAX_FILE_BYTES,
   MAX_PARALLEL_PARSE,
@@ -54,6 +60,12 @@ export type IntakeQueueApi = {
   cancel: (jobId: string) => void;
   retry: (jobId: string) => void;
   remove: (jobId: string) => void;
+  summarise: (jobId: string) => Promise<void>;
+  summaries: Record<string, string>;
+  runOcr: (jobId: string) => Promise<void>;
+  runVision: (jobId: string) => Promise<void>;
+  reprocessFromText: (jobId: string, text: string) => Promise<void>;
+  readText: (jobId: string) => Promise<string>;
   totals: { docs: number; chunks: number; tokens: number };
   parsingCount: number;
   embeddingCount: number;
@@ -566,6 +578,247 @@ export function useIntakeQueue(): IntakeQueueApi {
     [updateJob],
   );
 
+  const runOcr = useCallback(
+    async (jobId: string) => {
+      const job = jobsRef.current.find((j) => j.id === jobId);
+      if (!job || !job.file) {
+        toast.error("OCR needs the original file", {
+          description: "Re-upload the PDF and try again.",
+        });
+        return;
+      }
+      if (job.type !== "pdf") {
+        toast.error("OCR only supports PDFs in this version");
+        return;
+      }
+      updateJob(jobId, {
+        status: "parsing",
+        progress: 0,
+        statusDetail: "Running OCR — this may take a few minutes for big PDFs.",
+        stage: "parsing",
+      });
+      try {
+        const ocrMod = await import("@/lib/kb/ocr");
+        const { chunks, pageCount } = await ocrMod.ocrPdf(job.file, {
+          onProgress: (done, total) =>
+            updateJob(jobId, {
+              progress: done / total,
+              statusDetail: `OCR page ${done}/${total}`,
+            }),
+        });
+        if (chunks.length === 0) {
+          updateJob(jobId, {
+            status: "failed",
+            statusDetail: "OCR ran but no text was recognised.",
+            recoverable: false,
+          });
+          return;
+        }
+        updateJob(jobId, (j) => ({
+          ...j,
+          status: "embedding",
+          progress: 0,
+          stage: "embedding",
+          pendingChunkBlueprints: chunks,
+          pageCount,
+          statusDetail: undefined,
+        }));
+        // Embedding dispatcher picks it up.
+      } catch (err) {
+        updateJob(jobId, {
+          status: "failed",
+          statusDetail:
+            "OCR failed: " +
+            (err instanceof Error ? err.message : "Unknown error"),
+          recoverable: true,
+        });
+      }
+    },
+    [updateJob],
+  );
+
+  // Vision-describe — render PDF pages, get gpt-4o-mini descriptions per
+  // page, then funnel descriptions through the chunker + embedder. Useful
+  // for slide-heavy or diagram-heavy PDFs that OCR can't read well.
+  const runVision = useCallback(
+    async (jobId: string) => {
+      const job = jobsRef.current.find((j) => j.id === jobId);
+      if (!job || !job.file) {
+        toast.error("Vision pass needs the original file", {
+          description: "Re-upload the PDF and try again.",
+        });
+        return;
+      }
+      if (job.type !== "pdf") {
+        toast.error("Vision pass only supports PDFs right now");
+        return;
+      }
+      updateJob(jobId, {
+        status: "parsing",
+        progress: 0,
+        stage: "parsing",
+        statusDetail: "Rendering pages for vision pass…",
+      });
+      try {
+        const visionMod = await import("@/lib/kb/vision");
+        const { descriptions, pageCount } = await visionMod.describePdfPages(
+          job.file,
+          {
+            onProgress: (done, total) =>
+              updateJob(jobId, {
+                progress: done / total,
+                statusDetail: `Vision page ${done}/${total}`,
+              }),
+          },
+        );
+        if (descriptions.length === 0) {
+          updateJob(jobId, {
+            status: "failed",
+            statusDetail: "Vision pass returned no descriptions.",
+            recoverable: false,
+          });
+          return;
+        }
+        const sources = descriptions.map((d) => ({
+          text: d.text,
+          page: d.page,
+        }));
+        const blueprints = chunkSources(sources);
+        updateJob(jobId, (j) => ({
+          ...j,
+          status: "embedding",
+          progress: 0,
+          stage: "embedding",
+          pendingChunkBlueprints: blueprints,
+          pageCount,
+          statusDetail: undefined,
+        }));
+      } catch (err) {
+        updateJob(jobId, {
+          status: "failed",
+          statusDetail:
+            "Vision pass failed: " +
+            (err instanceof Error ? err.message : "Unknown error"),
+          recoverable: true,
+        });
+      }
+    },
+    [updateJob],
+  );
+
+  // Re-chunk + re-embed from edited text. The job stays in place but its
+  // chunks are wiped and replaced. Existing source citations pointing at
+  // the old chunk IDs will dangle — acceptable cost for the simpler
+  // implementation; future-state could re-stamp refs by best-effort match.
+  const reprocessFromText = useCallback(
+    async (jobId: string, text: string) => {
+      const job = jobsRef.current.find((j) => j.id === jobId);
+      if (!job || !projectId) return;
+      const blueprints = chunkText(text);
+      if (blueprints.length === 0) {
+        toast.error("Nothing to embed — text is empty");
+        return;
+      }
+      // Wipe old chunks first by deleting the doc record (cascades) then
+      // re-creating it in IDB once embedding completes.
+      try {
+        await deleteDoc(jobId);
+      } catch {
+        /* IDB cleanup is best-effort */
+      }
+      updateJob(jobId, (j) => ({
+        ...j,
+        status: "embedding",
+        progress: 0,
+        stage: "embedding",
+        pendingChunkBlueprints: blueprints,
+        rawText: text,
+        statusDetail: undefined,
+      }));
+      // Embedding dispatcher picks it up.
+    },
+    [projectId, updateJob],
+  );
+
+  const readText = useCallback(
+    async (jobId: string): Promise<string> => {
+      const job = jobsRef.current.find((j) => j.id === jobId);
+      if (!job) return "";
+      if (job.rawText) return job.rawText;
+      if (job.pendingChunkBlueprints && job.pendingChunkBlueprints.length > 0) {
+        return job.pendingChunkBlueprints.map((c) => c.text).join("\n\n");
+      }
+      try {
+        const chunks = await getProjectChunksWithEmbeddings(projectId);
+        return chunks
+          .filter((c) => c.docId === jobId)
+          .sort((a, b) => a.chunkIndex - b.chunkIndex)
+          .map((c) => c.text)
+          .join("\n\n");
+      } catch {
+        return "";
+      }
+    },
+    [projectId],
+  );
+
+  const [summaries, setSummaries] = useState<Record<string, string>>({});
+  const summarise = useCallback(
+    async (jobId: string) => {
+      const job = jobsRef.current.find((j) => j.id === jobId);
+      if (!job) return;
+      const chunks = job.pendingChunkBlueprints ?? [];
+      if (chunks.length === 0) {
+        toast.error("Doc has no chunks to summarise");
+        return;
+      }
+      try {
+        const res = await fetch("/api/summarize/doc", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            docName: job.name,
+            chunks: chunks.slice(0, 8).map((c) => c.text),
+          }),
+        });
+        const data = await res.json();
+        if (data.error || !data.summary) {
+          toast.error("Couldn't summarise", {
+            description: data.message ?? data.error,
+          });
+          return;
+        }
+        setSummaries((prev) => ({ ...prev, [jobId]: data.summary }));
+        // Persist on the doc metadata via WorkspaceProvider so the
+        // summary survives reload.
+        if (project?.knowledgeBase) {
+          const docs = project.knowledgeBase.docs.map((d) =>
+            d.id === jobId ? { ...d, summary: data.summary } : d,
+          );
+          updateProject({
+            knowledgeBase: { ...project.knowledgeBase, docs },
+          });
+        }
+        toast.success(`Summarised: ${job.name}`);
+      } catch (err) {
+        toast.error("Summarisation failed", {
+          description: err instanceof Error ? err.message : "Unknown error",
+        });
+      }
+    },
+    [project, updateProject],
+  );
+
+  // Hydrate existing summaries from project metadata once.
+  useEffect(() => {
+    if (!project?.knowledgeBase) return;
+    const fromMeta: Record<string, string> = {};
+    for (const d of project.knowledgeBase.docs) {
+      if (d.summary) fromMeta[d.id] = d.summary;
+    }
+    setSummaries((prev) => ({ ...fromMeta, ...prev }));
+  }, [project?.knowledgeBase]);
+
   const totals = useMemo(() => {
     const ready = jobs.filter((j) => j.status === "ready");
     const chunks = ready.reduce(
@@ -596,6 +849,12 @@ export function useIntakeQueue(): IntakeQueueApi {
     cancel,
     retry,
     remove,
+    summarise,
+    summaries,
+    runOcr,
+    runVision,
+    reprocessFromText,
+    readText,
     totals,
     parsingCount,
     embeddingCount,

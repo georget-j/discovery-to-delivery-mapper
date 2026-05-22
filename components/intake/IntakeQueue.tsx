@@ -8,6 +8,11 @@ type Props = {
   onCancel: (jobId: string) => void;
   onRetry: (jobId: string) => void;
   onRemove: (jobId: string) => void;
+  onSummarise?: (jobId: string) => void;
+  onRunOcr?: (jobId: string) => void;
+  onRunVision?: (jobId: string) => void;
+  onEdit?: (jobId: string, jobName: string) => void;
+  summaries?: Record<string, string>;
 };
 
 const STATUS_ICON: Record<IntakeJob["status"], string> = {
@@ -28,7 +33,17 @@ const STATUS_COLOR: Record<IntakeJob["status"], string> = {
   failed: "text-amber-700",
 };
 
-export function IntakeQueue({ jobs, onCancel, onRetry, onRemove }: Props) {
+export function IntakeQueue({
+  jobs,
+  onCancel,
+  onRetry,
+  onRemove,
+  onSummarise,
+  onRunOcr,
+  onRunVision,
+  onEdit,
+  summaries,
+}: Props) {
   if (jobs.length === 0) return null;
   return (
     <ul className="divide-y rounded-md border bg-background">
@@ -72,6 +87,11 @@ export function IntakeQueue({ jobs, onCancel, onRetry, onRemove }: Props) {
                 {summarizeReady(job)}
               </p>
             )}
+            {job.status === "ready" && summaries?.[job.id] && (
+              <p className="text-[11px] text-foreground/80 mt-1 italic leading-relaxed">
+                {summaries[job.id]}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {job.status === "failed" && job.recoverable && (
@@ -83,6 +103,32 @@ export function IntakeQueue({ jobs, onCancel, onRetry, onRemove }: Props) {
                 Retry
               </button>
             )}
+            {job.status === "failed" &&
+              onRunOcr &&
+              job.type === "pdf" &&
+              /scanned|image/i.test(job.statusDetail ?? "") && (
+                <button
+                  type="button"
+                  onClick={() => onRunOcr(job.id)}
+                  className="text-xs px-2 py-1 rounded border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900"
+                  title="Run on-device OCR — slow but works on scanned PDFs"
+                >
+                  Run OCR
+                </button>
+              )}
+            {job.status === "failed" &&
+              onRunVision &&
+              job.type === "pdf" &&
+              /scanned|image|empty/i.test(job.statusDetail ?? "") && (
+                <button
+                  type="button"
+                  onClick={() => onRunVision(job.id)}
+                  className="text-xs px-2 py-1 rounded border border-teal-300 bg-teal-50 hover:bg-teal-100 text-teal-900"
+                  title="Use gpt-4o-mini vision to describe each page — good for slide-heavy / diagram-heavy PDFs"
+                >
+                  Describe images
+                </button>
+              )}
             {(job.status === "queued" ||
               job.status === "parsing" ||
               job.status === "chunking" ||
@@ -93,6 +139,26 @@ export function IntakeQueue({ jobs, onCancel, onRetry, onRemove }: Props) {
                 className="text-xs px-2 py-1 rounded border hover:bg-muted/40"
               >
                 Cancel
+              </button>
+            )}
+            {job.status === "ready" && onEdit && (
+              <button
+                type="button"
+                onClick={() => onEdit(job.id, job.name)}
+                className="text-xs px-2 py-1 rounded border hover:bg-muted/40 text-muted-foreground hover:text-foreground"
+                title="View / edit extracted text and re-embed"
+              >
+                Edit text
+              </button>
+            )}
+            {job.status === "ready" && onSummarise && !summaries?.[job.id] && (
+              <button
+                type="button"
+                onClick={() => onSummarise(job.id)}
+                className="text-xs px-2 py-1 rounded border hover:bg-muted/40 text-muted-foreground hover:text-foreground"
+                title="Generate a one-paragraph summary"
+              >
+                Summarise
               </button>
             )}
             {(job.status === "ready" || job.status === "failed") && (

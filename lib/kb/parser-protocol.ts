@@ -54,12 +54,12 @@ const SUPPORTED_EXTS: Record<string, KnowledgeBaseDocType> = {
   md: "md",
   markdown: "md",
   json: "json",
+  pptx: "pptx",
 };
 
 const REJECTED_EXTS = new Set([
   "doc", // legacy binary Word
-  "ppt",
-  "pptx",
+  "ppt", // legacy binary PowerPoint
   "pages",
   "key",
   "rtf",
@@ -96,6 +96,11 @@ export function detectDocType(
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
   )
     return { ok: true, docType: "xlsx", ext: "xlsx" };
+  if (
+    mimeType ===
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+  )
+    return { ok: true, docType: "pptx", ext: "pptx" };
   if (mimeType === "text/csv") return { ok: true, docType: "csv", ext: "csv" };
   if (mimeType.startsWith("text/"))
     return { ok: true, docType: "txt", ext: ext || "txt" };

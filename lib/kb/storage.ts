@@ -13,9 +13,15 @@
 import type { KnowledgeBaseChunk, KnowledgeBaseDoc } from "@/lib/types";
 
 const DB_NAME = "dtdm-knowledge-base";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const DOCS_STORE = "docs";
 const CHUNKS_STORE = "chunks";
+// Pass 5 — cross-project library. Stores docs/chunks scoped to a synthetic
+// "library" projectId so the existing query paths re-use unchanged.
+const LIBRARY_DOCS_STORE = "library_docs";
+const LIBRARY_CHUNKS_STORE = "library_chunks";
+
+export const LIBRARY_PROJECT_ID = "__library__";
 
 const EMBEDDING_DIMS = 1536;
 const EMBEDDING_BYTES = EMBEDDING_DIMS * 4; // Float32 → 4 bytes per dim
@@ -41,6 +47,19 @@ function openDb(): Promise<IDBDatabase> {
         const chunks = db.createObjectStore(CHUNKS_STORE, { keyPath: "id" });
         chunks.createIndex("projectId", "projectId", { unique: false });
         chunks.createIndex("docId", "docId", { unique: false });
+      }
+      // v2: cross-project library.
+      if (!db.objectStoreNames.contains(LIBRARY_DOCS_STORE)) {
+        const lDocs = db.createObjectStore(LIBRARY_DOCS_STORE, {
+          keyPath: "id",
+        });
+        lDocs.createIndex("addedAt", "addedAt", { unique: false });
+      }
+      if (!db.objectStoreNames.contains(LIBRARY_CHUNKS_STORE)) {
+        const lChunks = db.createObjectStore(LIBRARY_CHUNKS_STORE, {
+          keyPath: "id",
+        });
+        lChunks.createIndex("libraryDocId", "libraryDocId", { unique: false });
       }
     };
 
@@ -293,3 +312,150 @@ export async function storageUsage(): Promise<StorageUsage | null> {
 }
 
 export const STORAGE_LOW_THRESHOLD_MB = 10;
+
+// ── Cross-project library ─────────────────────────────────────────────────
+
+export type LibraryDoc = Omit<KnowledgeBaseDoc, "projectId"> & {
+  // Library docs are user-curated — usually promoted from a project.
+  sourceProjectId?: string;
+};
+
+type PersistedLibraryChunk = Omit<KnowledgeBaseChunk, "projectId"> & {
+  libraryDocId: string;
+  embedding: ArrayBuffer;
+};
+
+export type LibraryChunkWithEmbedding = Omit<
+  KnowledgeBaseChunk,
+  "projectId"
+> & {
+  libraryDocId: string;
+  embedding: Float32Array;
+};
+
+export async function putLibraryDoc(doc: LibraryDoc): Promise<void> {
+  await tx(LIBRARY_DOCS_STORE, "readwrite", async (store) => {
+    await req((store as IDBObjectStore).put(doc));
+  });
+}
+
+export async function listLibraryDocs(): Promise<LibraryDoc[]> {
+  return tx(LIBRARY_DOCS_STORE, "readonly", async (store) => {
+    const results = await req(
+      (store as IDBObjectStore).getAll() as IDBRequest<LibraryDoc[]>,
+    );
+    return results.sort((a, b) => (a.addedAt > b.addedAt ? -1 : 1));
+  });
+}
+
+export async function deleteLibraryDoc(docId: string): Promise<void> {
+  await tx(
+    [LIBRARY_DOCS_STORE, LIBRARY_CHUNKS_STORE],
+    "readwrite",
+    async (stores) => {
+      const map = stores as Record<string, IDBObjectStore>;
+      await req(map[LIBRARY_DOCS_STORE].delete(docId));
+      const chunkIndex = map[LIBRARY_CHUNKS_STORE].index("libraryDocId");
+      const chunkIds = await req(
+        chunkIndex.getAllKeys(docId) as IDBRequest<IDBValidKey[]>,
+      );
+      for (const cid of chunkIds) {
+        await req(map[LIBRARY_CHUNKS_STORE].delete(cid));
+      }
+    },
+  );
+}
+
+export async function putLibraryChunks(
+  chunks: LibraryChunkWithEmbedding[],
+): Promise<void> {
+  if (chunks.length === 0) return;
+  await tx(LIBRARY_CHUNKS_STORE, "readwrite", async (store) => {
+    for (const c of chunks) {
+      const persisted: PersistedLibraryChunk = {
+        ...c,
+        embedding: embeddingToBytes(c.embedding),
+      };
+      await req((store as IDBObjectStore).put(persisted));
+    }
+  });
+}
+
+export async function getLibraryChunksWithEmbeddings(
+  libraryDocId: string,
+): Promise<LibraryChunkWithEmbedding[]> {
+  return tx(LIBRARY_CHUNKS_STORE, "readonly", async (store) => {
+    const idx = (store as IDBObjectStore).index("libraryDocId");
+    const persisted = await req(
+      idx.getAll(libraryDocId) as IDBRequest<PersistedLibraryChunk[]>,
+    );
+    return persisted.map((p) => ({
+      ...p,
+      embedding: bytesToEmbedding(p.embedding),
+    }));
+  });
+}
+
+// Promote a project doc → library. Copies the doc metadata + chunks
+// (including embeddings) so the library copy is independent of the source.
+export async function promoteToLibrary(
+  doc: KnowledgeBaseDoc,
+): Promise<LibraryDoc> {
+  const { projectId: _projectId, ...rest } = doc;
+  const libraryDoc: LibraryDoc = {
+    ...rest,
+    id: `lib-${doc.id}-${Date.now().toString(36)}`,
+    sourceProjectId: doc.projectId,
+    addedAt: new Date().toISOString(),
+  };
+  await putLibraryDoc(libraryDoc);
+
+  const projectChunks = await getProjectChunksWithEmbeddings(doc.projectId);
+  const matching = projectChunks.filter((c) => c.docId === doc.id);
+  const libraryChunks: LibraryChunkWithEmbedding[] = matching.map((c, i) => ({
+    id: `${libraryDoc.id}-c${i}`,
+    libraryDocId: libraryDoc.id,
+    docId: libraryDoc.id,
+    text: c.text,
+    page: c.page,
+    sheet: c.sheet,
+    rangeRef: c.rangeRef,
+    chunkIndex: c.chunkIndex,
+    embedding: c.embedding,
+  }));
+  await putLibraryChunks(libraryChunks);
+  return libraryDoc;
+}
+
+// Import a library doc into a specific project. Creates fresh chunk IDs
+// scoped to the project so retrieval continues to work via the per-project
+// chunks index.
+export async function importLibraryDocToProject(
+  libraryDoc: LibraryDoc,
+  projectId: string,
+): Promise<KnowledgeBaseDoc> {
+  const newDocId = `local-${libraryDoc.id}-${Date.now().toString(36)}`;
+  const projectDoc: KnowledgeBaseDoc = {
+    ...libraryDoc,
+    id: newDocId,
+    projectId,
+    addedAt: new Date().toISOString(),
+    source: "upload",
+  };
+  await putDoc(projectDoc);
+
+  const libraryChunks = await getLibraryChunksWithEmbeddings(libraryDoc.id);
+  const projectChunks: ChunkWithEmbedding[] = libraryChunks.map((c, i) => ({
+    id: `${newDocId}-c${i}`,
+    projectId,
+    docId: newDocId,
+    text: c.text,
+    page: c.page,
+    sheet: c.sheet,
+    rangeRef: c.rangeRef,
+    chunkIndex: c.chunkIndex,
+    embedding: c.embedding,
+  }));
+  await putChunks(projectChunks);
+  return projectDoc;
+}

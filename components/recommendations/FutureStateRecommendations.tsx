@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { Sheet } from "@/components/ui/sheet";
 import { RecommendationCard } from "./RecommendationCard";
+import { CustomPatternEditor } from "./CustomPatternEditor";
 import { hashWorkflows } from "@/lib/visualisations/workflow-helpers";
 import { hasReadyKnowledgeBase } from "@/components/intake/useIntakeQueue";
 import { retrieve } from "@/lib/kb/retrieve";
@@ -29,6 +30,8 @@ export function FutureStateRecommendations() {
   const [loading, setLoading] = useState(false);
   const [sourceSheetIds, setSourceSheetIds] = useState<string[] | null>(null);
   const [sourceChunks, setSourceChunks] = useState<KnowledgeBaseChunk[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [editorOpen, setEditorOpen] = useState(false);
 
   const state: FutureStateRecommendationsState | undefined =
     project?.visualisations?.futureStateRecommendations;
@@ -193,6 +196,78 @@ export function FutureStateRecommendations() {
     [project, state, updateProject],
   );
 
+  // Bulk-apply the currently selected recommendations. Each apply is
+  // applied to the cumulative working copy of workflows so multiple
+  // recommendations targeting the same step land cleanly.
+  const applySelected = useCallback(() => {
+    if (!project || selected.size === 0) return;
+    const toApply = (state?.recommendations ?? []).filter((r) =>
+      selected.has(r.id),
+    );
+    if (toApply.length === 0) return;
+    let workflows = [...project.workflows];
+    let appliedCount = 0;
+    for (const rec of toApply) {
+      const nextWorkflows = [...workflows];
+      if (rec.stepId) {
+        const idx = nextWorkflows.findIndex((s) => s.id === rec.stepId);
+        if (idx < 0) continue;
+        const existing = nextWorkflows[idx];
+        nextWorkflows[idx] = {
+          ...existing,
+          futureState: rec.apply.futureState,
+          description: existing.description
+            ? `${existing.description}\n\nFuture state: ${rec.apply.futureStateDescription}`
+            : rec.apply.futureStateDescription,
+        };
+      } else if (nextWorkflows.length > 0) {
+        const first = nextWorkflows[0];
+        nextWorkflows[0] = {
+          ...first,
+          description:
+            `# Workflow-level proposal\n${rec.apply.futureStateDescription}\n\n${first.description}`.trim(),
+        };
+      }
+      workflows = nextWorkflows;
+      appliedCount++;
+    }
+    updateProject({ workflows });
+    const nextApplied = Array.from(
+      new Set([...(state?.appliedIds ?? []), ...toApply.map((r) => r.id)]),
+    );
+    patchVisualisations(project, updateProject, {
+      ...(state ?? defaultState()),
+      appliedIds: nextApplied,
+    });
+    setSelected(new Set());
+    toast.success(
+      `Applied ${appliedCount} recommendation${appliedCount !== 1 ? "s" : ""}`,
+    );
+  }, [project, selected, state, updateProject]);
+
+  const toggleSelected = useCallback((id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const selectAllVisible = useCallback(() => {
+    if (!state) return;
+    const next = new Set<string>();
+    for (const r of state.recommendations) {
+      if (
+        !state.dismissedIds.includes(r.id) &&
+        !state.appliedIds.includes(r.id)
+      ) {
+        next.add(r.id);
+      }
+    }
+    setSelected(next);
+  }, [state]);
+
   const dismiss = useCallback(
     (recId: string) => {
       if (!project) return;
@@ -258,26 +333,76 @@ export function FutureStateRecommendations() {
             Pattern-grounded modernizations for your workflow. Apply per step.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={generate}
-          disabled={loading}
-          className={cn(
-            "text-xs px-3 py-1.5 rounded border font-medium",
-            loading
-              ? "opacity-60 cursor-wait"
-              : "border-primary/40 bg-primary/5 text-primary hover:bg-primary/10",
-          )}
-        >
-          {loading
-            ? "Drafting…"
-            : state
-              ? stale
-                ? "Refresh"
-                : "Re-draft"
-              : "Generate"}
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setEditorOpen(true)}
+            className="text-xs px-2.5 py-1.5 rounded border hover:bg-muted/30 text-muted-foreground hover:text-foreground"
+            title="Add project-specific patterns to feed the recommender"
+          >
+            ⚙ Custom patterns
+            {(project.customPatterns?.length ?? 0) > 0
+              ? ` (${project.customPatterns?.length})`
+              : ""}
+          </button>
+          <button
+            type="button"
+            onClick={generate}
+            disabled={loading}
+            className={cn(
+              "text-xs px-3 py-1.5 rounded border font-medium",
+              loading
+                ? "opacity-60 cursor-wait"
+                : "border-primary/40 bg-primary/5 text-primary hover:bg-primary/10",
+            )}
+          >
+            {loading
+              ? "Drafting…"
+              : state
+                ? stale
+                  ? "Refresh"
+                  : "Re-draft"
+                : "Generate"}
+          </button>
+        </div>
       </div>
+
+      {visible.length > 1 && (
+        <div className="flex items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={selectAllVisible}
+              className="text-muted-foreground hover:text-foreground hover:underline"
+            >
+              Select all
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelected(new Set())}
+              className="text-muted-foreground hover:text-foreground hover:underline"
+            >
+              Clear
+            </button>
+            <span className="text-muted-foreground">
+              {selected.size > 0 ? `${selected.size} selected` : ""}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={applySelected}
+            disabled={selected.size === 0}
+            className={cn(
+              "px-2.5 py-1 rounded font-medium",
+              selected.size === 0
+                ? "text-muted-foreground/50 cursor-not-allowed"
+                : "bg-foreground text-background hover:bg-foreground/90",
+            )}
+          >
+            Apply selected ({selected.size})
+          </button>
+        </div>
+      )}
 
       {visible.length === 0 ? (
         <p className="text-xs text-muted-foreground">
@@ -300,6 +425,9 @@ export function FutureStateRecommendations() {
                 onApply={applyRecommendation}
                 onDismiss={dismiss}
                 onShowSources={showSources}
+                selectable={visible.length > 1}
+                selected={selected.has(rec.id)}
+                onToggleSelected={toggleSelected}
               />
             </li>
           ))}
@@ -315,6 +443,8 @@ export function FutureStateRecommendations() {
           + Restore dismissed ({dismissedCount})
         </button>
       )}
+
+      <CustomPatternEditor open={editorOpen} onOpenChange={setEditorOpen} />
 
       <Sheet
         open={sourceSheetIds !== null}

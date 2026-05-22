@@ -12,6 +12,13 @@ import {
 import { getDocs } from "@/lib/kb/storage";
 import type { KnowledgeBaseChunk, KnowledgeBaseDoc } from "@/lib/types";
 import { queriesForTarget, type GenerationTarget } from "./query-templates";
+import { bm25Score } from "./lexical";
+
+// Hybrid scoring weight — 70% vector, 30% lexical. Vector dominates
+// because it captures semantic intent; lexical adds robustness on
+// exact tool/product names that vector embeddings can blur.
+const VECTOR_WEIGHT = 0.7;
+const LEXICAL_WEIGHT = 0.3;
 
 const DEFAULT_TOP_K = 8;
 const MIN_SIMILARITY = 0.3;
@@ -41,11 +48,29 @@ export async function retrieve(
   if (chunks.length === 0) return [];
 
   const docById = new Map<string, KnowledgeBaseDoc>(docs.map((d) => [d.id, d]));
-  const scored = chunks
-    .map((c) => ({
-      chunk: c,
-      similarity: dotProduct(queryVec, c.embedding),
-    }))
+
+  // Vector similarity for every chunk.
+  const vectorScored = chunks.map((c) => ({
+    chunk: c,
+    vector: dotProduct(queryVec, c.embedding),
+  }));
+  // BM25 lexical similarity (already normalised to [0, 1]).
+  const lexical = bm25Score(
+    chunks.map((c) => ({ id: c.id, text: c.text })),
+    trimmed,
+  );
+  const lexicalById = new Map(lexical.map((l) => [l.doc.id, l.score]));
+
+  // Normalise vector scores to [0, 1] for blending. Vectors from
+  // text-embedding-3-small are unit-length so similarity sits in [-1, 1];
+  // clamp to [0, 1] which loses negatives (effectively zero relevance).
+  const scored = vectorScored
+    .map((r) => {
+      const v = Math.max(0, r.vector);
+      const lex = lexicalById.get(r.chunk.id) ?? 0;
+      const similarity = VECTOR_WEIGHT * v + LEXICAL_WEIGHT * lex;
+      return { chunk: r.chunk, similarity };
+    })
     .filter((r) => r.similarity >= MIN_SIMILARITY)
     .sort((a, b) => b.similarity - a.similarity)
     .slice(0, k);

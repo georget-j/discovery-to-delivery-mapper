@@ -17,9 +17,11 @@ const ACCEPT_ATTR = [
   ".txt",
   ".md",
   ".json",
+  ".pptx",
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   "text/csv",
   "text/plain",
   "text/markdown",
@@ -111,7 +113,8 @@ export function FileDropzone({ onFiles, disabled }: Props) {
       </div>
       <p className="text-sm font-medium">Drop files here, or click to browse</p>
       <p className="text-xs text-muted-foreground">
-        PDF · DOCX · XLSX · CSV · TXT · MD · JSON · Max 20 MB · Up to 10 files
+        PDF · DOCX · XLSX · PPTX · CSV · TXT · MD · JSON · Max 20 MB · Up to 10
+        files
       </p>
       <input
         ref={inputRef}

@@ -5,7 +5,11 @@ import {
   PATTERNS,
   serializePatternsForPrompt,
 } from "@/lib/patterns/future-state-patterns";
-import type { OnboardingProject, WorkflowStep } from "@/lib/types";
+import type {
+  CustomAutomationPattern,
+  OnboardingProject,
+  WorkflowStep,
+} from "@/lib/types";
 
 // Innovative future-state recommendations grounded in a static pattern
 // catalogue. Inputs: workflow steps + customer profile + (optional) KB
@@ -150,6 +154,8 @@ export async function POST(req: NextRequest) {
   }
 
   const { project, workflows, kbContextChunks = [] } = parsed;
+  const customPatterns: CustomAutomationPattern[] =
+    project?.customPatterns ?? [];
   if (!project || !workflows || workflows.length < 1) {
     return NextResponse.json(
       { error: "invalid_input", message: "Need a project with workflows" },
@@ -162,9 +168,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "no_api_key" });
   }
 
+  const customCatalogueBlock =
+    customPatterns.length > 0
+      ? `\nCUSTOM_PATTERNS (project-specific, treat as first-class catalogue entries):\n${customPatterns
+          .map(
+            (p) =>
+              `## ${p.name} (id: ${p.id}, family: ${p.family})\n${p.shortDescription}\nWHEN: ${(p.whenToUse ?? []).map((w) => `• ${w}`).join("; ")}\nARCH: ${p.exampleArchitecture}\nFUTURE_STATE_ENUM: ${p.recommendedFutureState}`,
+          )
+          .join("\n\n")}`
+      : "";
+
   const userPrompt = [
     `CUSTOMER:\n${serializeCustomer(project)}`,
     `\nCURRENT_WORKFLOW (${workflows.length} step${workflows.length !== 1 ? "s" : ""}):\n${serializeWorkflows(workflows)}`,
+    customCatalogueBlock,
     `\nKB_CONTEXT:\n${serializeKbChunks(kbContextChunks)}`,
     `\nProduce future-state recommendations grounded in the catalogue. Cite chunk ids in rationale where applicable.`,
   ].join("\n");
@@ -206,13 +223,22 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Clamp patternId / family to known catalogue (LLM occasionally invents).
+    // Clamp patternId / family to known catalogue (built-in + custom).
+    // LLM occasionally invents IDs — fall back to first built-in if so.
+    const customById = new Map(customPatterns.map((p) => [p.id, p]));
     const cleaned = validated.data.recommendations.map((rec) => {
-      const pattern = PATTERN_BY_ID[rec.patternId] ?? PATTERNS[0];
+      const builtIn = PATTERN_BY_ID[rec.patternId];
+      const custom = customById.get(rec.patternId);
+      if (builtIn) {
+        return { ...rec, patternId: builtIn.id, patternFamily: builtIn.family };
+      }
+      if (custom) {
+        return { ...rec, patternId: custom.id, patternFamily: custom.family };
+      }
       return {
         ...rec,
-        patternId: pattern.id,
-        patternFamily: pattern.family,
+        patternId: PATTERNS[0].id,
+        patternFamily: PATTERNS[0].family,
       };
     });
 

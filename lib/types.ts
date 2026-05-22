@@ -447,6 +447,8 @@ export type OnboardingProject = {
   suggestionsOfferedAt?: string;
   // Knowledge base summary — doc list lives here, chunks live in IndexedDB.
   knowledgeBase?: KnowledgeBaseSummary;
+  // User-defined automation patterns for the future-state recommender.
+  customPatterns?: CustomAutomationPattern[];
 };
 
 // ────────────────────────────────────────────────────────────
@@ -480,6 +482,7 @@ export type KnowledgeBaseDocType =
   | "txt"
   | "md"
   | "json"
+  | "pptx"
   | "rawtext";
 
 export type KnowledgeBaseDoc = {
@@ -496,6 +499,10 @@ export type KnowledgeBaseDoc = {
   pageCount?: number;
   sheetCount?: number;
   source: "upload" | "paste";
+  // Auto-generated one-paragraph summary for the doc, populated by
+  // /api/summarize/doc when the user requests it. Useful in the doc
+  // viewer + intake queue.
+  summary?: string;
 };
 
 export type KnowledgeBaseChunk = {
@@ -553,6 +560,21 @@ export type FutureStateRecommendationsState = {
   workflowsHashAtGeneration: string;
   dismissedIds: string[];
   appliedIds: string[];
+};
+
+// Per-project user-defined automation patterns. The recommender prompt
+// includes both the built-in catalogue and any custom patterns the user has
+// added here, so suggestions can reference proprietary or org-specific
+// playbooks.
+export type CustomAutomationPattern = {
+  id: string; // e.g. "custom-cx-triage"
+  family: AutomationPatternFamily;
+  name: string;
+  shortDescription: string;
+  whenToUse: string[];
+  exampleArchitecture: string;
+  recommendedFutureState: FutureState;
+  createdAt: string;
 };
 
 // ────────────────────────────────────────────────────────────

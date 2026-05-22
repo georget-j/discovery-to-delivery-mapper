@@ -12,6 +12,9 @@ type Props = {
   onApply: (rec: FutureStateRecommendation) => void;
   onDismiss: (recId: string) => void;
   onShowSources?: (chunkIds: string[]) => void;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelected?: (recId: string) => void;
 };
 
 export function RecommendationCard({
@@ -21,6 +24,9 @@ export function RecommendationCard({
   onApply,
   onDismiss,
   onShowSources,
+  selectable,
+  selected,
+  onToggleSelected,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const stepLabel = step ? `Step: ${step.name}` : "Workflow-level";
@@ -29,6 +35,17 @@ export function RecommendationCard({
   return (
     <div className="rounded-md border bg-background p-3">
       <div className="flex items-start justify-between gap-2 flex-wrap">
+        {selectable && !applied && (
+          <label className="flex items-start pt-1 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={selected ?? false}
+              onChange={() => onToggleSelected?.(rec.id)}
+              className="mt-0.5"
+              aria-label={`Select recommendation: ${rec.title}`}
+            />
+          </label>
+        )}
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold leading-snug">{rec.title}</p>
           <div className="flex items-center gap-2 mt-1 flex-wrap">

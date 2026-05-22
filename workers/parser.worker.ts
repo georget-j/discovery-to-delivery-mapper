@@ -57,6 +57,9 @@ self.addEventListener("message", async (event: MessageEvent<ParserRequest>) => {
       case "csv":
         await handleSpreadsheet(jobId, data, docType);
         break;
+      case "pptx":
+        await handlePptx(jobId, data);
+        break;
       case "json":
         handleJson(jobId, data, name);
         break;
@@ -364,6 +367,115 @@ function handlePlainText(jobId: string, data: ArrayBuffer): void {
   post({ type: "progress", jobId, progress: 1, stage: "chunking" });
   const chunks = chunkText(text);
   post({ type: "result", jobId, chunks });
+}
+
+// ── PPTX ──────────────────────────────────────────────────────────────────
+
+async function handlePptx(jobId: string, data: ArrayBuffer): Promise<void> {
+  // pptx is a zip of XML files. Slide text lives at ppt/slides/slideN.xml.
+  // Use fflate (small, fast, browser-friendly) to unzip; extract <a:t>…</a:t>
+  // runs from each slide as the readable text.
+  let unzipSync: (data: Uint8Array) => Record<string, Uint8Array>;
+  try {
+    const mod = await import("fflate");
+    unzipSync = mod.unzipSync;
+  } catch (err) {
+    post({
+      type: "error",
+      jobId,
+      message: `Couldn't load PPTX parser: ${err instanceof Error ? err.message : String(err)}`,
+      recoverable: true,
+    });
+    return;
+  }
+
+  let entries: Record<string, Uint8Array>;
+  try {
+    entries = unzipSync(new Uint8Array(data));
+  } catch (err) {
+    post({
+      type: "error",
+      jobId,
+      message: `Couldn't unzip PPTX: ${err instanceof Error ? err.message : String(err)}`,
+      recoverable: false,
+    });
+    return;
+  }
+
+  const slideKeys = Object.keys(entries)
+    .filter((k) => /^ppt\/slides\/slide\d+\.xml$/.test(k))
+    .sort((a, b) => {
+      const na = Number(a.match(/slide(\d+)/)?.[1] ?? 0);
+      const nb = Number(b.match(/slide(\d+)/)?.[1] ?? 0);
+      return na - nb;
+    });
+
+  if (slideKeys.length === 0) {
+    post({
+      type: "error",
+      jobId,
+      message: "No slides found in this PPTX.",
+      recoverable: false,
+    });
+    return;
+  }
+
+  const decoder = new TextDecoder("utf-8");
+  const sources: { text: string; page: number }[] = [];
+  for (let i = 0; i < slideKeys.length; i++) {
+    if (isCancelled(jobId)) {
+      cancelled.delete(jobId);
+      return;
+    }
+    const xml = decoder.decode(entries[slideKeys[i]]);
+    const text = extractPptxText(xml);
+    if (text.trim().length > 0) {
+      sources.push({ text, page: i + 1 });
+    }
+    post({
+      type: "progress",
+      jobId,
+      progress: (i + 1) / slideKeys.length,
+      stage: "parsing",
+    });
+  }
+
+  if (sources.length === 0) {
+    post({
+      type: "error",
+      jobId,
+      message:
+        "No readable text in this PPTX (all slides may be images / shapes).",
+      recoverable: false,
+    });
+    return;
+  }
+
+  post({ type: "progress", jobId, progress: 0, stage: "chunking" });
+  const chunks = chunkSources(sources);
+  post({ type: "result", jobId, chunks, pageCount: slideKeys.length });
+}
+
+// Naive XML text extractor — pulls <a:t>…</a:t> runs and notes contents.
+// Sufficient for the prose / titles in typical slides without dragging in a
+// full XML parser.
+function extractPptxText(xml: string): string {
+  const matches: string[] = [];
+  const re = /<a:t[^>]*>([\s\S]*?)<\/a:t>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(xml)) !== null) {
+    matches.push(decodeXmlEntities(m[1]));
+  }
+  return matches.join(" ").replace(/\s+/g, " ").trim();
+}
+
+function decodeXmlEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'");
 }
 
 export {};

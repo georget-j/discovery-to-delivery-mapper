@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { FileDropzone } from "@/components/intake/FileDropzone";
 import { IntakeQueue } from "@/components/intake/IntakeQueue";
 import { PasteNoteInput } from "@/components/intake/PasteNoteInput";
 import { KbSummary } from "@/components/intake/KbSummary";
+import { DocEditSheet } from "@/components/intake/DocEditSheet";
+import { LibraryPanel } from "@/components/intake/LibraryPanel";
 import { useIntakeQueue } from "@/components/intake/useIntakeQueue";
 import { retrieveForTarget } from "@/lib/kb/retrieve";
 import { applySuggestionsToProject } from "@/lib/apply-suggestions";
@@ -16,6 +18,9 @@ import type { NotesExtractionResult } from "@/lib/types";
 export default function IntakePage() {
   const { project, loading, updateProject } = useWorkspace();
   const queue = useIntakeQueue();
+  const [editing, setEditing] = useState<{ id: string; name: string } | null>(
+    null,
+  );
 
   const generateFromKb = useCallback(
     async (
@@ -149,7 +154,14 @@ export default function IntakePage() {
         onCancel={queue.cancel}
         onRetry={queue.retry}
         onRemove={queue.remove}
+        onSummarise={queue.summarise}
+        onRunOcr={queue.runOcr}
+        onRunVision={queue.runVision}
+        onEdit={(id, name) => setEditing({ id, name })}
+        summaries={queue.summaries}
       />
+
+      <LibraryPanel />
 
       <KbSummary
         docs={queue.totals.docs}
@@ -162,6 +174,15 @@ export default function IntakePage() {
       />
 
       <PageNav />
+
+      <DocEditSheet
+        open={!!editing}
+        jobId={editing?.id ?? null}
+        jobName={editing?.name ?? null}
+        onLoad={(id) => queue.readText(id)}
+        onSave={(id, text) => queue.reprocessFromText(id, text)}
+        onClose={() => setEditing(null)}
+      />
     </div>
   );
 }
