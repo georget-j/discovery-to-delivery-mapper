@@ -5,6 +5,7 @@ import { DiscoveryForm } from "@/components/DiscoveryForm";
 import { DiscoveryCompletenessStrip } from "@/components/DiscoveryCompletenessStrip";
 import { PageNav } from "@/components/PageNav";
 import { LiveArtifactPreview } from "@/components/LiveArtifactPreview";
+import { SuggestionsBanner } from "@/components/SuggestionsBanner";
 
 export default function DiscoveryPage() {
   const { project, loading, updateProject } = useWorkspace();
@@ -30,6 +31,7 @@ export default function DiscoveryPage() {
         </div>
         <div className="px-8 space-y-6 pb-8">
           <DiscoveryCompletenessStrip />
+          <SuggestionsBanner target="stakeholders" />
           <DiscoveryForm project={project} onUpdate={updateProject} />
           <PageNav />
         </div>

@@ -438,6 +438,12 @@ export type OnboardingProject = {
   // action items.
   meetingSessions?: DiscoverySession[];
   visualisations?: ProjectVisualisations;
+  // AI-drafted suggestions awaiting user review (Part E auto-suggest flow).
+  // Cleared once the user applies or dismisses.
+  pendingSuggestions?: NotesExtractionResult | null;
+  // ISO timestamp of the one-shot "draft suggestions?" modal so it never
+  // re-fires for the same project.
+  suggestionsOfferedAt?: string;
 };
 
 // ────────────────────────────────────────────────────────────

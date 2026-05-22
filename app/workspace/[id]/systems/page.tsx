@@ -7,6 +7,7 @@ import {
   SaveIndicator,
   useSaveIndicator,
 } from "@/components/ui/save-indicator";
+import { SuggestionsBanner } from "@/components/SuggestionsBanner";
 
 export default function SystemsPage() {
   const { project, loading, updateProject } = useWorkspace();
@@ -34,6 +35,8 @@ export default function SystemsPage() {
         </div>
         <SaveIndicator state={saveState} className="shrink-0 mt-1" />
       </div>
+
+      <SuggestionsBanner target="systems" />
 
       <SystemsDataSourceEditor
         systems={project.systems}

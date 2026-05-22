@@ -10,6 +10,7 @@ import {
   SaveIndicator,
   useSaveIndicator,
 } from "@/components/ui/save-indicator";
+import { SuggestionsBanner } from "@/components/SuggestionsBanner";
 import { toast } from "@/lib/toast";
 import type { DeploymentRisk, RiskStatus } from "@/lib/types";
 
@@ -100,6 +101,8 @@ export default function RisksPage() {
           )}
         </div>
       </div>
+
+      <SuggestionsBanner target="risks" />
 
       {showForm && (
         <AddRiskForm

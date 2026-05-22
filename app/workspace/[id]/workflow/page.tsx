@@ -13,6 +13,7 @@ import {
   useSaveIndicator,
 } from "@/components/ui/save-indicator";
 import { Surface } from "@/components/ui/surface";
+import { SuggestionsBanner } from "@/components/SuggestionsBanner";
 
 export default function WorkflowPage() {
   const { project, loading, updateProject } = useWorkspace();
@@ -40,6 +41,8 @@ export default function WorkflowPage() {
         </div>
         <SaveIndicator state={saveState} className="shrink-0 mt-1" />
       </div>
+
+      <SuggestionsBanner target="workflows" />
 
       <WorkflowAtAGlance
         steps={project.workflows}
