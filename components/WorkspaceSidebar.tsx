@@ -49,7 +49,11 @@ export function WorkspaceSidebarContent({
           Customer
         </p>
         <p className="text-sm font-semibold mt-0.5 truncate">
-          {project?.customer.companyName ?? "Loading…"}
+          {project
+            ? project.customer.companyName?.trim() ||
+              project.name ||
+              "Untitled Project"
+            : "Loading…"}
         </p>
         {project && (
           <div className="flex items-center gap-2 mt-1.5">

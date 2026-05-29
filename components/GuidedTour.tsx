@@ -16,13 +16,20 @@ type Step = {
 const STEPS: Step[] = [
   {
     title: "Welcome — let's walk the journey",
-    body: "This tool maps customer discovery into a deployable plan. 4 phases, ~30 minutes if you go slow. Press Cmd+K any time to jump around.",
-    ctaLabel: "Show me phase 1",
+    body: "This tool maps customer discovery into a deployable plan. Start by dropping documents on Intake, then walk 4 phases. Press Cmd+K any time to jump around.",
+    ctaLabel: "Show me Intake",
+    ctaAction: "next",
+  },
+  {
+    title: "Start: drop your documents",
+    body: "Intake takes any customer docs — PDFs, Word, Excel, raw notes. The tool builds a knowledge base and pre-fills Discovery, workflows, systems, stakeholders, and risks for you to review. No docs? Skip it and fill manually.",
+    ctaLabel: "Open Intake",
+    ctaHref: (id) => `/workspace/${id}/intake`,
     ctaAction: "next",
   },
   {
     title: "1. Capture what you learned",
-    body: "Discovery holds the customer profile, business problem, and stakeholders. Paste meeting notes — the AI extracts structured suggestions for you to review row by row.",
+    body: "Discovery holds the customer profile, business problem, and stakeholders. Use the chat interview or the form — and paste meeting notes to have the AI extract structured suggestions you review row by row.",
     ctaLabel: "Open Discovery",
     ctaHref: (id) => `/workspace/${id}/discovery`,
     ctaAction: "next",

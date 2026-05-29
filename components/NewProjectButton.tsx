@@ -34,10 +34,23 @@ export function NewProjectButton({
     e?.preventDefault();
     if (submitting) return;
     setSubmitting(true);
-    const project = createBlankProject(name);
-    saveProject(project);
-    registerLocalProject(project.id);
-    router.push(`/workspace/${project.id}/intake`);
+    try {
+      const project = createBlankProject(name);
+      saveProject(project);
+      registerLocalProject(project.id);
+      // Close the modal before navigating so the button never gets stuck on
+      // "Creating…" if client navigation is slow or interrupted.
+      setOpen(false);
+      router.push(`/workspace/${project.id}/intake`);
+    } catch {
+      // Surface the failure instead of leaving the button spinning forever.
+      setSubmitting(false);
+      setOpen(false);
+    } finally {
+      // Reset shortly after so a returning modal starts clean even if the
+      // route transition kept this component mounted.
+      setTimeout(() => setSubmitting(false), 1500);
+    }
   };
 
   return (

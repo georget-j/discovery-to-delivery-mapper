@@ -162,9 +162,32 @@ export default function WorkspaceDashboard() {
     .slice(0, 3);
   const missingInfo = detectMissingInfo(project);
 
+  const kbEmpty = (project.knowledgeBase?.totalChunks ?? 0) === 0;
+
   return (
     <div className="p-8 space-y-8 max-w-6xl">
       <FirstRunHint />
+
+      {kbEmpty && (
+        <Surface
+          variant="muted"
+          className="px-4 py-3 flex items-center justify-between gap-3 border-primary/30 bg-primary/5"
+        >
+          <p className="text-sm text-muted-foreground">
+            <span className="mr-1.5" aria-hidden>
+              📎
+            </span>
+            Have customer docs? Drop them on Intake to auto-fill discovery,
+            workflows, systems, and risks.
+          </p>
+          <Link
+            href={`/workspace/${project.id}/intake`}
+            className="text-xs font-medium text-primary hover:text-primary/80 shrink-0 whitespace-nowrap"
+          >
+            Add documents →
+          </Link>
+        </Surface>
+      )}
 
       {/* Header */}
       <div className="space-y-2">
