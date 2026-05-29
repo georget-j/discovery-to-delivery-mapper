@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ReactFlow,
   Background,
@@ -27,16 +27,25 @@ import type {
   WorkflowEdge,
 } from "@/lib/visualisations/workflow-types";
 import { FutureWorkflowNode as FutureWorkflowNodeComp } from "./FutureWorkflowNode";
+import { GhostNode } from "./GhostNode";
 import { WorkflowLaneBackground } from "../current-state-workflow/WorkflowLaneBackground";
 import {
   mapToReactFlowNodes,
   mapToReactFlowEdges,
+  buildProposalAdditions,
   FUTURE_LANE_Y,
   laneIdForY,
 } from "./futureWorkflowUtils";
-import { MapEditProvider } from "../shared/MapEditContext";
+import {
+  MapEditProvider,
+  type ProposalPreview,
+} from "../shared/MapEditContext";
+import type { NodeProposal } from "@/lib/visualisations/node-proposals";
 
-const NODE_TYPES = { future_workflow: FutureWorkflowNodeComp };
+const NODE_TYPES = {
+  future_workflow: FutureWorkflowNodeComp,
+  ghost: GhostNode,
+};
 
 type Props = {
   map: FutureStateAIWorkflowMap;
@@ -50,7 +59,13 @@ type Props = {
   onDuplicateNode?: (id: string) => void;
   onDeleteNode?: (id: string) => void;
   onConvertToRequirement?: (id: string) => void;
-  onProposeNode?: (id: string) => void;
+  // Proposal flow.
+  getProposals?: (nodeId: string) => NodeProposal[];
+  onApplyProposal?: (
+    proposal: NodeProposal,
+    sourceNodeId: string | null,
+  ) => void;
+  onAskAiForNode?: (nodeId: string) => Promise<NodeProposal[]>;
 };
 
 function CanvasInner({
@@ -64,8 +79,11 @@ function CanvasInner({
   onDuplicateNode,
   onDeleteNode,
   onConvertToRequirement,
-  onProposeNode,
+  getProposals,
+  onApplyProposal,
+  onAskAiForNode,
 }: Props) {
+  const [preview, setPreview] = useState<ProposalPreview>(null);
   const initialNodes = useMemo(() => mapToReactFlowNodes(map), [map]);
   const initialEdges = useMemo(() => mapToReactFlowEdges(map), [map]);
 
@@ -215,13 +233,58 @@ function CanvasInner({
     [onPaneContextMenu],
   );
 
+  // Translucent ghost nodes/edges for the hovered proposal preview — built
+  // from the same additions logic that Apply uses, so what you see is exactly
+  // what lands. Non-interactive; never persisted.
+  const ghost = useMemo(() => {
+    if (!preview) return { nodes: [] as RFNode[], edges: [] as RFEdge[] };
+    const additions = buildProposalAdditions(
+      map,
+      preview.proposal,
+      preview.sourceNodeId,
+      "ghost-",
+    );
+    return {
+      nodes: additions.nodes.map<RFNode>((n) => ({
+        id: n.id,
+        type: "ghost",
+        position: n.position,
+        data: n as unknown as Record<string, unknown>,
+        selectable: false,
+        draggable: false,
+        deletable: false,
+      })),
+      edges: additions.edges.map<RFEdge>((e) => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        type: "smoothstep",
+        animated: true,
+        selectable: false,
+        style: {
+          stroke: "var(--primary)",
+          strokeWidth: 2,
+          strokeDasharray: "5 4",
+          opacity: 0.6,
+        },
+      })),
+    };
+  }, [preview, map]);
+
   const nodesWithSelection = useMemo(
-    () =>
-      nodes.map((n) => ({
+    () => [
+      ...nodes.map((n) => ({
         ...n,
         selected: n.id === selectedNodeId || n.selected,
       })),
-    [nodes, selectedNodeId],
+      ...ghost.nodes,
+    ],
+    [nodes, selectedNodeId, ghost.nodes],
+  );
+
+  const edgesWithGhost = useMemo(
+    () => [...edges, ...ghost.edges],
+    [edges, ghost.edges],
   );
 
   return (
@@ -231,14 +294,17 @@ function CanvasInner({
         duplicateNode: onDuplicateNode,
         deleteNode: onDeleteNode,
         convertToRequirement: onConvertToRequirement,
-        proposeForNode: onProposeNode,
+        getProposals,
+        applyProposal: onApplyProposal,
+        askAiForNode: onAskAiForNode,
+        setPreview,
       }}
     >
       <div className="absolute inset-0">
         <WorkflowLaneBackground lanes={map.lanes} laneYs={FUTURE_LANE_Y} />
         <ReactFlow
           nodes={nodesWithSelection}
-          edges={edges}
+          edges={edgesWithGhost}
           nodeTypes={NODE_TYPES}
           onNodesChange={handleNodesChange}
           onEdgesChange={handleEdgesChange}

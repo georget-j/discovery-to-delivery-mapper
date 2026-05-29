@@ -17,7 +17,16 @@ import { FutureWorkflowInspectorPanel } from "./FutureWorkflowInspectorPanel";
 import { FutureWorkflowToolbar } from "./FutureWorkflowToolbar";
 import { FutureWorkflowLegend } from "./FutureWorkflowLegend";
 import { CurrentFutureComparisonPanel } from "./CurrentFutureComparisonPanel";
-import { newBlankFutureNode, FUTURE_LANE_Y } from "./futureWorkflowUtils";
+import {
+  newBlankFutureNode,
+  FUTURE_LANE_Y,
+  applyProposalToMap,
+} from "./futureWorkflowUtils";
+import {
+  proposeForNode,
+  proposalFromPattern,
+  type NodeProposal,
+} from "@/lib/visualisations/node-proposals";
 import { EmptyState } from "@/components/ui/empty-state";
 import { futureStateToMermaid } from "@/lib/visualisations/mermaid-export";
 import { layoutNodesInLanes } from "@/lib/visualisations/auto-layout";
@@ -280,6 +289,71 @@ export function FutureStateAIWorkflowMap() {
     [project, updateProject],
   );
 
+  // ── Proposals (Pass 6) ────────────────────────────────────────────────────
+  const getProposals = useCallback(
+    (nodeId: string): NodeProposal[] => {
+      if (!map || !project) return [];
+      const n = map.nodes.find((x) => x.id === nodeId);
+      return n ? proposeForNode(n, map, project) : [];
+    },
+    [map, project],
+  );
+
+  const handleApplyProposal = useCallback(
+    (proposal: NodeProposal, sourceNodeId: string | null) => {
+      if (!map) return;
+      const { map: next, insertedIds } = applyProposalToMap(
+        map,
+        proposal,
+        sourceNodeId,
+      );
+      persist(next);
+      if (insertedIds[0]) setSelectedNodeId(insertedIds[0]);
+    },
+    [map, persist],
+  );
+
+  // "Ask AI for ideas" — reuse the recommend endpoint, then map each returned
+  // recommendation (keyed by pattern family) into a map-node proposal.
+  const askAiForNode = useCallback(
+    async (nodeId: string): Promise<NodeProposal[]> => {
+      if (!project || !map) return [];
+      const node = map.nodes.find((x) => x.id === nodeId);
+      try {
+        const res = await fetch("/api/recommend/future-state", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            project,
+            workflows: project.workflows,
+          }),
+        });
+        const data = await res.json();
+        if (!Array.isArray(data.recommendations)) return [];
+        return (
+          data.recommendations as {
+            id: string;
+            title: string;
+            rationale: string;
+            patternFamily: NodeProposal["patternFamily"];
+          }[]
+        )
+          .slice(0, 4)
+          .map((r, i) =>
+            proposalFromPattern(
+              r.patternFamily,
+              r.title,
+              r.rationale,
+              `${node?.id ?? "n"}-${r.id ?? i}`,
+            ),
+          );
+      } catch {
+        return [];
+      }
+    },
+    [project, map],
+  );
+
   const handleExportMermaid = useCallback(() => {
     if (!map || !project) return;
     const mmd = futureStateToMermaid(map);
@@ -476,6 +550,9 @@ export function FutureStateAIWorkflowMap() {
                 const n = map?.nodes.find((x) => x.id === id);
                 if (n) handleConvertToRequirement(n);
               }}
+              getProposals={getProposals}
+              onApplyProposal={handleApplyProposal}
+              onAskAiForNode={askAiForNode}
             />
           ) : (
             <div className="h-full flex items-center justify-center px-8">

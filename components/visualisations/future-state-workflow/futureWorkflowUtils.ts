@@ -6,6 +6,7 @@ import type {
   WorkflowLane,
   CurrentStateWorkflowMap,
 } from "@/lib/visualisations/workflow-types";
+import type { NodeProposal } from "@/lib/visualisations/node-proposals";
 
 export const FUTURE_LANE_Y: Record<string, number> = {
   lane_human: 80,
@@ -137,6 +138,91 @@ export function laneIdForY(y: number, lanes: WorkflowLane[]): string {
     if (Math.abs(y - l.y) < Math.abs(y - closest.y)) closest = l;
   }
   return closest.id;
+}
+
+// ────────────────────────────────────────────────────────────
+// Proposal application + ghost preview
+// ────────────────────────────────────────────────────────────
+
+// Position the inserted node(s) for a proposal. Each lands in its own lane's
+// Y band, offset to the right of the source node (or the map's right edge when
+// there's no source), with multiple nodes fanned out so they don't overlap.
+function positionFor(
+  spec: { laneId: string },
+  index: number,
+  map: FutureStateAIWorkflowMap,
+  sourceNode: FutureWorkflowNode | undefined,
+): { x: number; y: number } {
+  const baseX = sourceNode
+    ? sourceNode.position.x + 260
+    : Math.max(200, ...map.nodes.map((n) => n.position.x + 240), 200);
+  return {
+    x: baseX + index * 240,
+    y: FUTURE_LANE_Y[spec.laneId] ?? 200,
+  };
+}
+
+// Build the concrete nodes (with ids + positions) a proposal would insert,
+// plus the edges wiring them in. Shared by apply (persist) and the ghost
+// preview (render translucent, don't persist).
+export function buildProposalAdditions(
+  map: FutureStateAIWorkflowMap,
+  proposal: NodeProposal,
+  sourceNodeId: string | null,
+  idPrefix = "",
+): { nodes: FutureWorkflowNode[]; edges: FutureStateAIWorkflowMap["edges"] } {
+  const sourceNode = sourceNodeId
+    ? map.nodes.find((n) => n.id === sourceNodeId)
+    : undefined;
+  const stamp = Date.now();
+  const newNodes: FutureWorkflowNode[] = proposal.insert.nodes.map(
+    (spec, i) => ({
+      ...spec,
+      id: `${idPrefix}n_${stamp}_${i}_${Math.floor(Math.random() * 1000)}`,
+      position: positionFor(spec, i, map, sourceNode),
+    }),
+  );
+
+  const edges: FutureStateAIWorkflowMap["edges"] = [];
+  // Wire source → first new node when requested.
+  if (proposal.insert.connectFromSource && sourceNodeId && newNodes[0]) {
+    edges.push({
+      id: `${idPrefix}e_${sourceNodeId}_${newNodes[0].id}`,
+      source: sourceNodeId,
+      target: newNodes[0].id,
+      style: "solid",
+    });
+  }
+  // Chain multiple inserted nodes in order.
+  for (let i = 1; i < newNodes.length; i++) {
+    edges.push({
+      id: `${idPrefix}e_${newNodes[i - 1].id}_${newNodes[i].id}`,
+      source: newNodes[i - 1].id,
+      target: newNodes[i].id,
+      style: "solid",
+    });
+  }
+  return { nodes: newNodes, edges };
+}
+
+// Apply a proposal and return the next map (caller persists). Returns the ids
+// of inserted nodes so the orchestrator can select the first one.
+export function applyProposalToMap(
+  map: FutureStateAIWorkflowMap,
+  proposal: NodeProposal,
+  sourceNodeId: string | null,
+): { map: FutureStateAIWorkflowMap; insertedIds: string[] } {
+  const { nodes, edges } = buildProposalAdditions(map, proposal, sourceNodeId);
+  return {
+    insertedIds: nodes.map((n) => n.id),
+    map: {
+      ...map,
+      nodes: [...map.nodes, ...nodes],
+      edges: [...map.edges, ...edges],
+      source: "manual",
+      updatedAt: new Date().toISOString(),
+    },
+  };
 }
 
 // ────────────────────────────────────────────────────────────

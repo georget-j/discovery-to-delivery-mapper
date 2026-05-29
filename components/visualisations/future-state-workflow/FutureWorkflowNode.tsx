@@ -1,13 +1,14 @@
 "use client";
 
 import { memo, useState, useRef, useEffect } from "react";
-import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { Handle, NodeToolbar, Position, type NodeProps } from "@xyflow/react";
 import { cn } from "@/lib/utils";
 import { useMapEdit } from "../shared/MapEditContext";
 import {
   NodeActionToolbar,
   type NodeAction,
 } from "../shared/NodeActionToolbar";
+import { NodeProposalPopover } from "./NodeProposalPopover";
 import type {
   FutureWorkflowNode as NodeData,
   FutureWorkflowNodeType,
@@ -90,11 +91,15 @@ function FutureWorkflowNodeImpl({ id, data, selected }: NodeProps) {
     duplicateNode,
     deleteNode,
     convertToRequirement,
-    proposeForNode,
+    getProposals,
+    applyProposal,
+    setPreview,
+    askAiForNode,
   } = useMapEdit();
 
   const [editing, setEditing] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const [showProposals, setShowProposals] = useState(false);
   const [draft, setDraft] = useState(node.title);
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -118,15 +123,15 @@ function FutureWorkflowNodeImpl({ id, data, selected }: NodeProps) {
   };
 
   // Toolbar actions are built from whichever callbacks the canvas provides, so
-  // ✨ Propose only appears once the proposal flow is wired in (Pass 6 B4).
+  // ✨ Propose only appears once the proposal flow is wired in.
   const actions: NodeAction[] = [];
-  if (proposeForNode)
+  if (getProposals)
     actions.push({
       key: "propose",
       label: "Propose AI augmentation",
       icon: "✨",
       emphasis: true,
-      onClick: () => proposeForNode(id),
+      onClick: () => setShowProposals((v) => !v),
     });
   if (duplicateNode)
     actions.push({
@@ -153,6 +158,29 @@ function FutureWorkflowNodeImpl({ id, data, selected }: NodeProps) {
   const toolbar = (
     <NodeActionToolbar visible={hovered || !!selected} actions={actions} />
   );
+
+  const closeProposals = () => {
+    setShowProposals(false);
+    setPreview?.(null);
+  };
+  const proposalsPanel =
+    showProposals && getProposals && applyProposal ? (
+      <NodeToolbar isVisible position={Position.Bottom} offset={10}>
+        <NodeProposalPopover
+          proposals={getProposals(id)}
+          onApply={(p) => {
+            applyProposal(p, id);
+            closeProposals();
+          }}
+          onPreview={(p) =>
+            setPreview?.(p ? { proposal: p, sourceNodeId: id } : null)
+          }
+          onAskAi={askAiForNode ? () => askAiForNode(id) : undefined}
+          onClose={closeProposals}
+        />
+      </NodeToolbar>
+    ) : null;
+
   const hoverHandlers = {
     onMouseEnter: () => setHovered(true),
     onMouseLeave: () => setHovered(false),
@@ -162,6 +190,7 @@ function FutureWorkflowNodeImpl({ id, data, selected }: NodeProps) {
     return (
       <div className="relative" {...hoverHandlers}>
         {toolbar}
+        {proposalsPanel}
         <Handle
           type="target"
           position={Position.Left}

@@ -28,6 +28,56 @@ export type NodeProposal = {
   };
 };
 
+// Map a pattern family → the node a proposal should insert. Shared by the
+// "Ask AI for ideas" path, which receives recommendations keyed by family
+// and turns them into the same NodeProposal shape Apply understands.
+const FAMILY_TO_SPEC: Record<
+  AutomationPatternFamily,
+  { type: FutureWorkflowNodeType; laneId: string }
+> = {
+  agent: { type: "ai_agent", laneId: "lane_ai" },
+  agent_with_validator: { type: "guardrail", laneId: "lane_guardrails" },
+  multi_agent: { type: "ai_agent", laneId: "lane_ai" },
+  rag: { type: "ai_assist", laneId: "lane_ai" },
+  rules_plus_ai: { type: "guardrail", laneId: "lane_guardrails" },
+  hitl: { type: "approval", laneId: "lane_compliance" },
+  continuous_learning: { type: "monitoring", laneId: "lane_monitoring" },
+  copilot: { type: "ai_assist", laneId: "lane_ai" },
+};
+
+export function proposalFromPattern(
+  family: AutomationPatternFamily,
+  title: string,
+  rationale: string,
+  idSeed: string,
+): NodeProposal {
+  const spec = FAMILY_TO_SPEC[family] ?? FAMILY_TO_SPEC.agent;
+  return {
+    id: `ai:${idSeed}`,
+    title,
+    rationale,
+    patternFamily: family,
+    insert: {
+      connectFromSource: true,
+      nodes: [
+        {
+          type: spec.type,
+          laneId: spec.laneId,
+          title,
+          description: rationale,
+          ...(spec.type === "ai_agent" || spec.type === "ai_assist"
+            ? {
+                automationLevel: "draft_only" as const,
+                requiredHumanApproval: true,
+                guardrails: ["Confidence threshold"],
+              }
+            : {}),
+        },
+      ],
+    },
+  };
+}
+
 const AI_TYPES: FutureWorkflowNodeType[] = ["ai_assist", "ai_agent"];
 const AUTOMATABLE_TYPES: FutureWorkflowNodeType[] = [
   "human_action",
