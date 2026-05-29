@@ -2,7 +2,7 @@
 
 > Map customer discovery into deployment readiness — requirements, risks, pilots, and engineering handoffs.
 
-**Live demo:** [discovery-to-delivery-mapper.vercel.app](https://discovery-to-delivery-mapper.vercel.app)
+**Live demo:** [ai-onboarding-simulator.vercel.app](https://ai-onboarding-simulator.vercel.app)
 
 ---
 
