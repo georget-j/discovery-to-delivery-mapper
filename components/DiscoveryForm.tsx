@@ -23,7 +23,22 @@ import {
 } from "@/components/ui/save-indicator";
 import { StakeholderEditor } from "@/components/StakeholderEditor";
 import { VoiceInputButton } from "@/components/ui/voice-input-button";
+import { KbHintPopover } from "@/components/intake/KbHintPopover";
+import {
+  kbHintsEnabled,
+  setKbHintsEnabled,
+} from "@/components/intake/useKbHints";
 import { cn } from "@/lib/utils";
+
+// Append/replace helper for KB-hint inserts into a free-text field.
+function applyInsert(
+  current: string,
+  text: string,
+  mode: "replace" | "append",
+): string {
+  if (mode === "replace") return text;
+  return current ? `${current}\n\n${text}` : text;
+}
 import type {
   OnboardingProject,
   CustomerProfile,
@@ -116,6 +131,8 @@ const SUCCESS_DEF_EXAMPLE = `By end of pilot (Q4 2026), 70% of standard-risk ale
 export function DiscoveryForm({ project, onUpdate }: Props) {
   const { customer, discovery } = project;
   const saveState = useSaveIndicator(project.updatedAt);
+  const kbReady = (project.knowledgeBase?.totalChunks ?? 0) > 0;
+  const [hintsOn, setHintsOn] = useState(() => kbHintsEnabled());
 
   // Per-field validation errors. Set on blur, cleared on next valid blur.
   // Mount-time state is undefined so existing scenarios don't show errors
@@ -163,11 +180,27 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
   return (
     <div className="space-y-5">
       {/* Save indicator strip — sits above all sections so users know edits persist */}
-      <div className="flex items-center justify-between text-xs">
+      <div className="flex items-center justify-between gap-3 text-xs flex-wrap">
         <p className="text-muted-foreground">
           All edits auto-save to your session.
         </p>
-        <SaveIndicator state={saveState} />
+        <div className="flex items-center gap-3">
+          {kbReady && (
+            <button
+              type="button"
+              onClick={() => {
+                const next = !hintsOn;
+                setHintsOn(next);
+                setKbHintsEnabled(next);
+              }}
+              className="text-[11px] text-teal-700 hover:text-teal-900 transition-colors"
+              title="Inline suggestions retrieved from your uploaded documents"
+            >
+              💡 Doc hints: {hintsOn ? "on" : "off"}
+            </button>
+          )}
+          <SaveIndicator state={saveState} />
+        </div>
       </div>
 
       <FieldGroup
@@ -289,6 +322,19 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
             aria-invalid={!!businessProblemError}
             placeholder="AML analysts spend 4 hours per alert manually pulling KYC, transaction history, and sanctions data into case notes. Backlog is 1,200 alerts and growing."
           />
+          <KbHintPopover
+            enabled={hintsOn}
+            query={`business problem and pain points ${customer.businessProblem}`}
+            onInsert={(text, mode) =>
+              setCustomer({
+                businessProblem: applyInsert(
+                  customer.businessProblem,
+                  text,
+                  mode,
+                ),
+              })
+            }
+          />
         </FormField>
 
         <FormField
@@ -303,6 +349,19 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
             value={customer.desiredOutcome}
             onChange={(e) => setCustomer({ desiredOutcome: e.target.value })}
             placeholder="Reduce average alert-to-decision time from 4 hours to under 45 minutes while maintaining audit quality."
+          />
+          <KbHintPopover
+            enabled={hintsOn}
+            query={`desired outcome and success goals ${customer.desiredOutcome}`}
+            onInsert={(text, mode) =>
+              setCustomer({
+                desiredOutcome: applyInsert(
+                  customer.desiredOutcome,
+                  text,
+                  mode,
+                ),
+              })
+            }
           />
         </FormField>
 
@@ -479,7 +538,20 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
               onChange={(e) => setDiscovery({ currentProcess: e.target.value })}
               placeholder="A few sentences, or 3–6 numbered steps. Click ‘See example’ for a sample."
             />
-            <div className="flex items-center justify-end">
+            <div className="flex items-center justify-between gap-2">
+              <KbHintPopover
+                enabled={hintsOn}
+                query={`current process steps and how they work today ${discovery.currentProcess}`}
+                onInsert={(text, mode) =>
+                  setDiscovery({
+                    currentProcess: applyInsert(
+                      discovery.currentProcess,
+                      text,
+                      mode,
+                    ),
+                  })
+                }
+              />
               <VoiceInputButton
                 label="Speak instead"
                 onTranscript={(text) => {
@@ -535,6 +607,19 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
               setDiscovery({ successDefinition: e.target.value })
             }
             placeholder="By [date], [metric] will [direction] from [baseline] to [target]. Click ‘See example’ for a sample."
+          />
+          <KbHintPopover
+            enabled={hintsOn}
+            query={`success definition and target metrics ${discovery.successDefinition}`}
+            onInsert={(text, mode) =>
+              setDiscovery({
+                successDefinition: applyInsert(
+                  discovery.successDefinition,
+                  text,
+                  mode,
+                ),
+              })
+            }
           />
         </ExampleField>
       </FieldGroup>
