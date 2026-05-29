@@ -470,6 +470,12 @@ export function FutureStateAIWorkflowMap() {
               onPaneContextMenu={(x, y) =>
                 setContextMenu({ nodeId: null, x, y })
               }
+              onDuplicateNode={handleDuplicateNode}
+              onDeleteNode={handleDeleteNode}
+              onConvertToRequirement={(id) => {
+                const n = map?.nodes.find((x) => x.id === id);
+                if (n) handleConvertToRequirement(n);
+              }}
             />
           ) : (
             <div className="h-full flex items-center justify-center px-8">

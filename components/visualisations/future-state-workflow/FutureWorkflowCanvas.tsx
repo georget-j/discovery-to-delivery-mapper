@@ -46,6 +46,11 @@ type Props = {
   onMultiSelectChange?: (ids: string[]) => void;
   onNodeContextMenu?: (nodeId: string, x: number, y: number) => void;
   onPaneContextMenu?: (x: number, y: number) => void;
+  // Node-toolbar actions, surfaced inside each node via MapEditContext.
+  onDuplicateNode?: (id: string) => void;
+  onDeleteNode?: (id: string) => void;
+  onConvertToRequirement?: (id: string) => void;
+  onProposeNode?: (id: string) => void;
 };
 
 function CanvasInner({
@@ -56,6 +61,10 @@ function CanvasInner({
   onMultiSelectChange,
   onNodeContextMenu,
   onPaneContextMenu,
+  onDuplicateNode,
+  onDeleteNode,
+  onConvertToRequirement,
+  onProposeNode,
 }: Props) {
   const initialNodes = useMemo(() => mapToReactFlowNodes(map), [map]);
   const initialEdges = useMemo(() => mapToReactFlowEdges(map), [map]);
@@ -216,7 +225,15 @@ function CanvasInner({
   );
 
   return (
-    <MapEditProvider value={{ patchNode }}>
+    <MapEditProvider
+      value={{
+        patchNode,
+        duplicateNode: onDuplicateNode,
+        deleteNode: onDeleteNode,
+        convertToRequirement: onConvertToRequirement,
+        proposeForNode: onProposeNode,
+      }}
+    >
       <div className="absolute inset-0">
         <WorkflowLaneBackground lanes={map.lanes} laneYs={FUTURE_LANE_Y} />
         <ReactFlow
