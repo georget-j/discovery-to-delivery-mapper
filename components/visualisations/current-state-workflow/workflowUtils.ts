@@ -32,23 +32,36 @@ export function mapToReactFlowNodes(map: CurrentStateWorkflowMap): RFNode[] {
 }
 
 export function mapToReactFlowEdges(map: CurrentStateWorkflowMap): RFEdge[] {
-  return map.edges.map((e) => ({
-    id: e.id,
-    source: e.source,
-    target: e.target,
-    label: e.label,
-    type: "smoothstep",
-    animated: false,
-    style: {
-      stroke: e.style === "dashed" ? "#94a3b8" : "#475569",
-      strokeWidth: 1.5,
-      strokeDasharray: e.style === "dashed" ? "4 3" : undefined,
-    },
-    markerEnd: { type: "arrowclosed" as MarkerType, color: e.style === "dashed" ? "#94a3b8" : "#475569" },
-  }));
+  return map.edges.map((e) => {
+    const stroke = e.style === "dashed" ? "#94a3b8" : "#475569";
+    return {
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      label: e.label,
+      type: "smoothstep",
+      animated: false,
+      style: {
+        stroke,
+        strokeWidth: 2,
+        strokeLinecap: "round" as const,
+        strokeDasharray: e.style === "dashed" ? "5 4" : undefined,
+      },
+      markerEnd: {
+        type: "arrowclosed" as MarkerType,
+        color: stroke,
+        width: 16,
+        height: 16,
+      },
+    };
+  });
 }
 
-export function newBlankNode(type: WorkflowNodeType, laneId: string, position: { x: number; y: number }): WorkflowNode {
+export function newBlankNode(
+  type: WorkflowNodeType,
+  laneId: string,
+  position: { x: number; y: number },
+): WorkflowNode {
   return {
     id: `n_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
     type,

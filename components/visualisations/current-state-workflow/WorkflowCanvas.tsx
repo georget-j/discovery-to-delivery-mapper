@@ -244,6 +244,7 @@ function CanvasInner({
           onPaneClick={handlePaneClick}
           onNodeContextMenu={handleNodeContextMenu}
           onPaneContextMenu={handlePaneContextMenu}
+          className="dtdm-flow"
           fitView
           fitViewOptions={{ padding: 0.15, maxZoom: 1 }}
           proOptions={{ hideAttribution: true }}
@@ -256,8 +257,10 @@ function CanvasInner({
           panOnScrollMode={PanOnScrollMode.Free}
           zoomOnScroll={false}
           zoomOnPinch
+          nodeDragThreshold={4}
+          defaultEdgeOptions={{ type: "smoothstep" }}
           snapToGrid
-          snapGrid={[20, 20]}
+          snapGrid={[12, 12]}
         >
           <Background gap={20} size={1} color="#e2e8f0" />
           <Controls position="bottom-right" showInteractive={false} />

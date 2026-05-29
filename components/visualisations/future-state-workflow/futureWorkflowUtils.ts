@@ -8,21 +8,41 @@ import type {
 } from "@/lib/visualisations/workflow-types";
 
 export const FUTURE_LANE_Y: Record<string, number> = {
-  lane_human:      80,
-  lane_ai:        200,
-  lane_systems:   320,
+  lane_human: 80,
+  lane_ai: 200,
+  lane_systems: 320,
   lane_guardrails: 440,
   lane_compliance: 560,
   lane_monitoring: 680,
 };
 
 export const DEFAULT_FUTURE_LANES: WorkflowLane[] = [
-  { id: "lane_human",      title: "Human",         description: "Human decision" },
-  { id: "lane_ai",         title: "AI Assistant",  description: "Summarise / recommend" },
-  { id: "lane_systems",    title: "Systems & Data", description: "APIs / retrieval" },
-  { id: "lane_guardrails", title: "Guardrails",    description: "Policy / confidence" },
-  { id: "lane_compliance", title: "Compliance",    description: "Audit / supervisor" },
-  { id: "lane_monitoring", title: "Monitoring",    description: "Telemetry / feedback" },
+  { id: "lane_human", title: "Human", description: "Human decision" },
+  {
+    id: "lane_ai",
+    title: "AI Assistant",
+    description: "Summarise / recommend",
+  },
+  {
+    id: "lane_systems",
+    title: "Systems & Data",
+    description: "APIs / retrieval",
+  },
+  {
+    id: "lane_guardrails",
+    title: "Guardrails",
+    description: "Policy / confidence",
+  },
+  {
+    id: "lane_compliance",
+    title: "Compliance",
+    description: "Audit / supervisor",
+  },
+  {
+    id: "lane_monitoring",
+    title: "Monitoring",
+    description: "Telemetry / feedback",
+  },
 ];
 
 export function mapToReactFlowNodes(map: FutureStateAIWorkflowMap): RFNode[] {
@@ -36,19 +56,39 @@ export function mapToReactFlowNodes(map: FutureStateAIWorkflowMap): RFNode[] {
 }
 
 export function mapToReactFlowEdges(map: FutureStateAIWorkflowMap): RFEdge[] {
-  return map.edges.map((e) => ({
-    id: e.id,
-    source: e.source,
-    target: e.target,
-    label: e.label,
-    type: "smoothstep",
-    style: {
-      stroke: e.style === "dashed" ? "#94a3b8" : "#475569",
-      strokeWidth: 1.5,
-      strokeDasharray: e.style === "dashed" ? "4 3" : undefined,
-    },
-    markerEnd: { type: "arrowclosed" as MarkerType, color: e.style === "dashed" ? "#94a3b8" : "#475569" },
-  }));
+  // Edges that touch an AI node get an animated dashed flow so the "AI path"
+  // through the workflow reads as alive — the single biggest signal that this
+  // is a designed product surface and not a static diagram.
+  const aiNodeIds = new Set(
+    map.nodes
+      .filter((n) => n.type === "ai_assist" || n.type === "ai_agent")
+      .map((n) => n.id),
+  );
+  return map.edges.map((e) => {
+    const touchesAi = aiNodeIds.has(e.source) || aiNodeIds.has(e.target);
+    const dashed = e.style === "dashed";
+    const stroke = dashed ? "#94a3b8" : touchesAi ? "#7c3aed" : "#475569";
+    return {
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      label: e.label,
+      type: "smoothstep",
+      animated: touchesAi,
+      style: {
+        stroke,
+        strokeWidth: 2,
+        strokeLinecap: "round" as const,
+        strokeDasharray: dashed ? "5 4" : undefined,
+      },
+      markerEnd: {
+        type: "arrowclosed" as MarkerType,
+        color: stroke,
+        width: 16,
+        height: 16,
+      },
+    };
+  });
 }
 
 const TYPE_LABELS: Record<FutureWorkflowNodeType, string> = {
@@ -76,9 +116,17 @@ export function newBlankFutureNode(
     laneId,
     title: TYPE_LABELS[type],
     position,
-    automationLevel: type === "ai_assist" ? "draft_only" : type === "ai_agent" ? "autonomous_with_guardrails" : undefined,
+    automationLevel:
+      type === "ai_assist"
+        ? "draft_only"
+        : type === "ai_agent"
+          ? "autonomous_with_guardrails"
+          : undefined,
     requiredHumanApproval: type === "ai_assist" || type === "ai_agent",
-    guardrails: type === "ai_assist" || type === "ai_agent" ? ["Confidence threshold"] : undefined,
+    guardrails:
+      type === "ai_assist" || type === "ai_agent"
+        ? ["Confidence threshold"]
+        : undefined,
   };
 }
 
@@ -111,11 +159,18 @@ export function diffWithCurrent(
 ): ComparisonStats {
   const currentCount = current?.nodes.length ?? 0;
   const futureCount = future.nodes.length;
-  const addedAi = future.nodes.filter((n) => n.type === "ai_assist" || n.type === "ai_agent").length;
+  const addedAi = future.nodes.filter(
+    (n) => n.type === "ai_assist" || n.type === "ai_agent",
+  ).length;
   const addedGuards = future.nodes.filter((n) => n.type === "guardrail").length;
-  const addedMon = future.nodes.filter((n) => n.type === "monitoring" || n.type === "audit_log").length;
-  const currentHuman = current?.nodes.filter((n) => n.type === "human_step").length ?? 0;
-  const futureHuman = future.nodes.filter((n) => n.type === "human_action" || n.type === "approval").length;
+  const addedMon = future.nodes.filter(
+    (n) => n.type === "monitoring" || n.type === "audit_log",
+  ).length;
+  const currentHuman =
+    current?.nodes.filter((n) => n.type === "human_step").length ?? 0;
+  const futureHuman = future.nodes.filter(
+    (n) => n.type === "human_action" || n.type === "approval",
+  ).length;
 
   return {
     addedAiNodes: addedAi,

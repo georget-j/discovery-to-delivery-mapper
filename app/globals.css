@@ -152,3 +152,101 @@
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   React Flow chrome — scoped to .dtdm-flow so overrides never leak to a
+   future flow that wants the stock look. Goal: make the workflow canvases
+   read as a polished product rather than a stock React Flow demo.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Controls — a floating rounded card instead of the default button stack. */
+.dtdm-flow .react-flow__controls {
+  border-radius: 0.625rem;
+  border: 1px solid var(--border);
+  background: var(--background);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.04),
+    0 4px 12px rgb(0 0 0 / 0.08);
+  overflow: hidden;
+}
+.dtdm-flow .react-flow__controls-button {
+  background: var(--background);
+  border: none;
+  border-bottom: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+  width: 28px;
+  height: 28px;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+.dtdm-flow .react-flow__controls-button:last-child {
+  border-bottom: none;
+}
+.dtdm-flow .react-flow__controls-button:hover {
+  background: var(--muted);
+}
+.dtdm-flow .react-flow__controls-button svg {
+  fill: var(--muted-foreground);
+}
+.dtdm-flow .react-flow__controls-button:hover svg {
+  fill: var(--foreground);
+}
+
+/* MiniMap — rounded, bordered, soft shadow. */
+.dtdm-flow .react-flow__minimap {
+  border-radius: 0.625rem;
+  border: 1px solid var(--border);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.04),
+    0 4px 12px rgb(0 0 0 / 0.08);
+  overflow: hidden;
+}
+
+/* Handles — hidden until the node (or canvas connect) is hovered, so nodes
+   read as clean cards at rest. The hit area stays larger than the dot. */
+.dtdm-flow .react-flow__handle {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  width: 9px;
+  height: 9px;
+  border-width: 1.5px;
+}
+.dtdm-flow .react-flow__node:hover .react-flow__handle,
+.dtdm-flow .react-flow__node.selected .react-flow__handle,
+.dtdm-flow.react-flow__container--connecting .react-flow__handle,
+.dtdm-flow .react-flow__handle.connectionindicator {
+  opacity: 1;
+}
+.dtdm-flow .react-flow__handle:hover {
+  transform: scale(1.25);
+}
+
+/* Edges — thicker at rest, brighten + thicken on hover / selection so the
+   graph feels responsive to the pointer. */
+.dtdm-flow .react-flow__edge-path {
+  transition:
+    stroke 0.15s ease,
+    stroke-width 0.15s ease;
+}
+.dtdm-flow .react-flow__edge:hover .react-flow__edge-path {
+  stroke: var(--primary);
+  stroke-width: 2.5;
+}
+.dtdm-flow .react-flow__edge.selected .react-flow__edge-path {
+  stroke: var(--primary);
+  stroke-width: 2.5;
+}
+
+/* Selection marquee — match the app's primary ring rather than stock blue. */
+.dtdm-flow .react-flow__selection {
+  background: color-mix(in oklab, var(--primary) 8%, transparent);
+  border: 1px solid color-mix(in oklab, var(--primary) 45%, transparent);
+  border-radius: 0.375rem;
+}
+
+/* The connection line drawn while dragging a new edge. */
+.dtdm-flow .react-flow__connectionline .react-flow__connection-path {
+  stroke: var(--primary);
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
+}
