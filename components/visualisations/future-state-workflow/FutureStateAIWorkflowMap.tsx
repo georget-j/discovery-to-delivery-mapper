@@ -31,7 +31,10 @@ import { ProposalRail } from "./ProposalRail";
 import type { ProposalPreview } from "../shared/MapEditContext";
 import { EmptyState } from "@/components/ui/empty-state";
 import { futureStateToMermaid } from "@/lib/visualisations/mermaid-export";
-import { layoutNodesInLanes } from "@/lib/visualisations/auto-layout";
+import {
+  layoutNodesInLanes,
+  nodesOverlap,
+} from "@/lib/visualisations/auto-layout";
 import { hashWorkflows } from "@/lib/visualisations/workflow-helpers";
 import type {
   FutureStateAIWorkflowMap as MapType,
@@ -90,7 +93,23 @@ export function FutureStateAIWorkflowMap() {
         setError("Generation failed. Please try again.");
         return;
       }
-      persist(data.map as MapType);
+      // Normalise positions through the swimlane auto-layout so the generated
+      // map always lands tidy (no overlap), regardless of what the model /
+      // template returned.
+      const generated = data.map as MapType;
+      const positions = layoutNodesInLanes(
+        generated.nodes,
+        generated.edges,
+        FUTURE_LANE_Y,
+        generated.lanes,
+      );
+      persist({
+        ...generated,
+        nodes: generated.nodes.map((n) => ({
+          ...n,
+          position: positions[n.id] ?? n.position,
+        })),
+      });
     } catch {
       setError("Network error. Please try again.");
     } finally {
@@ -105,6 +124,29 @@ export function FutureStateAIWorkflowMap() {
       void handleGenerate();
     }
   }, [syncRequests.future, generating, handleGenerate]);
+
+  // One-shot auto-heal: maps generated under the older (tighter) lane spacing
+  // can render with overlapping nodes. If we detect overlap on first view,
+  // re-run the swimlane layout once so the canvas no longer "covers itself".
+  const healedRef = useRef(false);
+  useEffect(() => {
+    if (!map || healedRef.current) return;
+    if (!nodesOverlap(map.nodes)) return;
+    healedRef.current = true;
+    const positions = layoutNodesInLanes(
+      map.nodes,
+      map.edges,
+      FUTURE_LANE_Y,
+      map.lanes,
+    );
+    persist({
+      ...map,
+      nodes: map.nodes.map((n) => ({
+        ...n,
+        position: positions[n.id] ?? n.position,
+      })),
+    });
+  }, [map, persist]);
 
   const handleAddNode = useCallback(
     (type: FutureWorkflowNodeType) => {

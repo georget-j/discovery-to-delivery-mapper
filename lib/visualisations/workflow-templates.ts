@@ -16,10 +16,10 @@ import { generateId } from "../utils";
 import { hashWorkflows } from "./workflow-helpers";
 
 const CURRENT_LANES = [
-  { id: "lane_operator",   title: "Operator",   description: "Human work" },
-  { id: "lane_systems",    title: "Systems",    description: "Current tools" },
+  { id: "lane_operator", title: "Operator", description: "Human work" },
+  { id: "lane_systems", title: "Systems", description: "Current tools" },
   { id: "lane_compliance", title: "Compliance", description: "Review / audit" },
-  { id: "lane_notes",      title: "FDE Notes",  description: "Gaps & risks" },
+  { id: "lane_notes", title: "FDE Notes", description: "Gaps & risks" },
 ];
 
 const LANE_Y: Record<string, number> = {
@@ -32,7 +32,9 @@ const LANE_Y: Record<string, number> = {
 const X_STEP = 240;
 const X_START = 80;
 
-export function buildCurrentStateWorkflowTemplate(project: OnboardingProject): CurrentStateWorkflowMap {
+export function buildCurrentStateWorkflowTemplate(
+  project: OnboardingProject,
+): CurrentStateWorkflowMap {
   const nodes: WorkflowNode[] = [];
   const edges: WorkflowEdge[] = [];
 
@@ -88,7 +90,7 @@ export function buildCurrentStateWorkflowTemplate(project: OnboardingProject): C
 
   // 3. Add a final compliance/review node if any workflow mentions review/escalation.
   const hasReview = project.workflows.some((w) =>
-    /review|escalat|audit|approv/i.test(`${w.name} ${w.description}`)
+    /review|escalat|audit|approv/i.test(`${w.name} ${w.description}`),
   );
   if (hasReview && project.workflows.length > 0) {
     const id = "n_compliance_review";
@@ -98,7 +100,10 @@ export function buildCurrentStateWorkflowTemplate(project: OnboardingProject): C
       laneId: "lane_compliance",
       title: "Supervisor review",
       description: "Manual review of escalated cases",
-      position: { x: X_START + (project.workflows.length - 1) * X_STEP, y: LANE_Y.lane_compliance },
+      position: {
+        x: X_START + (project.workflows.length - 1) * X_STEP,
+        y: LANE_Y.lane_compliance,
+      },
     });
     edges.push({
       id: `e_n_step_${project.workflows.length}_${id}`,
@@ -121,7 +126,9 @@ export function buildCurrentStateWorkflowTemplate(project: OnboardingProject): C
       position: { x: X_START, y: noteY },
     });
   }
-  const blockedSystems = project.systems.filter((s) => s.apiAvailable === false).map((s) => s.name);
+  const blockedSystems = project.systems
+    .filter((s) => s.apiAvailable === false)
+    .map((s) => s.name);
   if (blockedSystems.length > 0) {
     nodes.push({
       id: "n_note_apis",
@@ -155,33 +162,81 @@ export function buildCurrentStateWorkflowTemplate(project: OnboardingProject): C
 // ────────────────────────────────────────────────────────────
 
 const FUTURE_LANES = [
-  { id: "lane_human",      title: "Human",         description: "Human decision" },
-  { id: "lane_ai",         title: "AI Assistant",  description: "Summarise / recommend" },
-  { id: "lane_systems",    title: "Systems & Data", description: "APIs / retrieval" },
-  { id: "lane_guardrails", title: "Guardrails",    description: "Policy / confidence" },
-  { id: "lane_compliance", title: "Compliance",    description: "Audit / supervisor" },
-  { id: "lane_monitoring", title: "Monitoring",    description: "Telemetry / feedback" },
+  { id: "lane_human", title: "Human", description: "Human decision" },
+  {
+    id: "lane_ai",
+    title: "AI Assistant",
+    description: "Summarise / recommend",
+  },
+  {
+    id: "lane_systems",
+    title: "Systems & Data",
+    description: "APIs / retrieval",
+  },
+  {
+    id: "lane_guardrails",
+    title: "Guardrails",
+    description: "Policy / confidence",
+  },
+  {
+    id: "lane_compliance",
+    title: "Compliance",
+    description: "Audit / supervisor",
+  },
+  {
+    id: "lane_monitoring",
+    title: "Monitoring",
+    description: "Telemetry / feedback",
+  },
 ];
 
+// 160px lane pitch matches the swimlane band height (WorkflowLaneBackground
+// laneHeight=160) so bands tile cleanly and tall nodes don't bleed into the
+// lane below. Keep in sync with futureWorkflowUtils.FUTURE_LANE_Y.
 const FUTURE_LANE_Y: Record<string, number> = {
   lane_human: 80,
-  lane_ai: 200,
-  lane_systems: 320,
-  lane_guardrails: 440,
-  lane_compliance: 560,
-  lane_monitoring: 680,
+  lane_ai: 240,
+  lane_systems: 400,
+  lane_guardrails: 560,
+  lane_compliance: 720,
+  lane_monitoring: 880,
 };
 
-function futureStateConfig(state: string): { type: FutureWorkflowNodeType; lane: string; level: AutomationLevel; needsApproval: boolean } {
+function futureStateConfig(state: string): {
+  type: FutureWorkflowNodeType;
+  lane: string;
+  level: AutomationLevel;
+  needsApproval: boolean;
+} {
   switch (state) {
     case "ai_assisted":
-      return { type: "ai_assist", lane: "lane_ai", level: "draft_only", needsApproval: false };
+      return {
+        type: "ai_assist",
+        lane: "lane_ai",
+        level: "draft_only",
+        needsApproval: false,
+      };
     case "automated":
-      return { type: "ai_agent", lane: "lane_ai", level: "autonomous_with_guardrails", needsApproval: false };
+      return {
+        type: "ai_agent",
+        lane: "lane_ai",
+        level: "autonomous_with_guardrails",
+        needsApproval: false,
+      };
     case "requires_approval":
-      return { type: "human_action", lane: "lane_human", level: "human_approval_required", needsApproval: true };
+      return {
+        type: "human_action",
+        lane: "lane_human",
+        level: "human_approval_required",
+        needsApproval: true,
+      };
     default:
-      return { type: "human_action", lane: "lane_human", level: "suggest_only", needsApproval: false };
+      return {
+        type: "human_action",
+        lane: "lane_human",
+        level: "suggest_only",
+        needsApproval: false,
+      };
   }
 }
 
@@ -201,7 +256,14 @@ export function buildFutureStateAIWorkflowTemplate(
       type: "data_retrieval",
       laneId: "lane_systems",
       title: "Collect context",
-      description: project.systems.slice(0, 3).map((s) => s.name).join(", ") + (project.systems.length > 3 ? ` (+${project.systems.length - 3} more)` : ""),
+      description:
+        project.systems
+          .slice(0, 3)
+          .map((s) => s.name)
+          .join(", ") +
+        (project.systems.length > 3
+          ? ` (+${project.systems.length - 3} more)`
+          : ""),
       position: { x: X_START, y: FUTURE_LANE_Y.lane_systems },
     });
   }
@@ -218,10 +280,15 @@ export function buildFutureStateAIWorkflowTemplate(
       laneId: cfg.lane,
       title: wf.name,
       description: wf.description || undefined,
-      aiRole: cfg.type === "ai_assist" || cfg.type === "ai_agent" ? `Drafts/recommends for: ${wf.name}` : undefined,
+      aiRole:
+        cfg.type === "ai_assist" || cfg.type === "ai_agent"
+          ? `Drafts/recommends for: ${wf.name}`
+          : undefined,
       automationLevel: cfg.level,
       requiredHumanApproval: cfg.needsApproval || isRegulated,
-      guardrails: isRegulated ? ["PII redaction", "Confidence threshold"] : ["Confidence threshold"],
+      guardrails: isRegulated
+        ? ["PII redaction", "Confidence threshold"]
+        : ["Confidence threshold"],
       sourceCurrentStateNodeIds: [`n_step_${i + 1}`],
       position: { x: xCursor, y: FUTURE_LANE_Y[cfg.lane] },
     });
@@ -243,7 +310,11 @@ export function buildFutureStateAIWorkflowTemplate(
       laneId: "lane_guardrails",
       title: "Policy checks",
       description: "PII, confidence, allowed actions",
-      guardrails: ["No case closure without user", "PII redaction", "Escalate low confidence"],
+      guardrails: [
+        "No case closure without user",
+        "PII redaction",
+        "Escalate low confidence",
+      ],
       position: { x: xCursor, y: FUTURE_LANE_Y.lane_guardrails },
     });
     edges.push({
@@ -333,7 +404,9 @@ export function buildFutureStateAIWorkflowTemplate(
     newRisksIntroduced: [
       "PII may enter prompt context if redaction is incomplete",
       "Over-reliance on AI drafts may reduce reviewer scrutiny",
-      isRegulated ? "Regulatory acceptance of AI-assisted decisions requires documented evidence trail" : "Adoption risk if reviewers don't trust the AI output",
+      isRegulated
+        ? "Regulatory acceptance of AI-assisted decisions requires documented evidence trail"
+        : "Adoption risk if reviewers don't trust the AI output",
     ],
     assumptions: [
       "Future-state derived from workflow tab futureState field. Refine in canvas to adjust automation levels and add guardrails.",

@@ -79,7 +79,22 @@ export function CurrentStateWorkflowMap() {
         setError("Generation failed. Please try again.");
         return;
       }
-      persist(data.map as MapType);
+      // Normalise positions through the swimlane auto-layout so the generated
+      // map lands tidy (no overlap), regardless of returned positions.
+      const generated = data.map as MapType;
+      const positions = layoutNodesInLanes(
+        generated.nodes,
+        generated.edges,
+        CURRENT_LANE_Y,
+        generated.lanes,
+      );
+      persist({
+        ...generated,
+        nodes: generated.nodes.map((n) => ({
+          ...n,
+          position: positions[n.id] ?? n.position,
+        })),
+      });
     } catch {
       setError("Network error. Please try again.");
     } finally {

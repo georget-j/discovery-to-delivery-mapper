@@ -8,13 +8,16 @@ import type {
 } from "@/lib/visualisations/workflow-types";
 import type { NodeProposal } from "@/lib/visualisations/node-proposals";
 
+// 160px lane pitch matches the swimlane band height (WorkflowLaneBackground
+// laneHeight=160) so bands tile cleanly and tall nodes don't bleed into the
+// next lane. Keep in sync with workflow-templates.FUTURE_LANE_Y.
 export const FUTURE_LANE_Y: Record<string, number> = {
   lane_human: 80,
-  lane_ai: 200,
-  lane_systems: 320,
-  lane_guardrails: 440,
-  lane_compliance: 560,
-  lane_monitoring: 680,
+  lane_ai: 240,
+  lane_systems: 400,
+  lane_guardrails: 560,
+  lane_compliance: 720,
+  lane_monitoring: 880,
 };
 
 export const DEFAULT_FUTURE_LANES: WorkflowLane[] = [

@@ -13,6 +13,25 @@ const NODE_HEIGHT = 90;
 const X_PADDING = 80;
 const X_STEP = 240;
 
+// Cheap overlap check used to auto-heal maps generated under older (tighter)
+// lane spacing. Treats nodes as ~200×140 boxes; returns true if any two
+// intersect. A tidied layout (X_STEP=240, lane pitch 160) never trips this,
+// so the heal converges in one pass.
+export function nodesOverlap(
+  nodes: { position: { x: number; y: number } }[],
+): boolean {
+  const W = 200;
+  const H = 140;
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i + 1; j < nodes.length; j++) {
+      const a = nodes[i].position;
+      const b = nodes[j].position;
+      if (Math.abs(a.x - b.x) < W && Math.abs(a.y - b.y) < H) return true;
+    }
+  }
+  return false;
+}
+
 export function layoutNodesInLanes<N extends LayoutNode>(
   nodes: N[],
   edges: Edgey[],
@@ -26,38 +45,61 @@ export function layoutNodesInLanes<N extends LayoutNode>(
   g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 60 });
   g.setDefaultEdgeLabel(() => ({}));
 
-  for (const n of nodes) g.setNode(n.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+  for (const n of nodes)
+    g.setNode(n.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
   for (const e of edges) {
-    if (g.hasNode(e.source) && g.hasNode(e.target)) g.setEdge(e.source, e.target);
+    if (g.hasNode(e.source) && g.hasNode(e.target))
+      g.setEdge(e.source, e.target);
   }
   dagre.layout(g);
 
-  // Pull dagre's x coordinates, then rebase per lane so nodes within a lane
-  // start at X_PADDING and are spaced by their relative x-order.
+  // Quantise dagre's x into GLOBAL column ranks so the whole graph flows
+  // left→right consistently (a node and the validator it feeds line up across
+  // lanes, instead of each lane restarting its own x-order — which produced
+  // backward, crossing edges).
   const dagreX = new Map<string, number>();
   for (const n of nodes) {
     const dn = g.node(n.id);
     dagreX.set(n.id, dn ? dn.x : 0);
   }
+  const uniqueXs = Array.from(new Set([...dagreX.values()])).sort(
+    (a, b) => a - b,
+  );
+  const colOf = (id: string) => uniqueXs.indexOf(dagreX.get(id) ?? 0);
 
   const positions: Record<string, { x: number; y: number }> = {};
 
-  for (const lane of lanes) {
-    const laneNodes = nodes.filter((n) => n.laneId === lane.id);
-    laneNodes.sort((a, b) => (dagreX.get(a.id) ?? 0) - (dagreX.get(b.id) ?? 0));
-    laneNodes.forEach((n, idx) => {
+  // Place each lane's nodes on their global column, bumping to the next free
+  // column when two nodes in the same lane share one (so they never overlap).
+  const placeLane = (laneId: string, laneNodes: N[]) => {
+    const used = new Set<number>();
+    for (const n of [...laneNodes].sort((a, b) => colOf(a.id) - colOf(b.id))) {
+      let col = Math.max(0, colOf(n.id));
+      while (used.has(col)) col++;
+      used.add(col);
       positions[n.id] = {
-        x: X_PADDING + idx * X_STEP,
-        y: laneYs[lane.id] ?? 0,
+        x: X_PADDING + col * X_STEP,
+        y: laneYs[laneId] ?? 0,
       };
-    });
-  }
-
-  // Any node whose lane isn't in `lanes` (shouldn't happen) — keep current x, snap y to 0.
-  for (const n of nodes) {
-    if (!positions[n.id]) {
-      positions[n.id] = { x: X_PADDING, y: laneYs[n.laneId] ?? 0 };
     }
+  };
+
+  for (const lane of lanes) {
+    placeLane(
+      lane.id,
+      nodes.filter((n) => n.laneId === lane.id),
+    );
+  }
+  // Nodes in a lane not listed in `lanes` (shouldn't happen) — place anyway.
+  const placedLanes = new Set(lanes.map((l) => l.id));
+  const orphanLanes = new Set(
+    nodes.filter((n) => !placedLanes.has(n.laneId)).map((n) => n.laneId),
+  );
+  for (const laneId of orphanLanes) {
+    placeLane(
+      laneId,
+      nodes.filter((n) => n.laneId === laneId),
+    );
   }
 
   return positions;
