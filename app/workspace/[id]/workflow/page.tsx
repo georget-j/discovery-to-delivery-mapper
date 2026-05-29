@@ -64,8 +64,25 @@ export default function WorkflowPage() {
         current={<CurrentStateWorkflowMap />}
         future={
           <div className="space-y-4">
-            <FutureStateRecommendations />
             <FutureStateAIWorkflowMap />
+            {/* Step-level modernisation ideas live behind a disclosure so the
+                in-canvas Suggestions rail is the primary surface. */}
+            <details className="group rounded-md border bg-muted/10">
+              <summary className="cursor-pointer list-none flex items-center gap-2 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                <span
+                  aria-hidden
+                  className="group-open:rotate-90 transition-transform"
+                >
+                  ▸
+                </span>
+                <span className="font-medium">
+                  Step modernisation ideas (per workflow step)
+                </span>
+              </summary>
+              <div className="px-4 pb-4 pt-1">
+                <FutureStateRecommendations />
+              </div>
+            </details>
           </div>
         }
       />

@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { Sheet } from "@/components/ui/sheet";
 import { Surface } from "@/components/ui/surface";
 import {
@@ -16,6 +16,10 @@ type Props = {
   banner?: ReactNode; // sits between title row and canvas (e.g. StaleBanner)
   canvas: ReactNode;
   inspector?: ReactNode;
+  // Optional "Suggestions" rail shown in the right column. When both inspector
+  // and rail are provided, a segmented toggle switches between them; the rail
+  // is the default when no node is selected.
+  rail?: ReactNode;
   legend?: ReactNode;
   // Mobile-only: controls whether the inspector renders open in its bottom-sheet.
   // Typically wired to !!selectedNodeId by the consumer.
@@ -34,13 +38,29 @@ export function VisualisationFrame({
   banner,
   canvas,
   inspector,
+  rail,
   legend,
   inspectorOpen = false,
   onInspectorOpenChange,
   lastSavedAt,
 }: Props) {
   const [toolsOpen, setToolsOpen] = useState(false);
+  // Which right-column panel is showing. Selecting a node flips to the
+  // inspector; deselecting returns to the suggestions rail.
+  const [rightPanel, setRightPanel] = useState<"inspector" | "rail">("rail");
   const saveState = useSaveIndicator(lastSavedAt);
+  useEffect(() => {
+    setRightPanel(inspectorOpen ? "inspector" : "rail");
+  }, [inspectorOpen]);
+
+  const activePanel: "inspector" | "rail" | null =
+    rightPanel === "inspector" && inspector
+      ? "inspector"
+      : rail
+        ? "rail"
+        : inspector
+          ? "inspector"
+          : null;
 
   return (
     <Surface className="overflow-hidden">
@@ -86,9 +106,30 @@ export function VisualisationFrame({
         style={{ height: "min(640px, calc(100dvh - 14rem))" }}
       >
         <div className="flex-1 relative bg-muted/10">{canvas}</div>
-        {inspector && (
-          <div className="hidden md:flex flex-col w-72 shrink-0 border-l bg-background overflow-y-auto">
-            {inspector}
+        {(inspector || rail) && (
+          <div className="hidden md:flex flex-col w-72 shrink-0 border-l bg-background">
+            {inspector && rail && (
+              <div className="flex items-center gap-0.5 p-1 border-b shrink-0">
+                {(["rail", "inspector"] as const).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setRightPanel(p)}
+                    className={
+                      "flex-1 text-[11px] px-2 py-1 rounded transition-colors " +
+                      (activePanel === p
+                        ? "bg-muted font-medium text-foreground"
+                        : "text-muted-foreground hover:text-foreground")
+                    }
+                  >
+                    {p === "rail" ? "✨ Suggestions" : "Inspector"}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="flex-1 overflow-y-auto">
+              {activePanel === "rail" ? rail : inspector}
+            </div>
           </div>
         )}
       </div>

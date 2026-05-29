@@ -464,6 +464,8 @@ export function CurrentStateWorkflowMap() {
               onPaneContextMenu={(x, y) =>
                 setContextMenu({ nodeId: null, x, y })
               }
+              onDuplicateNode={handleDuplicateNode}
+              onDeleteNode={handleDeleteNode}
             />
           ) : (
             <div className="h-full flex items-center justify-center px-8">

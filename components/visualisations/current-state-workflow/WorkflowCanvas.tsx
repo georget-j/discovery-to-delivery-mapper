@@ -54,6 +54,8 @@ type Props = {
     y: number,
     flowPosition: { x: number; y: number },
   ) => void;
+  onDuplicateNode?: (id: string) => void;
+  onDeleteNode?: (id: string) => void;
 };
 
 function CanvasInner({
@@ -64,6 +66,8 @@ function CanvasInner({
   onMultiSelectChange,
   onNodeContextMenu,
   onPaneContextMenu,
+  onDuplicateNode,
+  onDeleteNode,
 }: Props) {
   const initialNodes = useMemo(() => mapToReactFlowNodes(map), [map]);
   const initialEdges = useMemo(() => mapToReactFlowEdges(map), [map]);
@@ -230,7 +234,13 @@ function CanvasInner({
   );
 
   return (
-    <MapEditProvider value={{ patchNode }}>
+    <MapEditProvider
+      value={{
+        patchNode,
+        duplicateNode: onDuplicateNode,
+        deleteNode: onDeleteNode,
+      }}
+    >
       <div className="absolute inset-0">
         <WorkflowLaneBackground lanes={map.lanes} laneYs={CURRENT_LANE_Y} />
         <ReactFlow

@@ -4,6 +4,10 @@ import { memo, useState, useRef, useEffect } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { cn } from "@/lib/utils";
 import { useMapEdit } from "../shared/MapEditContext";
+import {
+  NodeActionToolbar,
+  type NodeAction,
+} from "../shared/NodeActionToolbar";
 import type {
   WorkflowNode as WorkflowNodeData,
   WorkflowNodeType,
@@ -90,14 +94,40 @@ function useInlineEdit(initial: string, onCommit: (v: string) => void) {
 function WorkflowNodeImpl({ id, data, selected }: NodeProps) {
   const node = data as unknown as WorkflowNodeData;
   const style = TYPE_STYLES[node.type];
-  const { patchNode } = useMapEdit();
+  const { patchNode, duplicateNode, deleteNode } = useMapEdit();
+  const [hovered, setHovered] = useState(false);
 
   const { editing, draft, setDraft, start, commit, cancel, inputRef } =
     useInlineEdit(node.title, (v) => patchNode(id, { title: v }));
 
+  const actions: NodeAction[] = [];
+  if (duplicateNode)
+    actions.push({
+      key: "duplicate",
+      label: "Duplicate",
+      icon: "⧉",
+      onClick: () => duplicateNode(id),
+    });
+  if (deleteNode)
+    actions.push({
+      key: "delete",
+      label: "Delete",
+      icon: "✕",
+      danger: true,
+      onClick: () => deleteNode(id),
+    });
+  const toolbar = (
+    <NodeActionToolbar visible={hovered || !!selected} actions={actions} />
+  );
+  const hoverHandlers = {
+    onMouseEnter: () => setHovered(true),
+    onMouseLeave: () => setHovered(false),
+  };
+
   if (node.type === "decision") {
     return (
-      <div className="relative">
+      <div className="relative" {...hoverHandlers}>
+        {toolbar}
         <Handle
           type="target"
           position={Position.Left}
@@ -168,7 +198,8 @@ function WorkflowNodeImpl({ id, data, selected }: NodeProps) {
   }
 
   return (
-    <div className="relative">
+    <div className="relative" {...hoverHandlers}>
+      {toolbar}
       <Handle
         type="target"
         position={Position.Left}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import {
   ReactFlow,
   Background,
@@ -66,6 +66,9 @@ type Props = {
     sourceNodeId: string | null,
   ) => void;
   onAskAiForNode?: (nodeId: string) => Promise<NodeProposal[]>;
+  // Controlled ghost preview (driven by the node popover AND the rail).
+  preview?: ProposalPreview;
+  onPreviewChange?: (preview: ProposalPreview) => void;
 };
 
 function CanvasInner({
@@ -82,8 +85,10 @@ function CanvasInner({
   getProposals,
   onApplyProposal,
   onAskAiForNode,
+  preview = null,
+  onPreviewChange,
 }: Props) {
-  const [preview, setPreview] = useState<ProposalPreview>(null);
+  const setPreview = onPreviewChange ?? (() => {});
   const initialNodes = useMemo(() => mapToReactFlowNodes(map), [map]);
   const initialEdges = useMemo(() => mapToReactFlowEdges(map), [map]);
 

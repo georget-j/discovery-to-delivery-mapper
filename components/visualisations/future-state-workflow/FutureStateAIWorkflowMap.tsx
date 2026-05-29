@@ -27,6 +27,8 @@ import {
   proposalFromPattern,
   type NodeProposal,
 } from "@/lib/visualisations/node-proposals";
+import { ProposalRail } from "./ProposalRail";
+import type { ProposalPreview } from "../shared/MapEditContext";
 import { EmptyState } from "@/components/ui/empty-state";
 import { futureStateToMermaid } from "@/lib/visualisations/mermaid-export";
 import { layoutNodesInLanes } from "@/lib/visualisations/auto-layout";
@@ -50,6 +52,7 @@ export function FutureStateAIWorkflowMap() {
     y: number;
     nodeId: string | null;
   } | null>(null);
+  const [preview, setPreview] = useState<ProposalPreview>(null);
 
   const map = project?.visualisations?.futureStateAIWorkflowMap ?? null;
   const currentMap = project?.visualisations?.currentStateWorkflowMap;
@@ -553,6 +556,8 @@ export function FutureStateAIWorkflowMap() {
               getProposals={getProposals}
               onApplyProposal={handleApplyProposal}
               onAskAiForNode={askAiForNode}
+              preview={preview}
+              onPreviewChange={setPreview}
             />
           ) : (
             <div className="h-full flex items-center justify-center px-8">
@@ -598,6 +603,19 @@ export function FutureStateAIWorkflowMap() {
               onUpdate={handleUpdateNode}
               onDelete={handleDeleteNode}
               onConvertToRequirement={handleConvertToRequirement}
+            />
+          ) : undefined
+        }
+        rail={
+          map && project ? (
+            <ProposalRail
+              map={map}
+              project={project}
+              onApply={handleApplyProposal}
+              onPreview={(p, sid) =>
+                setPreview(p ? { proposal: p, sourceNodeId: sid } : null)
+              }
+              onAskAi={() => askAiForNode("__map__")}
             />
           ) : undefined
         }
