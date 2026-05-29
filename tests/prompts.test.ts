@@ -1,7 +1,15 @@
 import { describe, it, expect } from "vitest";
 import { listScenarios } from "../lib/scenarios";
-import { buildArtifactPrompt, ARTIFACT_SPECS, ARTIFACT_PROMPT_VERSION } from "../lib/prompts";
-import { buildCurrentStateWorkflowPrompt, buildFutureStateAIWorkflowPrompt, WORKFLOW_PROMPT_VERSION } from "../lib/visualisations/prompts";
+import {
+  buildArtifactPrompt,
+  ARTIFACT_SPECS,
+  ARTIFACT_PROMPT_VERSION,
+} from "../lib/prompts";
+import {
+  buildCurrentStateWorkflowPrompt,
+  buildFutureStateAIWorkflowPrompt,
+  WORKFLOW_PROMPT_VERSION,
+} from "../lib/visualisations/prompts";
 import { GeneratedArtifactsSchema } from "../lib/schemas";
 import type { OnboardingProject } from "../lib/types";
 
@@ -32,9 +40,15 @@ describe("buildArtifactPrompt", () => {
   });
 
   it("ARTIFACT_SPECS keys exactly match GeneratedArtifactsSchema keys (minus metadata)", () => {
-    // GeneratedArtifactsSchema includes the 15 artifacts plus derivedFromHash + generatedAt.
+    // GeneratedArtifactsSchema includes the 15 artifacts plus metadata
+    // (derivedFromHash, generatedAt, editedArtifacts).
+    const metadataKeys = new Set([
+      "derivedFromHash",
+      "generatedAt",
+      "editedArtifacts",
+    ]);
     const schemaKeys = Object.keys(GeneratedArtifactsSchema.shape).filter(
-      (k) => k !== "derivedFromHash" && k !== "generatedAt"
+      (k) => !metadataKeys.has(k),
     );
     const specKeys = ARTIFACT_SPECS.map((s) => s.key);
     expect(schemaKeys.sort()).toEqual(specKeys.sort());
@@ -103,7 +117,12 @@ describe("buildCurrentStateWorkflowPrompt", () => {
 
   it("user prompt names all 4 default lanes", () => {
     const { user } = buildCurrentStateWorkflowPrompt(fintech);
-    for (const lane of ["lane_operator", "lane_systems", "lane_compliance", "lane_notes"]) {
+    for (const lane of [
+      "lane_operator",
+      "lane_systems",
+      "lane_compliance",
+      "lane_notes",
+    ]) {
       expect(user).toContain(lane);
     }
   });
@@ -135,7 +154,14 @@ describe("buildFutureStateAIWorkflowPrompt", () => {
 
   it("user prompt names all 6 lanes including guardrails and monitoring", () => {
     const { user } = buildFutureStateAIWorkflowPrompt(fintech);
-    for (const lane of ["lane_human", "lane_ai", "lane_systems", "lane_guardrails", "lane_compliance", "lane_monitoring"]) {
+    for (const lane of [
+      "lane_human",
+      "lane_ai",
+      "lane_systems",
+      "lane_guardrails",
+      "lane_compliance",
+      "lane_monitoring",
+    ]) {
       expect(user).toContain(lane);
     }
   });
@@ -192,7 +218,7 @@ describe("prompt builders across all seeded scenarios", () => {
       for (const spec of ARTIFACT_SPECS) {
         expect(user).toContain(spec.key);
       }
-    }
+    },
   );
 
   it.each(scenarios.map((s) => [s.id, s] as [string, OnboardingProject]))(
@@ -200,7 +226,7 @@ describe("prompt builders across all seeded scenarios", () => {
     (_id, scenario) => {
       const { user } = buildCurrentStateWorkflowPrompt(scenario);
       expect(user).toContain(`"projectId": "${scenario.id}"`);
-    }
+    },
   );
 
   it.each(scenarios.map((s) => [s.id, s] as [string, OnboardingProject]))(
@@ -208,6 +234,6 @@ describe("prompt builders across all seeded scenarios", () => {
     (_id, scenario) => {
       const { user } = buildFutureStateAIWorkflowPrompt(scenario);
       expect(user).toContain(`"projectId": "${scenario.id}"`);
-    }
+    },
   );
 });

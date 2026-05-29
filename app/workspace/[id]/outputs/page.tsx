@@ -18,6 +18,7 @@ import {
   assembleOnboardingPack,
   downloadMarkdown,
 } from "@/lib/markdown-export";
+import { downloadPackDocx } from "@/lib/export-docx";
 import { PageNav } from "@/components/PageNav";
 import { StaleArtifactsBanner } from "@/components/outputs/StaleArtifactsBanner";
 import { ArtifactSourcesPanel } from "@/components/outputs/ArtifactSourcesPanel";
@@ -215,6 +216,12 @@ export default function OutputsPage() {
   const [sourcesOpen, setSourcesOpen] = useState(false);
   // Mobile-only: artifact picker also opens as a bottom Sheet.
   const [preflightOpen, setPreflightOpen] = useState(false);
+  // Export menu (Markdown / PDF / Word).
+  const [exportOpen, setExportOpen] = useState(false);
+  // Inline editing of the active artifact.
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [exportingDocx, setExportingDocx] = useState(false);
 
   // Deep-link from /outputs/matrix → ?artifact=KEY. Switch to that artifact
   // on mount, then drop the param via history.replaceState so it's a one-shot.
@@ -232,8 +239,25 @@ export default function OutputsPage() {
 
   const openSources = useCallback(() => setSourcesOpen(true), []);
 
+  // Leaving an artifact discards an unsaved edit session (Save persists; this
+  // just prevents a half-edited draft bleeding across artifacts).
+  useEffect(() => {
+    setEditing(false);
+    setDraft("");
+  }, [activeTab]);
+
   const runGenerate = useCallback(async () => {
     if (!project) return;
+    // Preserve hand-edited artifacts unless the user opts to overwrite.
+    const edited = project.outputs?.editedArtifacts ?? [];
+    let preserveEdits = false;
+    if (edited.length > 0) {
+      preserveEdits = window.confirm(
+        `You've edited ${edited.length} artifact${edited.length !== 1 ? "s" : ""}. ` +
+          `Keep your edits?\n\nOK = keep my edited text\nCancel = overwrite everything with fresh output`,
+      );
+    }
+    const priorOutputs = project.outputs;
     setGenerating(true);
     setSource(null);
     const startedAt = Date.now();
@@ -245,7 +269,16 @@ export default function OutputsPage() {
       });
       const data = await res.json();
       if (!data.artifacts) throw new Error(data.error ?? "no_artifacts");
-      updateProject({ outputs: data.artifacts });
+      let merged = data.artifacts as typeof data.artifacts;
+      if (preserveEdits && priorOutputs) {
+        const kept: Record<string, string> = {};
+        for (const key of edited) {
+          const prev = (priorOutputs as Record<string, unknown>)[key];
+          if (typeof prev === "string") kept[key] = prev;
+        }
+        merged = { ...merged, ...kept, editedArtifacts: edited };
+      }
+      updateProject({ outputs: merged });
       setSource(data.source);
       return { source: data.source as string, ms: Date.now() - startedAt };
     })();
@@ -311,7 +344,58 @@ export default function OutputsPage() {
       .toLowerCase()
       .replace(/[^a-z0-9]/g, "-");
     downloadMarkdown(content, `${slug}-onboarding-pack.md`);
+    setExportOpen(false);
   }, [project]);
+
+  const exportDocx = useCallback(async () => {
+    if (!project) return;
+    setExportOpen(false);
+    setExportingDocx(true);
+    try {
+      await downloadPackDocx(project, "full");
+      toast.success("Word document downloaded");
+    } catch (err) {
+      toast.error("Word export failed", {
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
+    } finally {
+      setExportingDocx(false);
+    }
+  }, [project]);
+
+  const exportPdf = useCallback(() => {
+    if (!project) return;
+    setExportOpen(false);
+    // Open the layout-free print view in a new tab; it auto-opens the
+    // browser's print dialog (Save as PDF).
+    window.open(`/print/${project.id}?scope=full&auto=1`, "_blank");
+  }, [project]);
+
+  // ── Inline editing ────────────────────────────────────────────────────────
+  const startEditing = useCallback(() => {
+    setDraft(project?.outputs?.[activeTab] ?? "");
+    setEditing(true);
+  }, [project, activeTab]);
+
+  const cancelEditing = useCallback(() => {
+    setEditing(false);
+    setDraft("");
+  }, []);
+
+  const saveEditing = useCallback(() => {
+    if (!project?.outputs) return;
+    const edited = new Set(project.outputs.editedArtifacts ?? []);
+    edited.add(activeTab);
+    updateProject({
+      outputs: {
+        ...project.outputs,
+        [activeTab]: draft,
+        editedArtifacts: Array.from(edited),
+      },
+    });
+    setEditing(false);
+    toast.success("Artifact saved");
+  }, [project, activeTab, draft, updateProject]);
 
   // Stale detection: project inputs changed since the artifacts were generated.
   const stale = useMemo(() => {
@@ -347,13 +431,59 @@ export default function OutputsPage() {
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {hasOutputs && (
-              <button
-                type="button"
-                onClick={exportMarkdown}
-                className="text-sm px-3 py-1.5 rounded-md border border-border hover:bg-muted/50 transition-colors"
-              >
-                Export full pack
-              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setExportOpen((o) => !o)}
+                  disabled={exportingDocx}
+                  aria-haspopup="menu"
+                  aria-expanded={exportOpen}
+                  className="text-sm px-3 py-1.5 rounded-md border border-border hover:bg-muted/50 transition-colors inline-flex items-center gap-1.5"
+                >
+                  {exportingDocx ? "Exporting…" : "Export pack"}
+                  <span aria-hidden className="text-[10px]">
+                    ▾
+                  </span>
+                </button>
+                {exportOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setExportOpen(false)}
+                      aria-hidden
+                    />
+                    <div
+                      role="menu"
+                      className="absolute right-0 top-full mt-1 z-20 w-44 rounded-md border bg-background shadow-md py-1"
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={exportPdf}
+                        className="w-full px-3 py-1.5 text-left text-sm hover:bg-muted/40"
+                      >
+                        📄 PDF (print)
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={exportDocx}
+                        className="w-full px-3 py-1.5 text-left text-sm hover:bg-muted/40"
+                      >
+                        📝 Word (.docx)
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={exportMarkdown}
+                        className="w-full px-3 py-1.5 text-left text-sm hover:bg-muted/40"
+                      >
+                        ⬇ Markdown (.md)
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             )}
             <button
               type="button"
@@ -608,31 +738,87 @@ export default function OutputsPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={openSources}
-                      className="hidden md:inline-flex text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-md border border-border hover:bg-muted/50 transition-colors bg-background items-center gap-1"
-                    >
-                      🔍 Sources
-                    </button>
-                    <button
-                      type="button"
-                      onClick={copyTab}
-                      className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-md border border-border hover:bg-muted/50 transition-colors bg-background"
-                    >
-                      {copied ? "Copied" : "Copy"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={downloadTab}
-                      className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-md border border-border hover:bg-muted/50 transition-colors bg-background"
-                    >
-                      Download .md
-                    </button>
+                    {editing ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={cancelEditing}
+                          className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-md border border-border hover:bg-muted/50 transition-colors bg-background"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={saveEditing}
+                          className="text-xs px-3 py-1.5 rounded-md bg-foreground text-background hover:bg-foreground/90 transition-colors font-medium"
+                        >
+                          Save
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={openSources}
+                          className="hidden md:inline-flex text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-md border border-border hover:bg-muted/50 transition-colors bg-background items-center gap-1"
+                        >
+                          🔍 Sources
+                        </button>
+                        {activeContent && (
+                          <button
+                            type="button"
+                            onClick={startEditing}
+                            className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-md border border-border hover:bg-muted/50 transition-colors bg-background"
+                          >
+                            ✎ Edit
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={copyTab}
+                          className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-md border border-border hover:bg-muted/50 transition-colors bg-background"
+                        >
+                          {copied ? "Copied" : "Copy"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={downloadTab}
+                          className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-md border border-border hover:bg-muted/50 transition-colors bg-background"
+                        >
+                          Download .md
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
 
-                {activeContent ? (
+                {project.outputs?.editedArtifacts?.includes(activeTab) &&
+                  !editing && (
+                    <p className="text-[11px] text-muted-foreground -mt-1">
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200 font-medium">
+                        ✎ Edited
+                      </span>{" "}
+                      You&apos;ve hand-edited this artifact. Regenerating will
+                      ask before overwriting it.
+                    </p>
+                  )}
+
+                {editing ? (
+                  <div className="bg-background rounded-lg border shadow-sm p-4 space-y-2">
+                    <p className="text-[11px] text-muted-foreground">
+                      Editing Markdown — your changes are saved to this project
+                      only and survive regeneration unless you choose to
+                      overwrite.
+                    </p>
+                    <textarea
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                      rows={24}
+                      className="w-full font-mono text-xs leading-relaxed rounded-md border bg-background px-3 py-2 resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+                      spellCheck={false}
+                    />
+                  </div>
+                ) : activeContent ? (
                   <div className="bg-background rounded-lg border shadow-sm px-8 py-8">
                     <div className="prose prose-sm max-w-none text-foreground [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mb-6 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-6 [&_h2]:mb-3 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-2 [&_p]:leading-relaxed [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded [&_code]:text-xs [&_blockquote]:border-l-4 [&_blockquote]:border-amber-300 [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_blockquote]:italic [&_table]:w-full [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-muted-foreground [&_th]:pb-2 [&_td]:py-1.5 [&_td]:text-sm [&_tr]:border-b [&_tr]:border-border/50 [&_ul]:space-y-1 [&_li]:leading-relaxed [&_input[type=checkbox]]:mr-2">
                       <ReactMarkdown

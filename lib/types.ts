@@ -407,6 +407,9 @@ export type GeneratedArtifacts = {
   // Optional so legacy stored outputs still work.
   derivedFromHash?: string;
   generatedAt?: string;
+  // Artifact keys the user has hand-edited in the Outputs tab. Regeneration
+  // offers to preserve these so manual edits aren't silently overwritten.
+  editedArtifacts?: string[];
 };
 
 // ────────────────────────────────────────────────────────────
