@@ -1,17 +1,10 @@
 "use client";
 
-import {
-  useState,
-  useCallback,
-  useMemo,
-  useEffect,
-  Fragment,
-  type ReactNode,
-} from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import ReactMarkdown from "react-markdown";
 import { useWorkspace } from "@/components/WorkspaceProvider";
+import { ArtifactProse } from "@/components/outputs/ArtifactProse";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/toast";
 import {
@@ -23,7 +16,6 @@ import { PageNav } from "@/components/PageNav";
 import { StaleArtifactsBanner } from "@/components/outputs/StaleArtifactsBanner";
 import { ArtifactSourcesPanel } from "@/components/outputs/ArtifactSourcesPanel";
 import { PackOverview } from "@/components/outputs/PackOverview";
-import { SourceChip } from "@/components/outputs/SourceChip";
 import { Sheet } from "@/components/ui/sheet";
 import { Modal } from "@/components/ui/modal";
 import { hashGenerationInputs } from "@/lib/artifact-helpers";
@@ -34,41 +26,6 @@ import {
   readinessTooltip,
 } from "@/lib/readiness";
 import { assessGenerationReadiness } from "@/lib/generation-readiness";
-
-// Transform plain text children inside markdown nodes — split any [N] tokens
-// out as <SourceChip n={N} /> components, leaving everything else as text.
-// Only acts on string children; recursive elements pass through.
-function renderChildrenWithChips(
-  children: ReactNode,
-  onChipClick: () => void,
-): ReactNode {
-  if (typeof children === "string") {
-    const parts: ReactNode[] = [];
-    const re = /\[(\d+)\]/g;
-    let lastIndex = 0;
-    let match: RegExpExecArray | null;
-    while ((match = re.exec(children)) !== null) {
-      if (match.index > lastIndex)
-        parts.push(children.slice(lastIndex, match.index));
-      parts.push(
-        <SourceChip
-          key={`chip-${match.index}`}
-          n={parseInt(match[1], 10)}
-          onClick={onChipClick}
-        />,
-      );
-      lastIndex = match.index + match[0].length;
-    }
-    if (lastIndex < children.length) parts.push(children.slice(lastIndex));
-    return parts.length === 1 ? parts[0] : parts;
-  }
-  if (Array.isArray(children)) {
-    return children.map((c, i) => (
-      <Fragment key={i}>{renderChildrenWithChips(c, onChipClick)}</Fragment>
-    ));
-  }
-  return children;
-}
 
 type Tab = ArtifactKey;
 type ViewMode = "overview" | "artifact";
@@ -819,29 +776,35 @@ export default function OutputsPage() {
                     />
                   </div>
                 ) : activeContent ? (
-                  <div className="bg-background rounded-lg border shadow-sm px-8 py-8">
-                    <div className="prose prose-sm max-w-none text-foreground [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mb-6 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mt-6 [&_h2]:mb-3 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-2 [&_p]:leading-relaxed [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded [&_code]:text-xs [&_blockquote]:border-l-4 [&_blockquote]:border-amber-300 [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_blockquote]:italic [&_table]:w-full [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-muted-foreground [&_th]:pb-2 [&_td]:py-1.5 [&_td]:text-sm [&_tr]:border-b [&_tr]:border-border/50 [&_ul]:space-y-1 [&_li]:leading-relaxed [&_input[type=checkbox]]:mr-2">
-                      <ReactMarkdown
-                        components={{
-                          p: ({ children }) => (
-                            <p>
-                              {renderChildrenWithChips(children, openSources)}
-                            </p>
-                          ),
-                          li: ({ children }) => (
-                            <li>
-                              {renderChildrenWithChips(children, openSources)}
-                            </li>
-                          ),
-                          td: ({ children }) => (
-                            <td>
-                              {renderChildrenWithChips(children, openSources)}
-                            </td>
-                          ),
-                        }}
-                      >
-                        {activeContent}
-                      </ReactMarkdown>
+                  <div className="bg-background rounded-lg border shadow-sm overflow-hidden">
+                    {/* Cover header — gives each artifact a document feel. */}
+                    <div className="px-8 pt-6 pb-4 border-b bg-muted/20">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                        {project.customer.companyName || project.name} ·
+                        Deployment Pack
+                      </p>
+                      <h2 className="text-lg font-bold mt-0.5">
+                        {activeTabMeta.label}
+                      </h2>
+                      <p className="text-[11px] text-muted-foreground mt-1">
+                        For {activeTabMeta.audience}
+                        {project.outputs?.generatedAt && (
+                          <>
+                            {" · "}
+                            {new Date(
+                              project.outputs.generatedAt,
+                            ).toLocaleDateString(undefined, {
+                              dateStyle: "medium",
+                            })}
+                          </>
+                        )}
+                      </p>
+                    </div>
+                    <div className="px-8 py-8">
+                      <ArtifactProse
+                        content={activeContent}
+                        onChipClick={openSources}
+                      />
                     </div>
                   </div>
                 ) : (
