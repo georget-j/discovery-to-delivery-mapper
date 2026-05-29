@@ -17,6 +17,7 @@ type Props = {
   onUndo?: () => void;
   onRedo?: () => void;
   onAutoLayout?: () => void;
+  onReviewTidy?: () => void;
   onAddNode: (type: FutureWorkflowNodeType) => void;
   onExportMermaid: () => void;
   onExportJson: () => void;
@@ -34,9 +35,23 @@ const ADD_OPTIONS: { type: FutureWorkflowNodeType; label: string }[] = [
 ];
 
 export function FutureWorkflowToolbar({
-  generating, hasMap, hasCurrentMap, comparing, source, canUndo, canRedo,
-  onGenerate, onToggleCompare, onUndo, onRedo, onAutoLayout,
-  onAddNode, onExportMermaid, onExportJson, onReset,
+  generating,
+  hasMap,
+  hasCurrentMap,
+  comparing,
+  source,
+  canUndo,
+  canRedo,
+  onGenerate,
+  onToggleCompare,
+  onUndo,
+  onRedo,
+  onAutoLayout,
+  onReviewTidy,
+  onAddNode,
+  onExportMermaid,
+  onExportJson,
+  onReset,
 }: Props) {
   const [addOpen, setAddOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
@@ -57,7 +72,7 @@ export function FutureWorkflowToolbar({
           "text-xs px-3 py-1.5 rounded-md font-medium transition-colors",
           generating
             ? "bg-muted text-muted-foreground cursor-not-allowed"
-            : "bg-primary text-primary-foreground hover:bg-primary/90"
+            : "bg-primary text-primary-foreground hover:bg-primary/90",
         )}
       >
         {generating ? "Generating…" : hasMap ? "AI Redesign" : "AI Generate"}
@@ -71,7 +86,9 @@ export function FutureWorkflowToolbar({
             disabled={!canUndo}
             title="Undo (⌘Z)"
             className="text-xs px-2 py-1.5 hover:bg-muted/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors rounded-l-md"
-          >↶</button>
+          >
+            ↶
+          </button>
           <div className="w-px h-4 bg-border" />
           <button
             type="button"
@@ -79,7 +96,9 @@ export function FutureWorkflowToolbar({
             disabled={!canRedo}
             title="Redo (⌘⇧Z)"
             className="text-xs px-2 py-1.5 hover:bg-muted/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors rounded-r-md"
-          >↷</button>
+          >
+            ↷
+          </button>
         </div>
       )}
 
@@ -94,6 +113,17 @@ export function FutureWorkflowToolbar({
         </button>
       )}
 
+      {hasMap && onReviewTidy && (
+        <button
+          type="button"
+          onClick={onReviewTidy}
+          title="Find duplicate / stray nodes and clean up"
+          className="text-xs px-3 py-1.5 rounded-md border hover:bg-muted/50 transition-colors"
+        >
+          🧹 Review &amp; tidy
+        </button>
+      )}
+
       {hasMap && hasCurrentMap && (
         <button
           type="button"
@@ -102,7 +132,7 @@ export function FutureWorkflowToolbar({
             "text-xs px-3 py-1.5 rounded-md border transition-colors",
             comparing
               ? "bg-foreground text-background border-foreground"
-              : "hover:bg-muted/50"
+              : "hover:bg-muted/50",
           )}
         >
           {comparing ? "Hide compare" : "Compare current"}
@@ -113,7 +143,10 @@ export function FutureWorkflowToolbar({
         <div className="relative">
           <button
             type="button"
-            onClick={() => { setAddOpen((v) => !v); setExportOpen(false); }}
+            onClick={() => {
+              setAddOpen((v) => !v);
+              setExportOpen(false);
+            }}
             className="text-xs px-3 py-1.5 rounded-md border hover:bg-muted/50 transition-colors"
           >
             Add node ▾
@@ -124,7 +157,10 @@ export function FutureWorkflowToolbar({
                 <button
                   key={o.type}
                   type="button"
-                  onClick={() => { onAddNode(o.type); setAddOpen(false); }}
+                  onClick={() => {
+                    onAddNode(o.type);
+                    setAddOpen(false);
+                  }}
                   className="w-full text-left text-xs px-3 py-1.5 hover:bg-muted/50 transition-colors"
                 >
                   {o.label}
@@ -139,7 +175,10 @@ export function FutureWorkflowToolbar({
         <div className="relative">
           <button
             type="button"
-            onClick={() => { setExportOpen((v) => !v); setAddOpen(false); }}
+            onClick={() => {
+              setExportOpen((v) => !v);
+              setAddOpen(false);
+            }}
             className="text-xs px-3 py-1.5 rounded-md border hover:bg-muted/50 transition-colors"
           >
             Export ▾
@@ -148,14 +187,20 @@ export function FutureWorkflowToolbar({
             <div className="absolute right-0 top-full mt-1 z-20 min-w-[140px] rounded-md border bg-background shadow-md py-1">
               <button
                 type="button"
-                onClick={() => { onExportMermaid(); setExportOpen(false); }}
+                onClick={() => {
+                  onExportMermaid();
+                  setExportOpen(false);
+                }}
                 className="w-full text-left text-xs px-3 py-1.5 hover:bg-muted/50 transition-colors"
               >
                 Download .mmd
               </button>
               <button
                 type="button"
-                onClick={() => { onExportJson(); setExportOpen(false); }}
+                onClick={() => {
+                  onExportJson();
+                  setExportOpen(false);
+                }}
                 className="w-full text-left text-xs px-3 py-1.5 hover:bg-muted/50 transition-colors"
               >
                 Download .json

@@ -29,6 +29,7 @@ import {
   type MapMove,
 } from "@/lib/visualisations/node-proposals";
 import { ProposalRail } from "./ProposalRail";
+import { ReviewTidyPanel } from "./ReviewTidyPanel";
 import type { ProposalPreview } from "../shared/MapEditContext";
 import { EmptyState } from "@/components/ui/empty-state";
 import { futureStateToMermaid } from "@/lib/visualisations/mermaid-export";
@@ -57,6 +58,7 @@ export function FutureStateAIWorkflowMap() {
     nodeId: string | null;
   } | null>(null);
   const [preview, setPreview] = useState<ProposalPreview>(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
 
   const map = project?.visualisations?.futureStateAIWorkflowMap ?? null;
   const currentMap = project?.visualisations?.currentStateWorkflowMap;
@@ -305,6 +307,32 @@ export function FutureStateAIWorkflowMap() {
       updatedAt: new Date().toISOString(),
     });
   }, [map, persist]);
+
+  // Review & tidy applies confirmed merges/removes (already in `next`), then
+  // re-runs the swimlane layout so the cleaned map lands tidy. One persist =
+  // one undo step.
+  const handleReviewApply = useCallback(
+    (next: MapType) => {
+      const positions = layoutNodesInLanes(
+        next.nodes,
+        next.edges,
+        FUTURE_LANE_Y,
+        next.lanes,
+      );
+      persist({
+        ...next,
+        nodes: next.nodes.map((n) => ({
+          ...n,
+          position: positions[n.id] ?? n.position,
+        })),
+        source: "manual",
+        updatedAt: new Date().toISOString(),
+      });
+      setSelectedNodeId(null);
+      setMultiSelectIds([]);
+    },
+    [persist],
+  );
 
   const handleReset = useCallback(() => {
     if (!project) return;
@@ -598,6 +626,7 @@ export function FutureStateAIWorkflowMap() {
             onUndo={undo}
             onRedo={redo}
             onAutoLayout={handleAutoLayout}
+            onReviewTidy={() => setReviewOpen(true)}
             onAddNode={handleAddNode}
             onExportMermaid={handleExportMermaid}
             onExportJson={handleExportJson}
@@ -707,6 +736,16 @@ export function FutureStateAIWorkflowMap() {
           y={contextMenu.y}
           items={contextMenu.nodeId ? nodeContextItems : paneContextItems}
           onClose={() => setContextMenu(null)}
+        />
+      )}
+
+      {map && project && (
+        <ReviewTidyPanel
+          open={reviewOpen}
+          onOpenChange={setReviewOpen}
+          map={map}
+          project={project}
+          onApply={handleReviewApply}
         />
       )}
     </div>
