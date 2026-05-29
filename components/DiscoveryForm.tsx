@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/save-indicator";
 import { StakeholderEditor } from "@/components/StakeholderEditor";
 import { VoiceInputButton } from "@/components/ui/voice-input-button";
+import { cn } from "@/lib/utils";
 import type {
   OnboardingProject,
   CustomerProfile,
@@ -384,18 +385,37 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
           <FormField
             id="implementationDeadline"
             label="Implementation Deadline"
-            helper="A specific date or quarter, e.g. “Q3 2026” or “2026-09-30”."
+            helper="Pick a quarter, or type a specific date."
             optional
           >
-            <Input
-              id="implementationDeadline"
-              type="text"
-              value={discovery.implementationDeadline}
-              onChange={(e) =>
-                setDiscovery({ implementationDeadline: e.target.value })
-              }
-              placeholder="Q3 2026"
-            />
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap gap-1">
+                {quarterChips().map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() => setDiscovery({ implementationDeadline: q })}
+                    className={cn(
+                      "text-[11px] px-2 py-0.5 rounded-full border transition-colors",
+                      discovery.implementationDeadline === q
+                        ? "bg-foreground text-background border-foreground"
+                        : "border-border text-muted-foreground hover:bg-muted/40",
+                    )}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+              <Input
+                id="implementationDeadline"
+                type="text"
+                value={discovery.implementationDeadline}
+                onChange={(e) =>
+                  setDiscovery({ implementationDeadline: e.target.value })
+                }
+                placeholder="Or type a date, e.g. 2026-09-30"
+              />
+            </div>
           </FormField>
 
           <FormField
@@ -535,6 +555,24 @@ export function DiscoveryForm({ project, onUpdate }: Props) {
 }
 
 // ── Layout helpers ────────────────────────────────────────────────────────
+
+// Next four quarters from today, as "Q# YYYY" — the format the artifact
+// templates and serialisers already parse out of implementationDeadline.
+function quarterChips(): string[] {
+  const now = new Date();
+  let q = Math.floor(now.getMonth() / 3) + 1;
+  let year = now.getFullYear();
+  const out: string[] = [];
+  for (let i = 0; i < 4; i++) {
+    out.push(`Q${q} ${year}`);
+    q += 1;
+    if (q > 4) {
+      q = 1;
+      year += 1;
+    }
+  }
+  return out;
+}
 
 function SubSectionHeader({ children }: { children: React.ReactNode }) {
   return (

@@ -164,10 +164,39 @@ type SystemRowProps = {
   onRemove: () => void;
 };
 
+// An access method of manual upload or CSV export means there's no live API
+// to integrate against — that's the signal that used to live in the separate
+// `apiAvailable` field. Legacy projects that set apiAvailable === false still
+// flag correctly via the second clause.
+function hasNoApi(system: CustomerSystem): boolean {
+  return (
+    system.accessMethod === "manual_upload" ||
+    system.accessMethod === "csv_export" ||
+    system.apiAvailable === false
+  );
+}
+
+// Keep the legacy apiAvailable field in sync when the user changes access
+// method, so templates / suggestion merges that still read it stay correct
+// without the user having to set it twice.
+function apiAvailableFor(method: AccessMethod): CustomerSystem["apiAvailable"] {
+  switch (method) {
+    case "api":
+    case "webhook":
+    case "database":
+      return true;
+    case "manual_upload":
+    case "csv_export":
+      return false;
+    default:
+      return "unknown";
+  }
+}
+
 function SystemRow({ system, onUpdate, onRemove }: SystemRowProps) {
   const [open, setOpen] = useState(false);
   const [nameError, setNameError] = useState<string | undefined>();
-  const apiFlag = system.apiAvailable === false;
+  const apiFlag = hasNoApi(system);
 
   return (
     <Surface
@@ -300,11 +329,37 @@ function SystemRow({ system, onUpdate, onRemove }: SystemRowProps) {
                 />
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label>Access Method</Label>
+                <Label className="inline-flex items-center gap-1.5">
+                  Access Method
+                  <InfoTip
+                    label="How you'll get data in/out"
+                    items={[
+                      {
+                        term: "API",
+                        hint: "Live REST/GraphQL endpoint — cleanest integration",
+                      },
+                      {
+                        term: "Database",
+                        hint: "Direct DB / warehouse connection",
+                      },
+                      {
+                        term: "Webhook",
+                        hint: "System pushes events to you",
+                      },
+                      {
+                        term: "CSV Export / Manual Upload",
+                        hint: "No live API — periodic file drops. Flags the system as integration risk.",
+                      },
+                    ]}
+                  />
+                </Label>
                 <Select
                   value={system.accessMethod}
                   onValueChange={(v) =>
-                    onUpdate({ accessMethod: v as AccessMethod })
+                    onUpdate({
+                      accessMethod: v as AccessMethod,
+                      apiAvailable: apiAvailableFor(v as AccessMethod),
+                    })
                   }
                 >
                   <SelectTrigger>
@@ -323,6 +378,11 @@ function SystemRow({ system, onUpdate, onRemove }: SystemRowProps) {
                     ))}
                   </SelectContent>
                 </Select>
+                {apiFlag && (
+                  <p className="text-[11px] text-orange-700">
+                    ⚠ No live API — integration will rely on file exports.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -339,32 +399,11 @@ function SystemRow({ system, onUpdate, onRemove }: SystemRowProps) {
                 </span>
                 <span className="font-medium">+ Add detail</span>
                 <span className="text-muted-foreground/60">
-                  (API, sensitivity, complexity, auth, notes)
+                  (sensitivity, complexity, auth, notes)
                 </span>
               </summary>
               <div className="px-3 pt-2 pb-3 space-y-4">
                 <div className="grid sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label>API Available</Label>
-                    <Select
-                      value={String(system.apiAvailable)}
-                      onValueChange={(v) =>
-                        onUpdate({
-                          apiAvailable:
-                            v === "unknown" ? "unknown" : v === "true",
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="true">Yes</SelectItem>
-                        <SelectItem value="false">No</SelectItem>
-                        <SelectItem value="unknown">Unknown</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
                   <div className="space-y-1.5">
                     <Label className="inline-flex items-center gap-1.5">
                       Data Sensitivity
@@ -742,51 +781,108 @@ function DataSourceRow({ source, onUpdate, onRemove }: DataSourceRowProps) {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
-                <Label>Volume Estimate</Label>
-                <Input
-                  value={source.volumeEstimate}
-                  onChange={(e) => onUpdate({ volumeEstimate: e.target.value })}
-                  placeholder="e.g. 10k records/month…"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Update Frequency</Label>
-                <Input
-                  value={source.updateFrequency}
-                  onChange={(e) =>
-                    onUpdate({ updateFrequency: e.target.value })
-                  }
-                  placeholder="e.g. Real-time, daily…"
-                />
-              </div>
-              <div className="space-y-1.5 sm:col-span-2">
-                <Label>
-                  Open Questions{" "}
-                  <span className="text-muted-foreground font-normal text-xs">
-                    (comma-separated)
-                  </span>
-                </Label>
-                <Input
-                  value={source.openQuestions.join(", ")}
-                  onChange={(e) =>
-                    onUpdate({
-                      openQuestions: e.target.value
-                        .split(",")
-                        .map((v) => v.trim())
-                        .filter(Boolean),
-                    })
-                  }
-                  placeholder="Who owns schema changes? Is historical data retained?…"
-                />
-              </div>
             </div>
+
+            {/* Advanced — volume, cadence, and open questions collapse so the
+                default capture surface stays at six essentials. */}
+            <details className="group/dsadv rounded-md border bg-muted/10">
+              <summary className="cursor-pointer list-none flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-md transition-colors">
+                <span
+                  aria-hidden
+                  className="group-open/dsadv:rotate-90 transition-transform"
+                >
+                  ▸
+                </span>
+                <span className="font-medium">+ Add detail</span>
+                <span className="text-muted-foreground/60">
+                  (volume, update cadence, open questions)
+                </span>
+              </summary>
+              <div className="px-3 pt-2 pb-3 space-y-4">
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Volume Estimate</Label>
+                    <div className="flex flex-wrap gap-1">
+                      {VOLUME_PRESETS.map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => onUpdate({ volumeEstimate: preset })}
+                          className={cn(
+                            "text-[11px] px-2 py-0.5 rounded-full border transition-colors",
+                            source.volumeEstimate === preset
+                              ? "bg-foreground text-background border-foreground"
+                              : "border-border text-muted-foreground hover:bg-muted/40",
+                          )}
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    </div>
+                    <Input
+                      value={source.volumeEstimate}
+                      onChange={(e) =>
+                        onUpdate({ volumeEstimate: e.target.value })
+                      }
+                      placeholder="Or type a custom estimate…"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Update Frequency</Label>
+                    <Input
+                      list="data-source-frequency-options"
+                      value={source.updateFrequency}
+                      onChange={(e) =>
+                        onUpdate({ updateFrequency: e.target.value })
+                      }
+                      placeholder="Pick or type…"
+                    />
+                    <datalist id="data-source-frequency-options">
+                      {FREQUENCY_OPTIONS.map((f) => (
+                        <option key={f} value={f} />
+                      ))}
+                    </datalist>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>
+                    Open Questions{" "}
+                    <span className="text-muted-foreground font-normal text-xs">
+                      (comma-separated)
+                    </span>
+                  </Label>
+                  <Input
+                    value={source.openQuestions.join(", ")}
+                    onChange={(e) =>
+                      onUpdate({
+                        openQuestions: e.target.value
+                          .split(",")
+                          .map((v) => v.trim())
+                          .filter(Boolean),
+                      })
+                    }
+                    placeholder="Who owns schema changes? Is historical data retained?…"
+                  />
+                </div>
+              </div>
+            </details>
           </div>
         </>
       )}
     </Surface>
   );
 }
+
+const VOLUME_PRESETS = ["<1k", "1k–10k", "10k–100k", "100k+"];
+const FREQUENCY_OPTIONS = [
+  "Real-time",
+  "Daily",
+  "Weekly",
+  "Monthly",
+  "Quarterly",
+  "Ad hoc",
+  "Unknown",
+];
 
 // ─── Combined Editor ────────────────────────────────────────────────────────────
 
