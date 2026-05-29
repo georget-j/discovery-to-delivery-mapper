@@ -20,6 +20,10 @@ type Props = {
   // and rail are provided, a segmented toggle switches between them; the rail
   // is the default when no node is selected.
   rail?: ReactNode;
+  // Optional guided walkthrough panel. When `walkthroughOpen` is true it takes
+  // over the right column (replacing the rail/inspector toggle) until closed.
+  walkthrough?: ReactNode;
+  walkthroughOpen?: boolean;
   legend?: ReactNode;
   // Mobile-only: controls whether the inspector renders open in its bottom-sheet.
   // Typically wired to !!selectedNodeId by the consumer.
@@ -39,6 +43,8 @@ export function VisualisationFrame({
   canvas,
   inspector,
   rail,
+  walkthrough,
+  walkthroughOpen = false,
   legend,
   inspectorOpen = false,
   onInspectorOpenChange,
@@ -106,30 +112,37 @@ export function VisualisationFrame({
         style={{ height: "min(640px, calc(100dvh - 14rem))" }}
       >
         <div className="flex-1 relative bg-muted/10">{canvas}</div>
-        {(inspector || rail) && (
+        {(inspector || rail || walkthrough) && (
           <div className="hidden md:flex flex-col w-72 shrink-0 border-l bg-background">
-            {inspector && rail && (
-              <div className="flex items-center gap-0.5 p-1 border-b shrink-0">
-                {(["rail", "inspector"] as const).map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => setRightPanel(p)}
-                    className={
-                      "flex-1 text-[11px] px-2 py-1 rounded transition-colors " +
-                      (activePanel === p
-                        ? "bg-muted font-medium text-foreground"
-                        : "text-muted-foreground hover:text-foreground")
-                    }
-                  >
-                    {p === "rail" ? "✨ Suggestions" : "Inspector"}
-                  </button>
-                ))}
-              </div>
+            {walkthroughOpen && walkthrough ? (
+              // Guided walkthrough takes over the whole column until closed.
+              <div className="flex-1 overflow-hidden">{walkthrough}</div>
+            ) : (
+              <>
+                {inspector && rail && (
+                  <div className="flex items-center gap-0.5 p-1 border-b shrink-0">
+                    {(["rail", "inspector"] as const).map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setRightPanel(p)}
+                        className={
+                          "flex-1 text-[11px] px-2 py-1 rounded transition-colors " +
+                          (activePanel === p
+                            ? "bg-muted font-medium text-foreground"
+                            : "text-muted-foreground hover:text-foreground")
+                        }
+                      >
+                        {p === "rail" ? "✨ Suggestions" : "Inspector"}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="flex-1 overflow-y-auto">
+                  {activePanel === "rail" ? rail : inspector}
+                </div>
+              </>
             )}
-            <div className="flex-1 overflow-y-auto">
-              {activePanel === "rail" ? rail : inspector}
-            </div>
           </div>
         )}
       </div>

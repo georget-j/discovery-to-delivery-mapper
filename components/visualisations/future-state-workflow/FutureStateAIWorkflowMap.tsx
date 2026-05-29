@@ -30,6 +30,7 @@ import {
 } from "@/lib/visualisations/node-proposals";
 import { ProposalRail } from "./ProposalRail";
 import { ReviewTidyPanel } from "./ReviewTidyPanel";
+import { StageWalkthrough } from "./StageWalkthrough";
 import type { ProposalPreview } from "../shared/MapEditContext";
 import { EmptyState } from "@/components/ui/empty-state";
 import { futureStateToMermaid } from "@/lib/visualisations/mermaid-export";
@@ -59,6 +60,8 @@ export function FutureStateAIWorkflowMap() {
   } | null>(null);
   const [preview, setPreview] = useState<ProposalPreview>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [walkthroughOpen, setWalkthroughOpen] = useState(false);
+  const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
 
   const map = project?.visualisations?.futureStateAIWorkflowMap ?? null;
   const currentMap = project?.visualisations?.currentStateWorkflowMap;
@@ -332,6 +335,27 @@ export function FutureStateAIWorkflowMap() {
       setMultiSelectIds([]);
     },
     [persist],
+  );
+
+  // Walkthrough: focus a stage (select + center on canvas) and fold the user's
+  // per-stage notes into that node's description so later AI calls + the output
+  // pack see them.
+  const handleFocusStage = useCallback((nodeId: string) => {
+    setFocusNodeId(nodeId);
+    setSelectedNodeId(nodeId);
+  }, []);
+
+  const handleAnswerStage = useCallback(
+    (nodeId: string, note: string) => {
+      if (!map) return;
+      const n = map.nodes.find((x) => x.id === nodeId);
+      if (!n) return;
+      const nextDesc = n.description
+        ? `${n.description}\n\nNotes: ${note}`
+        : `Notes: ${note}`;
+      handleUpdateNode(nodeId, { description: nextDesc });
+    },
+    [map, handleUpdateNode],
   );
 
   const handleReset = useCallback(() => {
@@ -627,6 +651,8 @@ export function FutureStateAIWorkflowMap() {
             onRedo={redo}
             onAutoLayout={handleAutoLayout}
             onReviewTidy={() => setReviewOpen(true)}
+            onWalkthrough={() => setWalkthroughOpen((v) => !v)}
+            walkthroughActive={walkthroughOpen}
             onAddNode={handleAddNode}
             onExportMermaid={handleExportMermaid}
             onExportJson={handleExportJson}
@@ -658,6 +684,7 @@ export function FutureStateAIWorkflowMap() {
               onAskAiForNode={askAiForNode}
               preview={preview}
               onPreviewChange={setPreview}
+              focusNodeId={walkthroughOpen ? focusNodeId : null}
             />
           ) : (
             <div className="h-full flex items-center justify-center px-8">
@@ -719,6 +746,23 @@ export function FutureStateAIWorkflowMap() {
             />
           ) : undefined
         }
+        walkthrough={
+          map && project ? (
+            <StageWalkthrough
+              map={map}
+              onFocusStage={handleFocusStage}
+              getProposals={getProposals}
+              onApplyProposal={handleApplyProposal}
+              onPreview={(p, sid) =>
+                setPreview(p ? { proposal: p, sourceNodeId: sid } : null)
+              }
+              askAiForNode={askAiForNode}
+              onAnswer={handleAnswerStage}
+              onClose={() => setWalkthroughOpen(false)}
+            />
+          ) : undefined
+        }
+        walkthroughOpen={walkthroughOpen}
         inspectorOpen={!!selectedNodeId}
         onInspectorOpenChange={(open) => {
           if (!open) setSelectedNodeId(null);

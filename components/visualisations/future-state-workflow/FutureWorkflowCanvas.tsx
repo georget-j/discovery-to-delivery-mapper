@@ -69,6 +69,8 @@ type Props = {
   // Controlled ghost preview (driven by the node popover AND the rail).
   preview?: ProposalPreview;
   onPreviewChange?: (preview: ProposalPreview) => void;
+  // When set, the canvas pans to center this node (driven by the walkthrough).
+  focusNodeId?: string | null;
 };
 
 function CanvasInner({
@@ -87,8 +89,23 @@ function CanvasInner({
   onAskAiForNode,
   preview = null,
   onPreviewChange,
+  focusNodeId = null,
 }: Props) {
   const setPreview = onPreviewChange ?? (() => {});
+  const { setCenter, getZoom } = useReactFlow();
+
+  // Pan to center the walkthrough's current stage. Depends only on the id so
+  // routine map edits (drags) don't yank the viewport around.
+  useEffect(() => {
+    if (!focusNodeId) return;
+    const n = map.nodes.find((x) => x.id === focusNodeId);
+    if (!n) return;
+    setCenter(n.position.x + 110, n.position.y + 45, {
+      zoom: Math.min(Math.max(getZoom(), 0.75), 1),
+      duration: 300,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusNodeId]);
   const initialNodes = useMemo(() => mapToReactFlowNodes(map), [map]);
   const initialEdges = useMemo(() => mapToReactFlowEdges(map), [map]);
 

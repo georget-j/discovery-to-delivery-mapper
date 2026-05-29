@@ -18,6 +18,8 @@ type Props = {
   onRedo?: () => void;
   onAutoLayout?: () => void;
   onReviewTidy?: () => void;
+  onWalkthrough?: () => void;
+  walkthroughActive?: boolean;
   onAddNode: (type: FutureWorkflowNodeType) => void;
   onExportMermaid: () => void;
   onExportJson: () => void;
@@ -48,6 +50,8 @@ export function FutureWorkflowToolbar({
   onRedo,
   onAutoLayout,
   onReviewTidy,
+  onWalkthrough,
+  walkthroughActive,
   onAddNode,
   onExportMermaid,
   onExportJson,
@@ -110,6 +114,22 @@ export function FutureWorkflowToolbar({
           className="text-xs px-3 py-1.5 rounded-md border hover:bg-muted/50 transition-colors"
         >
           ⌘ Tidy
+        </button>
+      )}
+
+      {hasMap && onWalkthrough && (
+        <button
+          type="button"
+          onClick={onWalkthrough}
+          title="Step through the workflow stage by stage"
+          className={cn(
+            "text-xs px-3 py-1.5 rounded-md border transition-colors",
+            walkthroughActive
+              ? "bg-foreground text-background border-foreground"
+              : "hover:bg-muted/50",
+          )}
+        >
+          🧭 Walk the workflow
         </button>
       )}
 
