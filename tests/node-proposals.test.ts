@@ -144,17 +144,17 @@ describe("proposeForMap", () => {
 });
 
 describe("proposeWorkflowBlueprints", () => {
-  it("offers an orchestrated multi-agent pipeline for a multi-step map", () => {
+  it("offers core market solutions as blueprints for a multi-step map", () => {
     const map = mkMap([node("a", "human_action"), node("b", "system_action")]);
     const ids = proposeWorkflowBlueprints(map, project()).map((p) => p.id);
-    expect(ids).toContain("blueprint:orchestrated-pipeline");
-    expect(ids).toContain("blueprint:validated-chain");
+    expect(ids).toContain("blueprint:orchestrator-workers");
+    expect(ids).toContain("blueprint:evaluator-optimizer");
   });
 
   it("blueprints are workflow-scoped and carry internal edges", () => {
     const map = mkMap([node("a", "human_action"), node("b", "system_action")]);
     const pipeline = proposeWorkflowBlueprints(map, project()).find(
-      (p) => p.id === "blueprint:orchestrated-pipeline",
+      (p) => p.id === "blueprint:orchestrator-workers",
     )!;
     expect(pipeline.scope).toBe("workflow");
     expect(pipeline.insert.nodes.length).toBeGreaterThanOrEqual(5);
@@ -163,12 +163,14 @@ describe("proposeWorkflowBlueprints", () => {
     );
   });
 
-  it("offers a RAG layer only when the customer has documents/data", () => {
+  it("offers RAG solutions only when the customer has documents/data", () => {
     const map = mkMap([node("a", "ai_agent", { laneId: "lane_ai" })]);
     const withoutData = proposeWorkflowBlueprints(map, project()).map(
       (p) => p.id,
     );
-    expect(withoutData).not.toContain("blueprint:rag-layer");
+    expect(withoutData.some((id) => id.startsWith("blueprint:rag-"))).toBe(
+      false,
+    );
 
     const p = project();
     p.dataSources = [
@@ -187,7 +189,7 @@ describe("proposeWorkflowBlueprints", () => {
       },
     ];
     const withData = proposeWorkflowBlueprints(map, p).map((x) => x.id);
-    expect(withData).toContain("blueprint:rag-layer");
+    expect(withData.some((id) => id.startsWith("blueprint:rag-"))).toBe(true);
   });
 
   it("surfaces blueprints at the top of proposeForMap's map group", () => {
@@ -202,7 +204,7 @@ describe("buildProposalAdditions (blueprints)", () => {
   it("wires internal edges by key for a blueprint", () => {
     const map = mkMap([node("a", "human_action"), node("b", "system_action")]);
     const pipeline = proposeWorkflowBlueprints(map, project()).find(
-      (p) => p.id === "blueprint:orchestrated-pipeline",
+      (p) => p.id === "blueprint:orchestrator-workers",
     )!;
     const { nodes, edges } = buildProposalAdditions(map, pipeline, null);
     expect(nodes).toHaveLength(pipeline.insert.nodes.length);

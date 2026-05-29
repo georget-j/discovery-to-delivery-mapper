@@ -12,6 +12,11 @@ import type {
   FutureWorkflowNodeType,
 } from "@/lib/visualisations/workflow-types";
 import type { AutomationPatternFamily, OnboardingProject } from "@/lib/types";
+import {
+  SOLUTION_LIBRARY,
+  ROLE_TO_NODE,
+  type MarketSolution,
+} from "@/lib/patterns/solution-library";
 
 // A node to insert, minus the fields the apply step assigns (id + position).
 // `key` is a local handle so a blueprint's internal edges + back-connections
@@ -351,199 +356,104 @@ export function proposeForMap(
   return groups;
 }
 
-// ── Whole-workflow blueprints ───────────────────────────────────────────────
+// ── Whole-workflow blueprints (from the market solution library) ────────────
 // Multi-node sub-graphs that restructure the flow rather than appending a
-// single node. These answer "how should the WHOLE workflow change" — e.g. an
-// orchestrator above the process fanning out to a series of agent→validator
-// pairs. Each carries scope:"workflow" so the rail headlines them, internal
-// edges that wire the sub-graph together, and (optionally) a back-connection
-// into the existing flow.
+// single node — "how should the WHOLE workflow change". Each is derived from a
+// real market solution in lib/patterns/solution-library.ts, broken into
+// step-by-step functions, and carries scope:"workflow" so the rail headlines
+// it under "Transform the workflow".
+
+// AI-ish node types get sensible automation defaults so the inserted nodes
+// look right without per-step boilerplate in the library.
+function blueprintNodeExtras(
+  type: ProposalNodeSpec["type"],
+): Partial<ProposalNodeSpec> {
+  if (type === "ai_agent")
+    return {
+      automationLevel: "autonomous_with_guardrails",
+      guardrails: ["Confidence threshold"],
+    };
+  if (type === "ai_assist")
+    return { automationLevel: "draft_only", requiredHumanApproval: true };
+  if (type === "approval") return { requiredHumanApproval: true };
+  return {};
+}
+
+// Turn a market solution into an applyable workflow blueprint proposal: each
+// step becomes a node (keyed by index), and the solution's flow becomes the
+// internal edges.
+export function solutionToBlueprint(solution: MarketSolution): NodeProposal {
+  const nodes: ProposalNodeSpec[] = solution.steps.map((step, i) => {
+    const mapped = ROLE_TO_NODE[step.role];
+    return {
+      key: `s${i}`,
+      type: mapped.type,
+      laneId: mapped.laneId,
+      title: step.name,
+      description: step.description,
+      ...blueprintNodeExtras(mapped.type),
+    };
+  });
+  const internalEdges = solution.flow.map((e) => ({
+    from: `s${e.from}`,
+    to: `s${e.to}`,
+  }));
+  return {
+    id: `blueprint:${solution.id}`,
+    scope: "workflow",
+    patternFamily: solution.family,
+    title: solution.name,
+    rationale: solution.summary,
+    insert: { nodes, connectFromSource: false, internalEdges },
+  };
+}
+
+// Every market solution as a blueprint — useful for a "browse the library" UI
+// and for tests.
+export function allSolutionBlueprints(): NodeProposal[] {
+  return SOLUTION_LIBRARY.map(solutionToBlueprint);
+}
+
+// Context-aware ordering: surface the most relevant market solutions for THIS
+// project first. RAG solutions only appear when the customer actually has
+// documents/data; safety solutions are boosted under regulatory context.
 export function proposeWorkflowBlueprints(
   map: FutureStateAIWorkflowMap,
   project: OnboardingProject,
 ): NodeProposal[] {
-  const out: NodeProposal[] = [];
-  const stepCount = map.nodes.length;
-  const hasOrchestrator = map.nodes.some(
-    (n) => /orchestrat/i.test(n.title) && n.type === "ai_agent",
-  );
-
-  // Blueprint 1 — Orchestrated multi-agent pipeline with per-stage validators.
-  // The headline "full workflow" transform the user asked for.
-  if (stepCount >= 2 && !hasOrchestrator) {
-    out.push({
-      id: "blueprint:orchestrated-pipeline",
-      scope: "workflow",
-      patternFamily: "multi_agent",
-      title: "Orchestrate this as a multi-agent pipeline",
-      rationale:
-        "Put an orchestrator above the process that routes each sub-task to a specialist agent, with a validator on each branch and shared monitoring — instead of one monolithic step.",
-      insert: {
-        connectFromSource: false,
-        nodes: [
-          {
-            key: "orch",
-            type: "ai_agent",
-            laneId: "lane_ai",
-            title: "Orchestrator agent",
-            description:
-              "Plans the task, routes each sub-task to a specialist agent, and assembles the validated results.",
-            automationLevel: "autonomous_with_guardrails",
-            requiredHumanApproval: false,
-            guardrails: ["Routing policy", "Budget / step cap"],
-          },
-          {
-            key: "agentA",
-            type: "ai_agent",
-            laneId: "lane_ai",
-            title: "Specialist agent · analysis",
-            description: "Handles the analysis sub-task end-to-end.",
-            automationLevel: "draft_only",
-            guardrails: ["Confidence threshold"],
-          },
-          {
-            key: "valA",
-            type: "guardrail",
-            laneId: "lane_guardrails",
-            title: "Validator · analysis",
-            description:
-              "Independently re-derives and checks the analysis agent's output.",
-            guardrails: ["Independent re-derivation", "Confidence threshold"],
-          },
-          {
-            key: "agentB",
-            type: "ai_agent",
-            laneId: "lane_ai",
-            title: "Specialist agent · drafting",
-            description: "Produces the drafted output for the next stage.",
-            automationLevel: "draft_only",
-            guardrails: ["Confidence threshold"],
-          },
-          {
-            key: "valB",
-            type: "guardrail",
-            laneId: "lane_guardrails",
-            title: "Validator · drafting",
-            description: "Checks the drafted output before it proceeds.",
-            guardrails: ["Independent re-derivation"],
-          },
-          {
-            key: "mon",
-            type: "monitoring",
-            laneId: "lane_monitoring",
-            title: "Pipeline monitoring",
-            description:
-              "Tracks per-agent confidence, override rate, and drift across the pipeline.",
-            metrics: ["Override rate", "Confidence", "Drift", "Latency"],
-          },
-        ],
-        internalEdges: [
-          { from: "orch", to: "agentA" },
-          { from: "agentA", to: "valA" },
-          { from: "orch", to: "agentB" },
-          { from: "agentB", to: "valB" },
-          { from: "valA", to: "mon" },
-          { from: "valB", to: "mon" },
-        ],
-      },
-    });
-  }
-
-  // Blueprint 2 — High-confidence agent → validator → human-approval chain.
-  if (stepCount >= 1) {
-    const regulated = (project.customer.regulatoryContext?.length ?? 0) > 0;
-    out.push({
-      id: "blueprint:validated-chain",
-      scope: "workflow",
-      patternFamily: "agent_with_validator",
-      title: "Add a high-confidence agent → validator → approval chain",
-      rationale: regulated
-        ? "A primary agent drafts, a validator independently checks, and a human signs off before it commits — the defensible pattern for regulated work."
-        : "A primary agent drafts, a validator independently checks high-confidence cases, and borderline ones escalate to a human.",
-      insert: {
-        connectFromSource: false,
-        nodes: [
-          {
-            key: "agent",
-            type: "ai_agent",
-            laneId: "lane_ai",
-            title: "Primary agent",
-            description: "Drafts the output for the workflow's core decision.",
-            automationLevel: "draft_only",
-            guardrails: ["Confidence threshold"],
-          },
-          {
-            key: "validator",
-            type: "guardrail",
-            laneId: "lane_guardrails",
-            title: "Validator agent",
-            description:
-              "Independently re-derives the result; agreement above threshold passes, else escalate.",
-            guardrails: ["Independent re-derivation", "Confidence threshold"],
-          },
-          {
-            key: "approval",
-            type: "approval",
-            laneId: "lane_compliance",
-            title: "Human approval",
-            description: "Reviewer signs off escalations before they commit.",
-            requiredHumanApproval: true,
-          },
-          {
-            key: "mon",
-            type: "monitoring",
-            laneId: "lane_monitoring",
-            title: "Quality monitoring",
-            metrics: ["Override rate", "Escalation rate", "Confidence"],
-          },
-        ],
-        internalEdges: [
-          { from: "agent", to: "validator" },
-          { from: "validator", to: "approval" },
-          { from: "approval", to: "mon" },
-        ],
-      },
-    });
-  }
-
-  // Blueprint 3 — RAG knowledge layer, when the customer has documents/data.
+  // Nothing to transform on an empty map.
+  if (map.nodes.length === 0) return [];
   const hasKnowledge =
     (project.knowledgeBase?.totalChunks ?? 0) > 0 ||
     project.dataSources.length > 0;
-  if (hasKnowledge) {
-    out.push({
-      id: "blueprint:rag-layer",
-      scope: "workflow",
-      patternFamily: "rag",
-      title: "Ground the workflow in a RAG knowledge layer",
-      rationale:
-        "Retrieve from the customer's documents/data and feed grounded, cited context into the agents — cuts hallucination on policy- and knowledge-heavy steps.",
-      insert: {
-        connectFromSource: false,
-        nodes: [
-          {
-            key: "retrieval",
-            type: "data_retrieval",
-            laneId: "lane_systems",
-            title: "Knowledge retrieval",
-            description:
-              "Embeds the query and retrieves the most relevant source passages.",
-          },
-          {
-            key: "rag",
-            type: "ai_assist",
-            laneId: "lane_ai",
-            title: "RAG assistant",
-            description:
-              "Answers grounded in retrieved passages, with inline citations.",
-            automationLevel: "draft_only",
-            guardrails: ["Citation required", "Confidence threshold"],
-          },
-        ],
-        internalEdges: [{ from: "retrieval", to: "rag" }],
-      },
-    });
-  }
+  const regulated = (project.customer.regulatoryContext?.length ?? 0) > 0;
 
-  return out;
+  const relevant = SOLUTION_LIBRARY.filter((s) => {
+    if (s.category === "rag") return hasKnowledge;
+    return true;
+  });
+
+  // Priority: a generally-useful core leads, then the rest. Safety patterns
+  // jump up when the engagement is regulated.
+  const corePriority = [
+    "orchestrator-workers",
+    "evaluator-optimizer",
+    "supervisor-manager",
+    "routing",
+    "prompt-chaining",
+    "plan-and-execute",
+  ];
+  const score = (s: MarketSolution): number => {
+    let n = corePriority.indexOf(s.id);
+    if (n === -1) n = corePriority.length + SOLUTION_LIBRARY.indexOf(s);
+    if (regulated && s.category === "safety") n -= 100;
+    if (hasKnowledge && s.category === "rag") n -= 50;
+    return n;
+  };
+
+  return relevant
+    .slice()
+    .sort((a, b) => score(a) - score(b))
+    .slice(0, 8)
+    .map(solutionToBlueprint);
 }
