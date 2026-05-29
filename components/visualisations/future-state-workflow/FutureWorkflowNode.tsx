@@ -169,11 +169,17 @@ function FutureWorkflowNodeImpl({ id, data, selected }: NodeProps) {
         <NodeProposalPopover
           proposals={getProposals(id)}
           onApply={(p) => {
-            applyProposal(p, id);
+            // AI moves may target a different stage than this node — honour
+            // their preferred anchor so they wire into the right place.
+            applyProposal(p, p.preferredSourceNodeId ?? id);
             closeProposals();
           }}
           onPreview={(p) =>
-            setPreview?.(p ? { proposal: p, sourceNodeId: id } : null)
+            setPreview?.(
+              p
+                ? { proposal: p, sourceNodeId: p.preferredSourceNodeId ?? id }
+                : null,
+            )
           }
           onAskAi={askAiForNode ? () => askAiForNode(id) : undefined}
           onClose={closeProposals}

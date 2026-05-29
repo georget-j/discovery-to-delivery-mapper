@@ -164,3 +164,94 @@ export const RecommendationsResponseSchema = z.object({
 export type RecommendationsResponse = z.infer<
   typeof RecommendationsResponseSchema
 >;
+
+// ────────────────────────────────────────────────────────────
+// Map-aware AI moves + workflow review (Pass 7)
+// ────────────────────────────────────────────────────────────
+
+const PatternFamilySchema = z.enum([
+  "agent",
+  "agent_with_validator",
+  "multi_agent",
+  "rag",
+  "rules_plus_ai",
+  "hitl",
+  "continuous_learning",
+  "copilot",
+]);
+
+const FutureNodeTypeSchema = z.enum([
+  "human_action",
+  "ai_assist",
+  "ai_agent",
+  "system_action",
+  "data_retrieval",
+  "guardrail",
+  "decision_gate",
+  "approval",
+  "monitoring",
+  "audit_log",
+  "exception_path",
+]);
+
+const MapMoveSchema = z.object({
+  id: z.string(),
+  sourceNodeId: z.string().nullable(),
+  patternFamily: PatternFamilySchema,
+  title: z.string(),
+  rationale: z.string(),
+  insert: z.object({
+    nodes: z
+      .array(
+        z.object({
+          key: z.string(),
+          type: FutureNodeTypeSchema,
+          laneId: z.string(),
+          title: z.string(),
+          description: z.string().optional(),
+        }),
+      )
+      .min(1)
+      .max(6),
+    internalEdges: z
+      .array(
+        z.object({
+          from: z.string(),
+          to: z.string(),
+          label: z.string().optional(),
+        }),
+      )
+      .optional(),
+    connectFromSource: z.boolean().optional(),
+    connectFromSourceLabel: z.string().optional(),
+    connectToExisting: z
+      .array(
+        z.object({
+          fromKey: z.string(),
+          toNodeId: z.string(),
+          label: z.string().optional(),
+        }),
+      )
+      .optional(),
+  }),
+});
+
+export const MapMovesResponseSchema = z.object({
+  moves: z.array(MapMoveSchema).max(8),
+  stageQuestions: z.record(z.array(z.string())).optional(),
+});
+export type MapMovesResponse = z.infer<typeof MapMovesResponseSchema>;
+
+const ReviewFindingSchema = z.object({
+  kind: z.enum(["duplicate", "misplaced", "redundant"]),
+  nodeIds: z.array(z.string()).min(1),
+  reason: z.string(),
+  suggestedAction: z.enum(["merge", "remove", "keep"]),
+});
+
+export const WorkflowReviewResponseSchema = z.object({
+  findings: z.array(ReviewFindingSchema).max(20),
+});
+export type WorkflowReviewResponse = z.infer<
+  typeof WorkflowReviewResponseSchema
+>;

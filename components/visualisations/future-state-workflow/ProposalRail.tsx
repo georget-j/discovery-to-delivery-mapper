@@ -166,7 +166,9 @@ export function ProposalRail({
                 <p className="text-[10px] uppercase tracking-wider font-bold text-primary px-1">
                   AI ideas
                 </p>
-                {aiVisible.map((p) => card(p, null))}
+                {/* Map-aware AI moves carry the stage they anchor to, so they
+                    apply wired into the workflow rather than floating. */}
+                {aiVisible.map((p) => card(p, p.preferredSourceNodeId ?? null))}
               </div>
             )}
           </>

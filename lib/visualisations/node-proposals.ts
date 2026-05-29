@@ -15,6 +15,7 @@ import type { AutomationPatternFamily, OnboardingProject } from "@/lib/types";
 import {
   SOLUTION_LIBRARY,
   ROLE_TO_NODE,
+  ROLE_EDGE_LABEL,
   type MarketSolution,
 } from "@/lib/patterns/solution-library";
 
@@ -34,16 +35,23 @@ export type NodeProposal = {
   // that restructures the whole flow (orchestrator + agent/validator fan-out,
   // etc.) — surfaced prominently as "Transform the workflow".
   scope?: "node" | "workflow";
+  // The map node this proposal wants to anchor to. Set by the map-aware AI
+  // path (moveToProposal) so AI ideas land wired into the RIGHT stage rather
+  // than floating. Callers pass this as the apply source when present.
+  preferredSourceNodeId?: string | null;
   insert: {
     nodes: ProposalNodeSpec[];
     // Wire an edge from the triggering node into the first inserted node.
     connectFromSource: boolean;
+    // Label for the source→first-node edge (the data passed downstream).
+    connectFromSourceLabel?: string;
     // Edges between inserted nodes, referenced by their `key`. When present,
-    // these replace the default linear chaining of inserted nodes.
-    internalEdges?: { from: string; to: string }[];
+    // these replace the default linear chaining of inserted nodes. `label`
+    // names the data flowing along the edge.
+    internalEdges?: { from: string; to: string; label?: string }[];
     // Wire an inserted node (by key) back into an existing map node by id —
     // lets a blueprint slot itself into the current flow.
-    connectToExisting?: { fromKey: string; toNodeId: string }[];
+    connectToExisting?: { fromKey: string; toNodeId: string; label?: string }[];
   };
 };
 
@@ -93,6 +101,59 @@ export function proposalFromPattern(
             : {}),
         },
       ],
+    },
+  };
+}
+
+// ── Map-aware AI moves ──────────────────────────────────────────────────────
+// The shape /api/recommend/map-moves returns: each move names an EXISTING map
+// node to anchor to (sourceNodeId) plus the nodes/edges to insert. Turning it
+// into a NodeProposal with preferredSourceNodeId is what makes "Ask AI for
+// ideas" land wired into the right stage instead of floating.
+
+export type MapMove = {
+  id: string;
+  sourceNodeId: string | null;
+  patternFamily: AutomationPatternFamily;
+  title: string;
+  rationale: string;
+  insert: {
+    nodes: {
+      key: string;
+      type: FutureWorkflowNodeType;
+      laneId: string;
+      title: string;
+      description?: string;
+    }[];
+    internalEdges?: { from: string; to: string; label?: string }[];
+    connectFromSource?: boolean;
+    connectFromSourceLabel?: string;
+    connectToExisting?: { fromKey: string; toNodeId: string; label?: string }[];
+  };
+};
+
+export function moveToProposal(move: MapMove): NodeProposal {
+  const hasSource = !!move.sourceNodeId;
+  return {
+    id: `ai:${move.id}`,
+    title: move.title,
+    rationale: move.rationale,
+    patternFamily: move.patternFamily,
+    scope: "node",
+    preferredSourceNodeId: move.sourceNodeId,
+    insert: {
+      nodes: move.insert.nodes.map((n) => ({
+        key: n.key,
+        type: n.type,
+        laneId: n.laneId,
+        title: n.title,
+        description: n.description,
+        ...blueprintNodeExtras(n.type),
+      })),
+      connectFromSource: move.insert.connectFromSource ?? hasSource,
+      connectFromSourceLabel: move.insert.connectFromSourceLabel,
+      internalEdges: move.insert.internalEdges,
+      connectToExisting: move.insert.connectToExisting,
     },
   };
 }
@@ -155,6 +216,7 @@ export function proposeForNode(
       patternFamily: "agent",
       insert: {
         connectFromSource: true,
+        connectFromSourceLabel: "input",
         nodes: [
           {
             type: "ai_agent",
@@ -180,6 +242,7 @@ export function proposeForNode(
       patternFamily: "agent_with_validator",
       insert: {
         connectFromSource: true,
+        connectFromSourceLabel: "draft output",
         nodes: [
           {
             type: "guardrail",
@@ -203,8 +266,10 @@ export function proposeForNode(
       patternFamily: "continuous_learning",
       insert: {
         connectFromSource: true,
+        connectFromSourceLabel: "decisions + confidence",
         nodes: [
           {
+            key: "mon",
             type: "monitoring",
             laneId: "lane_monitoring",
             title: "Quality monitoring",
@@ -213,6 +278,7 @@ export function proposeForNode(
             metrics: ["Override rate", "Confidence distribution", "Drift"],
           },
           {
+            key: "audit",
             type: "audit_log",
             laneId: "lane_monitoring",
             title: "Audit log",
@@ -220,6 +286,7 @@ export function proposeForNode(
             auditEvents: ["Decision", "Evidence", "Reviewer"],
           },
         ],
+        internalEdges: [{ from: "mon", to: "audit", label: "logged" }],
       },
     });
   }
@@ -239,6 +306,7 @@ export function proposeForNode(
       patternFamily: "hitl",
       insert: {
         connectFromSource: true,
+        connectFromSourceLabel: "for sign-off",
         nodes: [
           {
             type: "approval",
@@ -397,6 +465,7 @@ export function solutionToBlueprint(solution: MarketSolution): NodeProposal {
   const internalEdges = solution.flow.map((e) => ({
     from: `s${e.from}`,
     to: `s${e.to}`,
+    label: ROLE_EDGE_LABEL[solution.steps[e.from]?.role] ?? undefined,
   }));
   return {
     id: `blueprint:${solution.id}`,

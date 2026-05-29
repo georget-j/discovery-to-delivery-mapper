@@ -192,25 +192,32 @@ export function buildProposalAdditions(
   );
 
   const edges: FutureStateAIWorkflowMap["edges"] = [];
-  const addEdge = (source: string, target: string) =>
+  const addEdge = (source: string, target: string, label?: string) =>
     edges.push({
       id: `${idPrefix}e_${source}_${target}`,
       source,
       target,
+      ...(label ? { label } : {}),
       style: "solid",
     });
 
-  // Wire source → first new node when requested.
+  // Wire source → first new node when requested. The label names the data the
+  // source stage passes into the new agent ("alerts →", "draft output →").
   if (proposal.insert.connectFromSource && sourceNodeId && newNodes[0]) {
-    addEdge(sourceNodeId, newNodes[0].id);
+    addEdge(
+      sourceNodeId,
+      newNodes[0].id,
+      proposal.insert.connectFromSourceLabel,
+    );
   }
 
   if (proposal.insert.internalEdges && proposal.insert.internalEdges.length) {
-    // Blueprint wiring: connect inserted nodes by their local keys.
+    // Blueprint wiring: connect inserted nodes by their local keys, carrying
+    // the data-flow label.
     for (const e of proposal.insert.internalEdges) {
       const s = keyToId[e.from];
       const t = keyToId[e.to];
-      if (s && t) addEdge(s, t);
+      if (s && t) addEdge(s, t, e.label);
     }
   } else {
     // Default: chain the inserted nodes linearly.
@@ -223,7 +230,7 @@ export function buildProposalAdditions(
   for (const c of proposal.insert.connectToExisting ?? []) {
     const s = keyToId[c.fromKey];
     if (s && map.nodes.some((n) => n.id === c.toNodeId)) {
-      addEdge(s, c.toNodeId);
+      addEdge(s, c.toNodeId, c.label);
     }
   }
 

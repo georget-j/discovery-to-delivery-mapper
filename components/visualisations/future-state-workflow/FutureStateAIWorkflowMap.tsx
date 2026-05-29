@@ -24,8 +24,9 @@ import {
 } from "./futureWorkflowUtils";
 import {
   proposeForNode,
-  proposalFromPattern,
+  moveToProposal,
   type NodeProposal,
+  type MapMove,
 } from "@/lib/visualisations/node-proposals";
 import { ProposalRail } from "./ProposalRail";
 import type { ProposalPreview } from "../shared/MapEditContext";
@@ -352,6 +353,35 @@ export function FutureStateAIWorkflowMap() {
         proposal,
         sourceNodeId,
       );
+      // Safety net: an AI/single add should never land floating. If any
+      // inserted node ended up with no edge and we know an anchor (the passed
+      // source, or the proposal's preferred source from the map-aware AI
+      // path), wire source → node so the new agent connects to the workflow.
+      const effectiveSource =
+        sourceNodeId ?? proposal.preferredSourceNodeId ?? null;
+      if (effectiveSource && proposal.scope !== "workflow") {
+        const touched = new Set<string>();
+        for (const e of next.edges) {
+          touched.add(e.source);
+          touched.add(e.target);
+        }
+        const orphans = insertedIds.filter((id) => !touched.has(id));
+        if (
+          orphans.length > 0 &&
+          next.nodes.some((n) => n.id === effectiveSource)
+        ) {
+          next.edges = [
+            ...next.edges,
+            ...orphans.map((id) => ({
+              id: `e_${effectiveSource}_${id}`,
+              source: effectiveSource,
+              target: id,
+              label: "input",
+              style: "solid" as const,
+            })),
+          ];
+        }
+      }
       // Workflow blueprints add a whole sub-graph; single adds can still land
       // on top of an existing node. Tidy via auto-layout whenever the result
       // would overlap, so a newly-added workflow never covers itself.
@@ -373,40 +403,24 @@ export function FutureStateAIWorkflowMap() {
     [map, persist],
   );
 
-  // "Ask AI for ideas" — reuse the recommend endpoint, then map each returned
-  // recommendation (keyed by pattern family) into a map-node proposal.
+  // "Ask AI for ideas" — call the MAP-AWARE recommend endpoint with the live
+  // graph. Each returned move names an existing node to anchor to, so the
+  // mapped proposals carry preferredSourceNodeId and land wired into the right
+  // stage (not floating). nodeId === "__map__" means "whole map" (the rail);
+  // any real node id focuses the AI on that stage (the node popover).
   const askAiForNode = useCallback(
     async (nodeId: string): Promise<NodeProposal[]> => {
       if (!project || !map) return [];
-      const node = map.nodes.find((x) => x.id === nodeId);
+      const focusNodeId = nodeId && nodeId !== "__map__" ? nodeId : undefined;
       try {
-        const res = await fetch("/api/recommend/future-state", {
+        const res = await fetch("/api/recommend/map-moves", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            project,
-            workflows: project.workflows,
-          }),
+          body: JSON.stringify({ project, map, focusNodeId }),
         });
         const data = await res.json();
-        if (!Array.isArray(data.recommendations)) return [];
-        return (
-          data.recommendations as {
-            id: string;
-            title: string;
-            rationale: string;
-            patternFamily: NodeProposal["patternFamily"];
-          }[]
-        )
-          .slice(0, 4)
-          .map((r, i) =>
-            proposalFromPattern(
-              r.patternFamily,
-              r.title,
-              r.rationale,
-              `${node?.id ?? "n"}-${r.id ?? i}`,
-            ),
-          );
+        if (!Array.isArray(data.moves)) return [];
+        return (data.moves as MapMove[]).map(moveToProposal);
       } catch {
         return [];
       }

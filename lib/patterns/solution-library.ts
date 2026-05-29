@@ -87,6 +87,23 @@ export const ROLE_TO_NODE: Record<
   monitor: { type: "monitoring", laneId: "lane_monitoring" },
 };
 
+// Short edge label describing what a step of this role passes downstream — so
+// blueprint edges read as data flowing between agents ("draft →", "context →").
+export const ROLE_EDGE_LABEL: Record<SolutionStepRole, string> = {
+  orchestrator: "subtask",
+  router: "routed",
+  agent: "output",
+  assist: "draft",
+  retrieval: "context",
+  tool: "result",
+  validator: "checked",
+  evaluator: "score",
+  guardrail: "passed",
+  human: "approved",
+  aggregator: "result",
+  monitor: "metrics",
+};
+
 // Linear flow helper — chains steps 0→1→2→…
 const chain = (n: number) =>
   Array.from({ length: n - 1 }, (_, i) => ({ from: i, to: i + 1 }));

@@ -4,6 +4,8 @@ import {
   proposeForMap,
   proposeWorkflowBlueprints,
   isSolutionImplemented,
+  moveToProposal,
+  type MapMove,
 } from "@/lib/visualisations/node-proposals";
 import { SOLUTION_BY_ID } from "@/lib/patterns/solution-library";
 import { buildProposalAdditions } from "@/components/visualisations/future-state-workflow/futureWorkflowUtils";
@@ -218,6 +220,97 @@ describe("buildProposalAdditions (blueprints)", () => {
       expect(ids.has(e.source)).toBe(true);
       expect(ids.has(e.target)).toBe(true);
     }
+  });
+});
+
+describe("data-flow edge labels", () => {
+  it("the add-validator rule labels the source→validator edge", () => {
+    const ai = node("a", "ai_agent", { laneId: "lane_ai" });
+    const map = mkMap([ai]);
+    const p = proposeForNode(ai, map, project()).find(
+      (x) => x.id === "a:add-validator",
+    )!;
+    expect(p.insert.connectFromSourceLabel).toBe("draft output");
+  });
+
+  it("blueprint internal edges carry data-flow labels", () => {
+    const map = mkMap([node("a", "human_action"), node("b", "system_action")]);
+    const pipeline = proposeWorkflowBlueprints(map, project()).find(
+      (x) => x.id === "blueprint:orchestrator-workers",
+    )!;
+    expect((pipeline.insert.internalEdges ?? []).every((e) => !!e.label)).toBe(
+      true,
+    );
+  });
+
+  it("buildProposalAdditions stamps labels onto created edges", () => {
+    const ai = node("a", "ai_agent", { laneId: "lane_ai" });
+    const map = mkMap([ai]);
+    const p = proposeForNode(ai, map, project()).find(
+      (x) => x.id === "a:add-validator",
+    )!;
+    const { edges } = buildProposalAdditions(map, p, "a");
+    expect(edges).toHaveLength(1);
+    expect(edges[0].label).toBe("draft output");
+  });
+});
+
+describe("moveToProposal (map-aware AI)", () => {
+  const move: MapMove = {
+    id: "m1",
+    sourceNodeId: "stage-3",
+    patternFamily: "agent_with_validator",
+    title: "Add a validator agent",
+    rationale: "Verify dispositions before they commit.",
+    insert: {
+      nodes: [
+        {
+          key: "v",
+          type: "guardrail",
+          laneId: "lane_guardrails",
+          title: "Validator agent",
+          description: "Second-look check.",
+        },
+      ],
+      connectFromSource: true,
+      connectFromSourceLabel: "draft disposition",
+      connectToExisting: [
+        { fromKey: "v", toNodeId: "stage-4", label: "verified" },
+      ],
+    },
+  };
+
+  it("carries the anchor stage as preferredSourceNodeId", () => {
+    expect(moveToProposal(move).preferredSourceNodeId).toBe("stage-3");
+  });
+
+  it("preserves the source + back-connection labels", () => {
+    const p = moveToProposal(move);
+    expect(p.insert.connectFromSource).toBe(true);
+    expect(p.insert.connectFromSourceLabel).toBe("draft disposition");
+    expect(p.insert.connectToExisting?.[0]).toMatchObject({
+      fromKey: "v",
+      toNodeId: "stage-4",
+      label: "verified",
+    });
+  });
+
+  it("wires the move's node onto the anchored stage via buildProposalAdditions", () => {
+    const stage3 = node("stage-3", "ai_agent", { laneId: "lane_ai" });
+    const stage4 = node("stage-4", "human_action");
+    const map = mkMap([stage3, stage4]);
+    const p = moveToProposal(move);
+    const { nodes, edges } = buildProposalAdditions(
+      map,
+      p,
+      p.preferredSourceNodeId ?? null,
+    );
+    expect(nodes).toHaveLength(1);
+    // source→validator + validator→existing stage-4 = 2 edges, both labeled.
+    const srcEdge = edges.find((e) => e.source === "stage-3");
+    const backEdge = edges.find((e) => e.target === "stage-4");
+    expect(srcEdge?.label).toBe("draft disposition");
+    expect(backEdge?.label).toBe("verified");
   });
 });
 
