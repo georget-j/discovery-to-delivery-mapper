@@ -2,7 +2,9 @@ import { describe, it, expect } from "vitest";
 import {
   proposeForNode,
   proposeForMap,
+  proposeWorkflowBlueprints,
 } from "@/lib/visualisations/node-proposals";
+import { buildProposalAdditions } from "@/components/visualisations/future-state-workflow/futureWorkflowUtils";
 import { createBlankProject } from "@/lib/project-store";
 import type {
   FutureStateAIWorkflowMap,
@@ -138,5 +140,79 @@ describe("proposeForMap", () => {
 
   it("returns no groups for an empty map", () => {
     expect(proposeForMap(mkMap([]), project())).toEqual([]);
+  });
+});
+
+describe("proposeWorkflowBlueprints", () => {
+  it("offers an orchestrated multi-agent pipeline for a multi-step map", () => {
+    const map = mkMap([node("a", "human_action"), node("b", "system_action")]);
+    const ids = proposeWorkflowBlueprints(map, project()).map((p) => p.id);
+    expect(ids).toContain("blueprint:orchestrated-pipeline");
+    expect(ids).toContain("blueprint:validated-chain");
+  });
+
+  it("blueprints are workflow-scoped and carry internal edges", () => {
+    const map = mkMap([node("a", "human_action"), node("b", "system_action")]);
+    const pipeline = proposeWorkflowBlueprints(map, project()).find(
+      (p) => p.id === "blueprint:orchestrated-pipeline",
+    )!;
+    expect(pipeline.scope).toBe("workflow");
+    expect(pipeline.insert.nodes.length).toBeGreaterThanOrEqual(5);
+    expect((pipeline.insert.internalEdges ?? []).length).toBeGreaterThanOrEqual(
+      4,
+    );
+  });
+
+  it("offers a RAG layer only when the customer has documents/data", () => {
+    const map = mkMap([node("a", "ai_agent", { laneId: "lane_ai" })]);
+    const withoutData = proposeWorkflowBlueprints(map, project()).map(
+      (p) => p.id,
+    );
+    expect(withoutData).not.toContain("blueprint:rag-layer");
+
+    const p = project();
+    p.dataSources = [
+      {
+        id: "d1",
+        name: "Policy docs",
+        sourceSystem: "",
+        dataType: "documents",
+        format: "pdf",
+        quality: "good",
+        volumeEstimate: "",
+        updateFrequency: "",
+        pii: "unknown",
+        accessStatus: "available",
+        openQuestions: [],
+      },
+    ];
+    const withData = proposeWorkflowBlueprints(map, p).map((x) => x.id);
+    expect(withData).toContain("blueprint:rag-layer");
+  });
+
+  it("surfaces blueprints at the top of proposeForMap's map group", () => {
+    const map = mkMap([node("a", "human_action"), node("b", "system_action")]);
+    const groups = proposeForMap(map, project());
+    const mapGroup = groups.find((g) => g.nodeId === null)!;
+    expect(mapGroup.proposals[0].scope).toBe("workflow");
+  });
+});
+
+describe("buildProposalAdditions (blueprints)", () => {
+  it("wires internal edges by key for a blueprint", () => {
+    const map = mkMap([node("a", "human_action"), node("b", "system_action")]);
+    const pipeline = proposeWorkflowBlueprints(map, project()).find(
+      (p) => p.id === "blueprint:orchestrated-pipeline",
+    )!;
+    const { nodes, edges } = buildProposalAdditions(map, pipeline, null);
+    expect(nodes).toHaveLength(pipeline.insert.nodes.length);
+    // 6 internal edges, no source connection (connectFromSource false).
+    expect(edges).toHaveLength(pipeline.insert.internalEdges!.length);
+    // Every edge references an inserted node id.
+    const ids = new Set(nodes.map((n) => n.id));
+    for (const e of edges) {
+      expect(ids.has(e.source)).toBe(true);
+      expect(ids.has(e.target)).toBe(true);
+    }
   });
 });

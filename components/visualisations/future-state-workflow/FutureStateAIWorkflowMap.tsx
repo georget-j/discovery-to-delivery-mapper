@@ -310,6 +310,20 @@ export function FutureStateAIWorkflowMap() {
         proposal,
         sourceNodeId,
       );
+      // Workflow blueprints add a whole sub-graph — auto-layout so it lands
+      // tidy in its lanes rather than fanned out from the insertion point.
+      if (proposal.scope === "workflow") {
+        const positions = layoutNodesInLanes(
+          next.nodes,
+          next.edges,
+          FUTURE_LANE_Y,
+          next.lanes,
+        );
+        next.nodes = next.nodes.map((n) => ({
+          ...n,
+          position: positions[n.id] ?? n.position,
+        }));
+      }
       persist(next);
       if (insertedIds[0]) setSelectedNodeId(insertedIds[0]);
     },

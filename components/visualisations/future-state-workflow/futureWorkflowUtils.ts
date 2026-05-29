@@ -144,27 +144,11 @@ export function laneIdForY(y: number, lanes: WorkflowLane[]): string {
 // Proposal application + ghost preview
 // ────────────────────────────────────────────────────────────
 
-// Position the inserted node(s) for a proposal. Each lands in its own lane's
-// Y band, offset to the right of the source node (or the map's right edge when
-// there's no source), with multiple nodes fanned out so they don't overlap.
-function positionFor(
-  spec: { laneId: string },
-  index: number,
-  map: FutureStateAIWorkflowMap,
-  sourceNode: FutureWorkflowNode | undefined,
-): { x: number; y: number } {
-  const baseX = sourceNode
-    ? sourceNode.position.x + 260
-    : Math.max(200, ...map.nodes.map((n) => n.position.x + 240), 200);
-  return {
-    x: baseX + index * 240,
-    y: FUTURE_LANE_Y[spec.laneId] ?? 200,
-  };
-}
-
 // Build the concrete nodes (with ids + positions) a proposal would insert,
 // plus the edges wiring them in. Shared by apply (persist) and the ghost
-// preview (render translucent, don't persist).
+// preview (render translucent, don't persist). Handles both small single-node
+// adds and full workflow blueprints (multiple nodes across lanes, internal
+// edges by key, and back-connections into the existing flow).
 export function buildProposalAdditions(
   map: FutureStateAIWorkflowMap,
   proposal: NodeProposal,
@@ -175,33 +159,71 @@ export function buildProposalAdditions(
     ? map.nodes.find((n) => n.id === sourceNodeId)
     : undefined;
   const stamp = Date.now();
+
+  // Base X: just right of the source node, or the map's right edge.
+  const baseX = sourceNode
+    ? sourceNode.position.x + 260
+    : Math.max(200, ...map.nodes.map((n) => n.position.x + 240), 200);
+
+  // Lay nodes out per-lane so multiple nodes sharing a lane (e.g. an
+  // orchestrator + specialist agents in lane_ai) fan out horizontally instead
+  // of stacking. A subsequent auto-layout (on workflow blueprints) tidies the
+  // exact spacing; this just avoids overlap pre-layout.
+  const laneCount: Record<string, number> = {};
+  const keyToId: Record<string, string> = {};
   const newNodes: FutureWorkflowNode[] = proposal.insert.nodes.map(
-    (spec, i) => ({
-      ...spec,
-      id: `${idPrefix}n_${stamp}_${i}_${Math.floor(Math.random() * 1000)}`,
-      position: positionFor(spec, i, map, sourceNode),
-    }),
+    (spec, i) => {
+      const id = `${idPrefix}n_${stamp}_${i}_${Math.floor(Math.random() * 1000)}`;
+      if (spec.key) keyToId[spec.key] = id;
+      const col = laneCount[spec.laneId] ?? 0;
+      laneCount[spec.laneId] = col + 1;
+      return {
+        ...spec,
+        id,
+        position: {
+          x: baseX + col * 240,
+          y: FUTURE_LANE_Y[spec.laneId] ?? 200,
+        },
+      };
+    },
   );
 
   const edges: FutureStateAIWorkflowMap["edges"] = [];
+  const addEdge = (source: string, target: string) =>
+    edges.push({
+      id: `${idPrefix}e_${source}_${target}`,
+      source,
+      target,
+      style: "solid",
+    });
+
   // Wire source → first new node when requested.
   if (proposal.insert.connectFromSource && sourceNodeId && newNodes[0]) {
-    edges.push({
-      id: `${idPrefix}e_${sourceNodeId}_${newNodes[0].id}`,
-      source: sourceNodeId,
-      target: newNodes[0].id,
-      style: "solid",
-    });
+    addEdge(sourceNodeId, newNodes[0].id);
   }
-  // Chain multiple inserted nodes in order.
-  for (let i = 1; i < newNodes.length; i++) {
-    edges.push({
-      id: `${idPrefix}e_${newNodes[i - 1].id}_${newNodes[i].id}`,
-      source: newNodes[i - 1].id,
-      target: newNodes[i].id,
-      style: "solid",
-    });
+
+  if (proposal.insert.internalEdges && proposal.insert.internalEdges.length) {
+    // Blueprint wiring: connect inserted nodes by their local keys.
+    for (const e of proposal.insert.internalEdges) {
+      const s = keyToId[e.from];
+      const t = keyToId[e.to];
+      if (s && t) addEdge(s, t);
+    }
+  } else {
+    // Default: chain the inserted nodes linearly.
+    for (let i = 1; i < newNodes.length; i++) {
+      addEdge(newNodes[i - 1].id, newNodes[i].id);
+    }
   }
+
+  // Back-connections into existing nodes.
+  for (const c of proposal.insert.connectToExisting ?? []) {
+    const s = keyToId[c.fromKey];
+    if (s && map.nodes.some((n) => n.id === c.toNodeId)) {
+      addEdge(s, c.toNodeId);
+    }
+  }
+
   return { nodes: newNodes, edges };
 }
 

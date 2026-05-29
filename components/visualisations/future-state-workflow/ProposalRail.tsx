@@ -36,16 +36,31 @@ export function ProposalRail({
   const [aiProposals, setAiProposals] = useState<NodeProposal[]>([]);
   const [askingAi, setAskingAi] = useState(false);
 
-  const visibleGroups = groups
+  const visible = groups.map((g) => ({
+    ...g,
+    proposals: g.proposals.filter((p) => !dismissed.has(p.id)),
+  }));
+
+  // Whole-workflow blueprints (scope "workflow") headline the rail under
+  // "Transform the workflow"; the smaller per-node adds group beneath.
+  const blueprints: { proposal: NodeProposal; sourceNodeId: string | null }[] =
+    [];
+  visible.forEach((g) =>
+    g.proposals
+      .filter((p) => p.scope === "workflow")
+      .forEach((p) => blueprints.push({ proposal: p, sourceNodeId: g.nodeId })),
+  );
+  const nodeGroups = visible
     .map((g) => ({
       ...g,
-      proposals: g.proposals.filter((p) => !dismissed.has(p.id)),
+      proposals: g.proposals.filter((p) => p.scope !== "workflow"),
     }))
     .filter((g) => g.proposals.length > 0);
 
   const aiVisible = aiProposals.filter((p) => !dismissed.has(p.id));
   const total =
-    visibleGroups.reduce((s, g) => s + g.proposals.length, 0) +
+    blueprints.length +
+    nodeGroups.reduce((s, g) => s + g.proposals.length, 0) +
     aiVisible.length;
 
   const askAi = async () => {
@@ -130,10 +145,18 @@ export function ProposalRail({
           </p>
         ) : (
           <>
-            {visibleGroups.map((g) => (
+            {blueprints.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-[10px] uppercase tracking-wider font-bold text-primary px-1">
+                  Transform the workflow
+                </p>
+                {blueprints.map((b) => card(b.proposal, b.sourceNodeId))}
+              </div>
+            )}
+            {nodeGroups.map((g) => (
               <div key={g.nodeId ?? "map"} className="space-y-1.5">
                 <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground px-1">
-                  {g.nodeTitle ?? "Whole workflow"}
+                  {g.nodeTitle ?? "Smaller adds"}
                 </p>
                 {g.proposals.map((p) => card(p, g.nodeId))}
               </div>
