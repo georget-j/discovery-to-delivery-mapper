@@ -352,9 +352,10 @@ export function FutureStateAIWorkflowMap() {
         proposal,
         sourceNodeId,
       );
-      // Workflow blueprints add a whole sub-graph — auto-layout so it lands
-      // tidy in its lanes rather than fanned out from the insertion point.
-      if (proposal.scope === "workflow") {
+      // Workflow blueprints add a whole sub-graph; single adds can still land
+      // on top of an existing node. Tidy via auto-layout whenever the result
+      // would overlap, so a newly-added workflow never covers itself.
+      if (proposal.scope === "workflow" || nodesOverlap(next.nodes)) {
         const positions = layoutNodesInLanes(
           next.nodes,
           next.edges,

@@ -3,7 +3,9 @@ import {
   proposeForNode,
   proposeForMap,
   proposeWorkflowBlueprints,
+  isSolutionImplemented,
 } from "@/lib/visualisations/node-proposals";
+import { SOLUTION_BY_ID } from "@/lib/patterns/solution-library";
 import { buildProposalAdditions } from "@/components/visualisations/future-state-workflow/futureWorkflowUtils";
 import { createBlankProject } from "@/lib/project-store";
 import type {
@@ -216,5 +218,65 @@ describe("buildProposalAdditions (blueprints)", () => {
       expect(ids.has(e.source)).toBe(true);
       expect(ids.has(e.target)).toBe(true);
     }
+  });
+});
+
+describe("isSolutionImplemented (suggestion dedup)", () => {
+  it("is false for a fresh single-step map", () => {
+    const map = mkMap([node("a", "human_action")]);
+    expect(
+      isSolutionImplemented(SOLUTION_BY_ID["orchestrator-workers"], map),
+    ).toBe(false);
+  });
+
+  it("is true once the map has orchestrator + agents + validator + monitoring", () => {
+    const map = mkMap([
+      node("o", "ai_agent", { laneId: "lane_ai", title: "Orchestrator agent" }),
+      node("a1", "ai_agent", { laneId: "lane_ai", title: "Specialist A" }),
+      node("a2", "ai_agent", { laneId: "lane_ai", title: "Specialist B" }),
+      node("v", "guardrail", { laneId: "lane_guardrails", title: "Validator" }),
+      node("m", "monitoring", {
+        laneId: "lane_monitoring",
+        title: "Monitoring",
+      }),
+    ]);
+    expect(
+      isSolutionImplemented(SOLUTION_BY_ID["orchestrator-workers"], map),
+    ).toBe(true);
+  });
+
+  it("treats evaluator-optimizer as implemented once a validator exists", () => {
+    const map = mkMap([
+      node("a", "ai_agent", { laneId: "lane_ai" }),
+      node("v", "guardrail", { laneId: "lane_guardrails", title: "Validator" }),
+    ]);
+    expect(
+      isSolutionImplemented(SOLUTION_BY_ID["evaluator-optimizer"], map),
+    ).toBe(true);
+  });
+
+  it("never auto-suppresses a pattern with no distinctive capability (routing)", () => {
+    const map = mkMap([
+      node("a", "ai_agent", { laneId: "lane_ai" }),
+      node("v", "guardrail", { laneId: "lane_guardrails" }),
+      node("m", "monitoring", { laneId: "lane_monitoring" }),
+    ]);
+    expect(isSolutionImplemented(SOLUTION_BY_ID["routing"], map)).toBe(false);
+  });
+
+  it("proposeWorkflowBlueprints drops solutions already implemented", () => {
+    const map = mkMap([
+      node("o", "ai_agent", { laneId: "lane_ai", title: "Orchestrator agent" }),
+      node("a1", "ai_agent", { laneId: "lane_ai", title: "Specialist A" }),
+      node("a2", "ai_agent", { laneId: "lane_ai", title: "Specialist B" }),
+      node("v", "guardrail", { laneId: "lane_guardrails", title: "Validator" }),
+      node("m", "monitoring", {
+        laneId: "lane_monitoring",
+        title: "Monitoring",
+      }),
+    ]);
+    const ids = proposeWorkflowBlueprints(map, project()).map((p) => p.id);
+    expect(ids).not.toContain("blueprint:orchestrator-workers");
+    expect(ids).not.toContain("blueprint:evaluator-optimizer");
   });
 });

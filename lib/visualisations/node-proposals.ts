@@ -414,6 +414,43 @@ export function allSolutionBlueprints(): NodeProposal[] {
   return SOLUTION_LIBRARY.map(solutionToBlueprint);
 }
 
+// ── "Already implemented?" detection ────────────────────────────────────────
+// A solution is considered already implemented when the map already contains a
+// node of every node-type the solution would introduce — i.e. you already have
+// all of its tool types in place. Concrete + deterministic, and it lets the
+// rail update itself: as the user applies blueprints / adds nodes, solutions
+// whose pieces are all present drop out of the suggestions.
+//
+// audit_log counts as monitoring, and ai_agent satisfies an ai_assist
+// requirement (an agent is a superset of an assist), so we don't keep
+// suggesting a tool the user has effectively already covered.
+function typeSatisfied(
+  needed: FutureWorkflowNodeType,
+  present: Set<FutureWorkflowNodeType>,
+): boolean {
+  if (present.has(needed)) return true;
+  if (needed === "monitoring" && present.has("audit_log")) return true;
+  if (needed === "audit_log" && present.has("monitoring")) return true;
+  if (needed === "ai_assist" && present.has("ai_agent")) return true;
+  return false;
+}
+
+export function solutionNodeTypes(
+  solution: MarketSolution,
+): Set<FutureWorkflowNodeType> {
+  return new Set(solution.steps.map((s) => ROLE_TO_NODE[s.role].type));
+}
+
+export function isSolutionImplemented(
+  solution: MarketSolution,
+  map: FutureStateAIWorkflowMap,
+): boolean {
+  const present = new Set<FutureWorkflowNodeType>(map.nodes.map((n) => n.type));
+  const need = solutionNodeTypes(solution);
+  if (need.size === 0) return false;
+  return [...need].every((t) => typeSatisfied(t, present));
+}
+
 // Context-aware ordering: surface the most relevant market solutions for THIS
 // project first. RAG solutions only appear when the customer actually has
 // documents/data; safety solutions are boosted under regulatory context.
@@ -429,7 +466,10 @@ export function proposeWorkflowBlueprints(
   const regulated = (project.customer.regulatoryContext?.length ?? 0) > 0;
 
   const relevant = SOLUTION_LIBRARY.filter((s) => {
-    if (s.category === "rag") return hasKnowledge;
+    if (s.category === "rag" && !hasKnowledge) return false;
+    // Don't re-suggest a tool/pattern the workflow already implements — the
+    // rail updates itself as the user builds the map out.
+    if (isSolutionImplemented(s, map)) return false;
     return true;
   });
 
