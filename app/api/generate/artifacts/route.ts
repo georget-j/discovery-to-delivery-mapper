@@ -4,7 +4,7 @@ import { buildArtifactPrompt } from "@/lib/prompts";
 import { GeneratedArtifactsSchema } from "@/lib/schemas";
 import { generateTemplateArtifacts } from "@/lib/artifact-templates";
 import { hashGenerationInputs } from "@/lib/artifact-helpers";
-import { parseBoundedJson, looksLikeProject } from "@/lib/api-guards";
+import { looksLikeProject } from "@/lib/api-guards";
 import { industryVoice } from "@/lib/industry-personae";
 
 // Stamp every generated GeneratedArtifacts blob with the input hash + timestamp
@@ -20,16 +20,47 @@ function stamp(
   };
 }
 
+// Larger ceiling than the shared 256KB cap because the optional KB context
+// (retrieved document excerpts) rides along with the project.
+const ARTIFACTS_MAX_BODY_BYTES = 1.5 * 1024 * 1024;
+
+type KbContextChunk = { id: string; text: string; label?: string };
+
 export async function POST(req: NextRequest) {
-  const parsed = await parseBoundedJson<unknown>(req);
-  if (!parsed.ok) {
-    const status = parsed.error === "too_large" ? 413 : 400;
-    return NextResponse.json({ error: parsed.error }, { status });
+  const declared = Number(req.headers.get("content-length") ?? 0);
+  if (declared > ARTIFACTS_MAX_BODY_BYTES) {
+    return NextResponse.json({ error: "too_large" }, { status: 413 });
   }
-  if (!looksLikeProject(parsed.data)) {
+  let raw: string;
+  try {
+    raw = await req.text();
+  } catch {
+    return NextResponse.json({ error: "invalid_json" }, { status: 400 });
+  }
+  if (raw.length > ARTIFACTS_MAX_BODY_BYTES) {
+    return NextResponse.json({ error: "too_large" }, { status: 413 });
+  }
+  let body: unknown;
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    return NextResponse.json({ error: "invalid_json" }, { status: 400 });
+  }
+
+  // Accept either a raw project (legacy) or { project, kbContext }.
+  let project: OnboardingProject;
+  let kbContext: KbContextChunk[] = [];
+  const maybeWrapped = body as { project?: unknown; kbContext?: unknown };
+  if (maybeWrapped && looksLikeProject(maybeWrapped.project)) {
+    project = maybeWrapped.project as OnboardingProject;
+    if (Array.isArray(maybeWrapped.kbContext)) {
+      kbContext = (maybeWrapped.kbContext as KbContextChunk[]).slice(0, 16);
+    }
+  } else if (looksLikeProject(body)) {
+    project = body as OnboardingProject;
+  } else {
     return NextResponse.json({ error: "invalid_project" }, { status: 400 });
   }
-  const project = parsed.data as OnboardingProject;
 
   const apiKey = process.env.OPENAI_API_KEY;
 
@@ -40,7 +71,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { system, user } = buildArtifactPrompt(project);
+    const { system, user } = buildArtifactPrompt(project, kbContext);
     const voice = industryVoice(project.customer.industry);
     const systemWithVoice = voice ? `${voice}\n\n${system}` : system;
 
@@ -58,7 +89,7 @@ export async function POST(req: NextRequest) {
         ],
         response_format: { type: "json_object" },
         temperature: 0.3,
-        max_tokens: 8000,
+        max_tokens: 12000,
       }),
     });
 

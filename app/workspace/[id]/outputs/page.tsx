@@ -219,10 +219,28 @@ export default function OutputsPage() {
     setSource(null);
     const startedAt = Date.now();
     const work = (async () => {
+      // Ground generation in the knowledge base when one exists — retrieve a
+      // handful of broadly-relevant chunks and pass them alongside the project.
+      let kbContext: { id: string; text: string; label?: string }[] = [];
+      if ((project.knowledgeBase?.totalChunks ?? 0) > 0) {
+        try {
+          const { retrieveForTarget } = await import("@/lib/kb/retrieve");
+          const hits = await retrieveForTarget(project.id, "all", 12);
+          kbContext = hits.map((h) => ({
+            id: h.chunk.id,
+            text: h.chunk.text,
+            label: h.label,
+          }));
+        } catch {
+          /* retrieval is best-effort; generation proceeds without it */
+        }
+      }
       const res = await fetch("/api/generate/artifacts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(project),
+        body: JSON.stringify(
+          kbContext.length > 0 ? { project, kbContext } : project,
+        ),
       });
       const data = await res.json();
       if (!data.artifacts) throw new Error(data.error ?? "no_artifacts");
