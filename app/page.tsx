@@ -46,13 +46,11 @@ const OUTPUTS = [
   "Next Actions Checklist",
 ];
 
-const ROLES = [
-  "Forward-Deployed Engineer",
-  "Solutions Engineer",
-  "Deployment Strategist",
-  "Technical Customer Success",
-  "AI Deployment Lead",
-  "Technical Operator",
+const AUDIENCES = [
+  "Customer-facing engineering teams",
+  "Solutions & delivery teams",
+  "Pre-sales & onboarding teams",
+  "Anyone turning discovery into delivery",
 ];
 
 export default function Home() {
@@ -74,8 +72,9 @@ export default function Home() {
         <p className="text-lg text-muted-foreground leading-relaxed">
           Turn unstructured discovery into a structured delivery plan —
           requirements, risks, engineering handoffs, pilot success metrics, and
-          more. Built for forward-deployed engineers, solutions engineers, and
-          deployment strategists.
+          more. For the teams who sit between customers and engineering, turning
+          discovery calls into a plan engineering can build and customers can
+          sign off.
         </p>
         <p className="text-xs text-muted-foreground/80">
           <span className="font-mono font-semibold text-foreground">15</span>{" "}
@@ -144,12 +143,12 @@ export default function Home() {
         <div className="space-y-8">
           <div className="space-y-4">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-              Demonstrates Skills For
+              Who it&apos;s for
             </h2>
             <div className="flex flex-wrap gap-2">
-              {ROLES.map((role) => (
-                <Badge key={role} variant="secondary" className="text-xs">
-                  {role}
+              {AUDIENCES.map((audience) => (
+                <Badge key={audience} variant="secondary" className="text-xs">
+                  {audience}
                 </Badge>
               ))}
             </div>
@@ -179,8 +178,8 @@ export default function Home() {
           <div className="rounded-lg border p-5 space-y-2">
             <h3 className="text-sm font-semibold">Why This Project Exists</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              This project demonstrates how a forward-deployed AI or solutions
-              engineering team can turn messy customer discovery into structured
+              This project shows how teams that sit between customers and
+              engineering can turn messy customer discovery into structured
               implementation artifacts — requirements, risks, pilot plans,
               engineering handoffs, and customer communications.
             </p>

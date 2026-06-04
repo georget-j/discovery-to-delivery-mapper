@@ -8,20 +8,19 @@
 
 ## Why This Project Exists
 
-Early-stage B2B AI startups hire forward-deployed engineers, solutions engineers, and deployment strategists to sit between customers and engineering. These roles require turning messy discovery into structured plans — requirements, risks, engineering handoffs, pilot KPIs, and customer communications.
+Turning messy customer discovery into a structured plan — requirements, risks, engineering handoffs, pilot KPIs, and customer communications — is slow, manual work for the teams who sit between customers and engineering.
 
-This tool maps that process end-to-end. It demonstrates how to go from a real enterprise customer scenario to a complete deployment pack that engineering can act on and customers can sign off.
+This tool maps that process end-to-end. It shows how to go from a real enterprise customer scenario to a complete deployment pack that engineering can act on and customers can sign off.
 
 ---
 
 ## Who this is for
 
-- Forward-Deployed Engineer / Forward-Deployed AI Engineer
-- Solutions Engineer / AI Solutions Engineer
-- Deployment Strategist
-- Technical Customer Success Manager
-- Client Success and AI Deployment Lead
-- Technical Operator / GTM Engineer
+Teams that turn customer discovery into delivery — the people sitting between customers and engineering:
+
+- Customer-facing engineering and solutions teams
+- Pre-sales, onboarding, and deployment teams
+- Anyone who has to hand a discovery call off to engineering as a buildable plan
 
 ---
 
