@@ -1,5 +1,6 @@
 "use client";
 
+import { notifyGenerationOutcome } from "../shared/generation-feedback";
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { VisualisationFrame } from "../shared/VisualisationFrame";
@@ -99,6 +100,7 @@ export function FutureStateAIWorkflowMap() {
         setError("Generation failed. Please try again.");
         return;
       }
+      notifyGenerationOutcome(data);
       // Normalise positions through the swimlane auto-layout so the generated
       // map always lands tidy (no overlap), regardless of what the model /
       // template returned.

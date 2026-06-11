@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { MODELS } from "@/lib/llm/models";
 import { guardApiRequest } from "@/lib/api-guards";
 
 // Multi-modal helper: takes 1..N PNG/JPEG data URLs (one per slide/page/diagram)
@@ -84,7 +85,7 @@ export async function POST(req: NextRequest) {
             Authorization: `Bearer ${apiKey}`,
           },
           body: JSON.stringify({
-            model: "gpt-4o-mini",
+            model: MODELS.cheap,
             messages: [
               { role: "system", content: SYSTEM_PROMPT },
               {

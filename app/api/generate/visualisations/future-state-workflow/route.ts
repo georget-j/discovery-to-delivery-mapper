@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { OnboardingProject } from "@/lib/types";
-import { FutureStateAIWorkflowMapSchema } from "@/lib/visualisations/workflow-types";
-import { buildFutureStateAIWorkflowPrompt } from "@/lib/visualisations/prompts";
+import { FutureStateAIWorkflowMapAIResponseSchema } from "@/lib/visualisations/workflow-types";
+import {
+  buildFutureStateAIWorkflowPrompt,
+  WORKFLOW_PROMPT_VERSION,
+} from "@/lib/visualisations/prompts";
 import { buildFutureStateAIWorkflowTemplate } from "@/lib/visualisations/workflow-templates";
 import { hashWorkflows } from "@/lib/visualisations/workflow-helpers";
+import {
+  sanitizeFutureStateMap,
+  salvageFutureStateMap,
+} from "@/lib/visualisations/workflow-sanitize";
+import { generateValidatedJson } from "@/lib/llm/generate-json";
+import { MODELS } from "@/lib/llm/models";
 import {
   guardApiRequest,
   parseBoundedJson,
@@ -37,58 +46,66 @@ export async function POST(req: NextRequest) {
 
   if (!apiKey) {
     const map = buildFutureStateAIWorkflowTemplate(project, currentStateMapId);
-    return NextResponse.json({ map, source: "template" });
-  }
-
-  try {
-    const { system, user } = buildFutureStateAIWorkflowPrompt(
-      project,
-      currentMap,
-    );
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.3,
-        max_tokens: 5000,
-      }),
+    return NextResponse.json({
+      map,
+      source: "template",
+      fallbackReason: "no_api_key",
     });
-
-    if (!response.ok) throw new Error(`OpenAI ${response.status}`);
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) throw new Error("empty response");
-
-    const parsed = JSON.parse(content);
-    const validated = FutureStateAIWorkflowMapSchema.safeParse(parsed);
-
-    if (!validated.success) {
-      console.error("Future-state map AI validation failed:", validated.error);
-      const map = buildFutureStateAIWorkflowTemplate(
-        project,
-        currentStateMapId,
-      );
-      return NextResponse.json({ map, source: "template_fallback" });
-    }
-
-    const map = {
-      ...validated.data,
-      derivedFromHash: hashWorkflows(project.workflows),
-    };
-    return NextResponse.json({ map, source: "ai" });
-  } catch (err) {
-    console.error("Future-state map AI generation failed:", err);
-    const map = buildFutureStateAIWorkflowTemplate(project, currentStateMapId);
-    return NextResponse.json({ map, source: "template_fallback" });
   }
+
+  const { system, user } = buildFutureStateAIWorkflowPrompt(
+    project,
+    currentMap,
+  );
+  const result = await generateValidatedJson({
+    apiKey,
+    system,
+    user,
+    schema: FutureStateAIWorkflowMapAIResponseSchema,
+    model: MODELS.chat,
+    maxTokens: 5000,
+  });
+
+  let aiMap = result.ok ? result.data : null;
+  let partial = false;
+  if (!aiMap && !result.ok && result.error === "invalid_output") {
+    aiMap = salvageFutureStateMap(result.raw);
+    partial = aiMap !== null;
+  }
+
+  if (!aiMap) {
+    const reason = result.ok ? "invalid_output" : result.error;
+    console.error("Future-state map AI generation failed:", reason);
+    const map = buildFutureStateAIWorkflowTemplate(project, currentStateMapId);
+    return NextResponse.json({
+      map,
+      source: "template_fallback",
+      fallbackReason: reason,
+    });
+  }
+
+  // Clamp hallucinated references against the real current-state map before
+  // the canvas tries to draw provenance links.
+  const { map: sanitized, repairs } = sanitizeFutureStateMap(
+    aiMap,
+    project.id,
+    currentMap ?? null,
+  );
+  if (repairs.length > 0) {
+    console.warn("Future-state map sanitized:", repairs);
+  }
+
+  const map = {
+    ...sanitized,
+    source: "ai" as const,
+    updatedAt: new Date().toISOString(),
+    derivedFromHash: hashWorkflows(project.workflows),
+    promptVersion: WORKFLOW_PROMPT_VERSION,
+  };
+  return NextResponse.json({
+    map,
+    source: "ai",
+    ...(partial ? { partial: true } : {}),
+    ...(result.ok && result.repaired ? { repaired: true } : {}),
+  });
 }

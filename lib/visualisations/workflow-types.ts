@@ -65,6 +65,9 @@ export type CurrentStateWorkflowMap = {
   // Hash of the workflow snapshot at generation time. Used to detect when the
   // map is stale relative to the step list. Optional for legacy maps.
   derivedFromHash?: string;
+  // Prompt version the map was generated with — lets the UI detect maps
+  // produced by an older prompt after a meaningful prompt edit.
+  promptVersion?: string;
 };
 
 // ────────────────────────────────────────────────────────────
@@ -123,6 +126,7 @@ export type FutureStateAIWorkflowMap = {
   source: GenerationSource;
   updatedAt: string;
   derivedFromHash?: string;
+  promptVersion?: string;
 };
 
 // ────────────────────────────────────────────────────────────
@@ -137,8 +141,14 @@ const LaneSchema = z.object({
 });
 
 const WORKFLOW_NODE_TYPES = [
-  "human_step", "system_step", "decision", "handoff",
-  "delay", "risk", "missing_info", "data_object",
+  "human_step",
+  "system_step",
+  "decision",
+  "handoff",
+  "delay",
+  "risk",
+  "missing_info",
+  "data_object",
 ] as const;
 
 const WorkflowNodeSchema = z.object({
@@ -180,16 +190,61 @@ export const CurrentStateWorkflowMapSchema = z.object({
   source: z.enum(["ai", "manual", "template_fallback"]),
   updatedAt: z.string(),
   derivedFromHash: z.string().optional(),
+  promptVersion: z.string().optional(),
 });
 
+// ────────────────────────────────────────────────────────────
+// AI response schemas
+// ────────────────────────────────────────────────────────────
+// What the MODEL is asked to return. The prompts deliberately exclude the
+// server-stamped fields (source, updatedAt, derivedFromHash, promptVersion) —
+// validating raw model output against the full storage schema above would
+// reject every response. Positions are advisory (the client re-lays maps out
+// with the swimlane auto-layout), so a missing or malformed position must not
+// discard an otherwise-valid map.
+
+const AIPositionSchema = PositionSchema.catch({ x: 0, y: 0 });
+
+export const AIWorkflowNodeSchema = WorkflowNodeSchema.extend({
+  position: AIPositionSchema,
+});
+
+export const CurrentStateWorkflowMapAIResponseSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  title: z.string(),
+  lanes: z.array(LaneSchema),
+  nodes: z.array(AIWorkflowNodeSchema),
+  edges: z.array(WorkflowEdgeSchema),
+  // Narrative arrays are nice-to-have: tolerate garbage rather than dropping
+  // the whole map over a malformed assumption.
+  assumptions: z.array(z.string()).catch([]),
+  generatedFromSourceIds: z.array(z.string()).catch([]),
+});
+
+export type CurrentStateWorkflowMapAIResponse = z.infer<
+  typeof CurrentStateWorkflowMapAIResponseSchema
+>;
+
 const FUTURE_NODE_TYPES = [
-  "human_action", "ai_assist", "ai_agent", "system_action",
-  "data_retrieval", "guardrail", "decision_gate", "approval",
-  "monitoring", "audit_log", "exception_path",
+  "human_action",
+  "ai_assist",
+  "ai_agent",
+  "system_action",
+  "data_retrieval",
+  "guardrail",
+  "decision_gate",
+  "approval",
+  "monitoring",
+  "audit_log",
+  "exception_path",
 ] as const;
 
 const AUTOMATION_LEVELS = [
-  "suggest_only", "draft_only", "human_approval_required", "autonomous_with_guardrails",
+  "suggest_only",
+  "draft_only",
+  "human_approval_required",
+  "autonomous_with_guardrails",
 ] as const;
 
 const FutureWorkflowNodeSchema = z.object({
@@ -223,4 +278,32 @@ export const FutureStateAIWorkflowMapSchema = z.object({
   source: z.enum(["ai", "manual", "template_fallback"]),
   updatedAt: z.string(),
   derivedFromHash: z.string().optional(),
+  promptVersion: z.string().optional(),
 });
+
+export const AIFutureWorkflowNodeSchema = FutureWorkflowNodeSchema.extend({
+  position: AIPositionSchema,
+});
+
+export const FutureStateAIWorkflowMapAIResponseSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  basedOnCurrentStateMapId: z.string().optional(),
+  title: z.string(),
+  lanes: z.array(LaneSchema),
+  nodes: z.array(AIFutureWorkflowNodeSchema),
+  edges: z.array(WorkflowEdgeSchema),
+  expectedBenefits: z.array(z.string()).catch([]),
+  newRisksIntroduced: z.array(z.string()).catch([]),
+  assumptions: z.array(z.string()).catch([]),
+});
+
+export type FutureStateAIWorkflowMapAIResponse = z.infer<
+  typeof FutureStateAIWorkflowMapAIResponseSchema
+>;
+
+// Exported for the sanitizer's salvage path (per-item lenient parsing).
+export {
+  LaneSchema as WorkflowLaneSchema,
+  WorkflowEdgeSchema as WorkflowEdgeItemSchema,
+};

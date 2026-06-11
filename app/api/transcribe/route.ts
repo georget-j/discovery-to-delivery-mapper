@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { MODELS } from "@/lib/llm/models";
 import { guardApiRequest } from "@/lib/api-guards";
 
 // Fallback transcription endpoint for browsers without SpeechRecognition
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
   try {
     const upstream = new FormData();
     upstream.append("file", file, file.name || "recording.webm");
-    upstream.append("model", "whisper-1");
+    upstream.append("model", MODELS.transcribe);
     upstream.append("response_format", "text");
 
     const response = await fetch(
