@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { z } from "zod";
 import { generateValidatedJson } from "../lib/llm/generate-json";
+import { completionParams } from "../lib/llm/models";
 
 const Schema = z.object({ name: z.string(), count: z.number() });
 
@@ -137,5 +138,62 @@ describe("generateValidatedJson", () => {
     );
     const result = await generateValidatedJson(callOpts());
     expect(result).toMatchObject({ ok: false, error: "empty" });
+  });
+});
+
+describe("completionParams", () => {
+  it("uses max_tokens + temperature for legacy chat models", () => {
+    expect(
+      completionParams("gpt-4o-mini", { temperature: 0.3, maxTokens: 4000 }),
+    ).toEqual({ temperature: 0.3, max_tokens: 4000 });
+  });
+
+  it("uses max_completion_tokens and drops temperature for the GPT-5 family", () => {
+    expect(
+      completionParams("gpt-5.4-mini", { temperature: 0.3, maxTokens: 4000 }),
+    ).toEqual({ max_completion_tokens: 4000 });
+    expect(
+      completionParams("gpt-5.4-nano", { temperature: 0.2, maxTokens: 300 }),
+    ).toEqual({ max_completion_tokens: 300 });
+  });
+
+  it("treats o-series models as reasoning family", () => {
+    expect(completionParams("o4-mini", { temperature: 1, maxTokens: 10 })).toEqual(
+      { max_completion_tokens: 10 },
+    );
+  });
+
+  it("omits unset values", () => {
+    expect(completionParams("gpt-4o-mini", {})).toEqual({});
+    expect(completionParams("gpt-5.4-mini", {})).toEqual({});
+  });
+});
+
+describe("generateValidatedJson with jsonSchema", () => {
+  it("sends strict json_schema response_format and strips nulls before validation", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(openAIResponse('{"name":"a","count":1,"extra":null}'));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await generateValidatedJson({
+      ...callOpts(),
+      schema: z.object({ name: z.string(), count: z.number() }).strict(),
+      jsonSchema: {
+        name: "test_schema",
+        schema: { type: "object", additionalProperties: false, required: [], properties: {} },
+      },
+    });
+    expect(result.ok).toBe(true);
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(body.response_format).toEqual({
+      type: "json_schema",
+      json_schema: {
+        name: "test_schema",
+        strict: true,
+        schema: { type: "object", additionalProperties: false, required: [], properties: {} },
+      },
+    });
   });
 });

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { MODELS } from "@/lib/llm/models";
+import { MODELS, completionParams } from "@/lib/llm/models";
 import type { OnboardingProject, GeneratedArtifacts } from "@/lib/types";
 import { buildArtifactPrompt } from "@/lib/prompts";
 import { GeneratedArtifactsSchema } from "@/lib/schemas";
@@ -112,8 +112,7 @@ export async function POST(req: NextRequest) {
           { role: "user", content: user },
         ],
         response_format: { type: "json_object" },
-        temperature: 0.3,
-        max_tokens: 12000,
+        ...completionParams(MODELS.chat, { temperature: 0.3, maxTokens: 12000 }),
       }),
     });
 

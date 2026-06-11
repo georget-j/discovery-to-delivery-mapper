@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { MODELS } from "@/lib/llm/models";
+import { MODELS, completionParams } from "@/lib/llm/models";
 import { WorkflowReviewResponseSchema } from "@/lib/schemas";
 import { guardApiRequest } from "@/lib/api-guards";
 import type { FutureStateAIWorkflowMap } from "@/lib/visualisations/workflow-types";
@@ -113,8 +113,7 @@ export async function POST(req: NextRequest) {
           { role: "user", content: userPrompt },
         ],
         response_format: { type: "json_object" },
-        temperature: 0.2,
-        max_tokens: 1500,
+        ...completionParams(MODELS.cheap, { temperature: 0.2, maxTokens: 1500 }),
       }),
     });
 

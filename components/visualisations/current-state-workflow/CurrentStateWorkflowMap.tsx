@@ -1,6 +1,8 @@
 "use client";
 
 import { notifyGenerationOutcome } from "../shared/generation-feedback";
+import { ConfirmActionModal } from "../shared/ConfirmActionModal";
+import { retrieveForTarget } from "@/lib/kb/retrieve";
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { VisualisationFrame } from "../shared/VisualisationFrame";
@@ -61,18 +63,32 @@ export function CurrentStateWorkflowMap() {
   // Watch for external sync requests (e.g. from the WorkflowTabs Stale badge).
   // The ref tracks the last counter we acted on so we ignore the mount value.
   const lastSyncSeen = useRef(syncRequests.current);
+  const [confirmRegenOpen, setConfirmRegenOpen] = useState(false);
 
-  const handleGenerate = useCallback(async () => {
+  const runGenerate = useCallback(async () => {
     if (!project) return;
     setGenerating(true);
     setError(null);
     try {
+      // Ground the map in uploaded documents when a KB exists. Retrieval
+      // failure (no KB, embed error) just means an ungrounded generation.
+      let contextChunks: { id: string; text: string; label?: string }[] = [];
+      try {
+        const retrieved = await retrieveForTarget(project.id, "workflows", 8);
+        contextChunks = retrieved.map((r) => ({
+          id: r.chunk.id,
+          text: r.chunk.text.slice(0, 4000),
+          label: r.label,
+        }));
+      } catch {
+        // KB unavailable — generate from project context alone.
+      }
       const res = await fetch(
         "/api/generate/visualisations/current-state-workflow",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ project }),
+          body: JSON.stringify({ project, contextChunks }),
         },
       );
       const data = await res.json();
@@ -103,6 +119,17 @@ export function CurrentStateWorkflowMap() {
       setGenerating(false);
     }
   }, [project, persist]);
+
+  // Manual edits (added/edited nodes flip source to "manual") are destroyed
+  // by a regenerate — route those through an explicit confirm instead of
+  // silently replacing the user's work.
+  const handleGenerate = useCallback(async () => {
+    if (map && map.source === "manual") {
+      setConfirmRegenOpen(true);
+      return;
+    }
+    await runGenerate();
+  }, [map, runGenerate]);
 
   useEffect(() => {
     if (syncRequests.current !== lastSyncSeen.current && !generating) {
@@ -540,6 +567,15 @@ export function CurrentStateWorkflowMap() {
           onClose={() => setContextMenu(null)}
         />
       )}
+
+      <ConfirmActionModal
+        open={confirmRegenOpen}
+        onOpenChange={setConfirmRegenOpen}
+        title="Regenerate over manual edits?"
+        description="This map contains manual edits. Regenerating replaces it with a fresh AI map — undo (⌘Z) can bring the current version back during this session."
+        confirmLabel="Regenerate map"
+        onConfirm={() => void runGenerate()}
+      />
     </>
   );
 }

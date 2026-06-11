@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { MODELS } from "@/lib/llm/models";
+import { MODELS, completionParams } from "@/lib/llm/models";
 import { NotesExtractionResultSchema } from "@/lib/schemas";
 import { guardApiRequest, parseBoundedJson } from "@/lib/api-guards";
 import type { OnboardingProject } from "@/lib/types";
@@ -161,8 +161,7 @@ export async function POST(req: NextRequest) {
           { role: "user", content: userPrompt },
         ],
         response_format: { type: "json_object" },
-        temperature: 0.3,
-        max_tokens: 4000,
+        ...completionParams(MODELS.chat, { temperature: 0.3, maxTokens: 4000 }),
       }),
     });
 
