@@ -158,4 +158,20 @@ describe("hashWorkflows", () => {
   it("returns empty string for empty workflows", () => {
     expect(hashWorkflows([])).toBe("");
   });
+
+  it("changes when a workflow description changes", () => {
+    const h1 = hashWorkflows(fintech.workflows);
+    const modified = fintech.workflows.map((w, i) =>
+      i === 0 ? { ...w, description: "Reworded description" } : w,
+    );
+    expect(hashWorkflows(modified)).not.toBe(h1);
+  });
+
+  it("changes when a pain point is added", () => {
+    const h1 = hashWorkflows(fintech.workflows);
+    const modified = fintech.workflows.map((w, i) =>
+      i === 0 ? { ...w, painPoints: [...w.painPoints, "New pain"] } : w,
+    );
+    expect(hashWorkflows(modified)).not.toBe(h1);
+  });
 });

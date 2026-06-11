@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { MODELS } from "@/lib/llm/models";
 import {
   guardApiRequest,
   parseBoundedJson,
@@ -87,7 +88,7 @@ export async function POST(req: NextRequest) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: MODELS.chat,
         messages: [
           { role: "system", content: system },
           ...bounded.map((t) => ({ role: t.role, content: t.content })),

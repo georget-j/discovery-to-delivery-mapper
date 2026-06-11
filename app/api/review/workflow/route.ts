@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { MODELS } from "@/lib/llm/models";
 import { WorkflowReviewResponseSchema } from "@/lib/schemas";
 import { guardApiRequest } from "@/lib/api-guards";
 import type { FutureStateAIWorkflowMap } from "@/lib/visualisations/workflow-types";
@@ -106,7 +107,7 @@ export async function POST(req: NextRequest) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: MODELS.cheap,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userPrompt },

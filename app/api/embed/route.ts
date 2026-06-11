@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { MODELS } from "@/lib/llm/models";
 import { EmbedRequestSchema } from "@/lib/schemas";
 import { guardApiRequest } from "@/lib/api-guards";
 
@@ -13,7 +14,7 @@ import { guardApiRequest } from "@/lib/api-guards";
 //     surfacing a typed error to the client.
 
 const EMBED_MAX_BODY_BYTES = 4 * 1024 * 1024; // 4 MB
-const EMBED_MODEL = "text-embedding-3-small";
+const EMBED_MODEL = MODELS.embed;
 const EMBED_DIMS = 1536;
 const MAX_RETRIES = 3;
 

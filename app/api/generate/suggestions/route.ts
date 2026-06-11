@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { MODELS } from "@/lib/llm/models";
 import { NotesExtractionResultSchema } from "@/lib/schemas";
 import { guardApiRequest, parseBoundedJson } from "@/lib/api-guards";
 import type { OnboardingProject } from "@/lib/types";
@@ -154,7 +155,7 @@ export async function POST(req: NextRequest) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: MODELS.chat,
         messages: [
           { role: "system", content: SUGGESTIONS_SYSTEM_PROMPT },
           { role: "user", content: userPrompt },

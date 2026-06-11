@@ -121,9 +121,13 @@ Open [http://localhost:3000](http://localhost:3000)
 
 ## Environment Variables
 
-| Variable         | Required | Description                                                                                                                                                |
-| ---------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `OPENAI_API_KEY` | Optional | Enables AI generation, recommendations, embeddings, and voice transcription. Without it, deterministic templates are used and KB/voice features are inert. |
+| Variable               | Required | Description                                                                                                                                                |
+| ---------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OPENAI_API_KEY`       | Optional | Enables AI generation, recommendations, embeddings, and voice transcription. Without it, deterministic templates are used and KB/voice features are inert. |
+| `LLM_CHAT_MODEL`       | Optional | Generation/extraction/chat model (default `gpt-4o-mini`; recommended `gpt-5.4-mini`). See `lib/llm/models.ts`.                                             |
+| `LLM_CHEAP_MODEL`      | Optional | Low-stakes review/summarize/vision-caption model (default `gpt-4o-mini`; recommended `gpt-5.4-nano`).                                                      |
+| `LLM_TRANSCRIBE_MODEL` | Optional | Speech-to-text model (default `whisper-1`; recommended `gpt-4o-transcribe` — same price, lower error rate).                                                |
+| `LLM_EMBED_MODEL`      | Optional | Embedding model (default `text-embedding-3-small`). Changing it orphans every stored KB vector — leave it alone unless you re-ingest documents.            |
 
 ### Security notes
 

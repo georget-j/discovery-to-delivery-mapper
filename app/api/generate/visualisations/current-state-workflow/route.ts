@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { OnboardingProject } from "@/lib/types";
-import { CurrentStateWorkflowMapSchema } from "@/lib/visualisations/workflow-types";
-import { buildCurrentStateWorkflowPrompt } from "@/lib/visualisations/prompts";
+import { CurrentStateWorkflowMapAIResponseSchema } from "@/lib/visualisations/workflow-types";
+import {
+  buildCurrentStateWorkflowPrompt,
+  WORKFLOW_PROMPT_VERSION,
+} from "@/lib/visualisations/prompts";
 import { buildCurrentStateWorkflowTemplate } from "@/lib/visualisations/workflow-templates";
 import { hashWorkflows } from "@/lib/visualisations/workflow-helpers";
+import {
+  sanitizeCurrentStateMap,
+  salvageCurrentStateMap,
+} from "@/lib/visualisations/workflow-sanitize";
+import { generateValidatedJson } from "@/lib/llm/generate-json";
+import { MODELS } from "@/lib/llm/models";
 import {
   guardApiRequest,
   parseBoundedJson,
@@ -29,54 +38,64 @@ export async function POST(req: NextRequest) {
 
   if (!apiKey) {
     const map = buildCurrentStateWorkflowTemplate(project);
-    return NextResponse.json({ map, source: "template" });
-  }
-
-  try {
-    const { system, user } = buildCurrentStateWorkflowPrompt(project);
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.3,
-        max_tokens: 4000,
-      }),
+    return NextResponse.json({
+      map,
+      source: "template",
+      fallbackReason: "no_api_key",
     });
-
-    if (!response.ok) throw new Error(`OpenAI ${response.status}`);
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) throw new Error("empty response");
-
-    const parsed = JSON.parse(content);
-    const validated = CurrentStateWorkflowMapSchema.safeParse(parsed);
-
-    if (!validated.success) {
-      console.error("Current-state map AI validation failed:", validated.error);
-      const map = buildCurrentStateWorkflowTemplate(project);
-      return NextResponse.json({ map, source: "template_fallback" });
-    }
-
-    // Stamp the workflow hash so the canvas knows when it's stale against the
-    // current step list. Trusting the AI to compute it would be silly.
-    const map = {
-      ...validated.data,
-      derivedFromHash: hashWorkflows(project.workflows),
-    };
-    return NextResponse.json({ map, source: "ai" });
-  } catch (err) {
-    console.error("Current-state map AI generation failed:", err);
-    const map = buildCurrentStateWorkflowTemplate(project);
-    return NextResponse.json({ map, source: "template_fallback" });
   }
+
+  const { system, user } = buildCurrentStateWorkflowPrompt(project);
+  const result = await generateValidatedJson({
+    apiKey,
+    system,
+    user,
+    schema: CurrentStateWorkflowMapAIResponseSchema,
+    model: MODELS.chat,
+    maxTokens: 4000,
+  });
+
+  // Validation failed even after the repair pass — keep whatever valid nodes
+  // exist before resorting to the generic template.
+  let aiMap = result.ok ? result.data : null;
+  let partial = false;
+  if (!aiMap && !result.ok && result.error === "invalid_output") {
+    aiMap = salvageCurrentStateMap(result.raw);
+    partial = aiMap !== null;
+  }
+
+  if (!aiMap) {
+    const reason = result.ok ? "invalid_output" : result.error;
+    console.error("Current-state map AI generation failed:", reason);
+    const map = buildCurrentStateWorkflowTemplate(project);
+    return NextResponse.json({
+      map,
+      source: "template_fallback",
+      fallbackReason: reason,
+    });
+  }
+
+  const { map: sanitized, repairs } = sanitizeCurrentStateMap(
+    aiMap,
+    project.id,
+  );
+  if (repairs.length > 0) {
+    console.warn("Current-state map sanitized:", repairs);
+  }
+
+  // Stamp the server-owned fields. Trusting the AI to compute the hash or
+  // timestamps would be silly — that's why they're not in the response schema.
+  const map = {
+    ...sanitized,
+    source: "ai" as const,
+    updatedAt: new Date().toISOString(),
+    derivedFromHash: hashWorkflows(project.workflows),
+    promptVersion: WORKFLOW_PROMPT_VERSION,
+  };
+  return NextResponse.json({
+    map,
+    source: "ai",
+    ...(partial ? { partial: true } : {}),
+    ...(result.ok && result.repaired ? { repaired: true } : {}),
+  });
 }

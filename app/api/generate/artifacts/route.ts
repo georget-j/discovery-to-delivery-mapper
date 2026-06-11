@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { MODELS } from "@/lib/llm/models";
 import type { OnboardingProject, GeneratedArtifacts } from "@/lib/types";
 import { buildArtifactPrompt } from "@/lib/prompts";
 import { GeneratedArtifactsSchema } from "@/lib/schemas";
@@ -105,7 +106,7 @@ export async function POST(req: NextRequest) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: MODELS.chat,
         messages: [
           { role: "system", content: systemWithVoice },
           { role: "user", content: user },

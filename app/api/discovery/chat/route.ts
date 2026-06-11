@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { MODELS } from "@/lib/llm/models";
 import { z } from "zod";
 import { NotesExtractionResultSchema } from "@/lib/schemas";
 import {
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: MODELS.chat,
         messages: [
           { role: "system", content: systemMessage },
           ...trimmed.map((m) => ({ role: m.role, content: m.content })),

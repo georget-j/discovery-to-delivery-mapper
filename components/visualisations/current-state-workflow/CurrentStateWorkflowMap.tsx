@@ -1,5 +1,6 @@
 "use client";
 
+import { notifyGenerationOutcome } from "../shared/generation-feedback";
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { VisualisationFrame } from "../shared/VisualisationFrame";
@@ -79,6 +80,7 @@ export function CurrentStateWorkflowMap() {
         setError("Generation failed. Please try again.");
         return;
       }
+      notifyGenerationOutcome(data);
       // Normalise positions through the swimlane auto-layout so the generated
       // map lands tidy (no overlap), regardless of returned positions.
       const generated = data.map as MapType;
