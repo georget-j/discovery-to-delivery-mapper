@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { MODELS } from "@/lib/llm/models";
+import { MODELS, completionParams } from "@/lib/llm/models";
 import { z } from "zod";
 import { NotesExtractionResultSchema } from "@/lib/schemas";
 import {
@@ -76,8 +76,7 @@ export async function POST(req: NextRequest) {
           ...trimmed.map((m) => ({ role: m.role, content: m.content })),
         ],
         response_format: { type: "json_object" },
-        temperature: 0.3,
-        max_tokens: 2000,
+        ...completionParams(MODELS.chat, { temperature: 0.3, maxTokens: 2000 }),
       }),
     });
 

@@ -10,6 +10,7 @@ import {
 import {
   buildCurrentStateWorkflowPrompt,
   buildFutureStateAIWorkflowPrompt,
+  slimCurrentMap,
   WORKFLOW_PROMPT_VERSION,
 } from "../lib/visualisations/prompts";
 import { GeneratedArtifactsSchema } from "../lib/schemas";
@@ -198,6 +199,68 @@ describe("buildCurrentStateWorkflowPrompt", () => {
 
   it("WORKFLOW_PROMPT_VERSION is set", () => {
     expect(WORKFLOW_PROMPT_VERSION).toBeTruthy();
+  });
+
+  it("no longer asks the model for layout/position data", () => {
+    const { user } = buildCurrentStateWorkflowPrompt(fintech);
+    expect(user).not.toMatch(/LAYOUT RULES/);
+    expect(user).not.toMatch(/"position"/);
+    expect(user).toMatch(/lays nodes out automatically/i);
+  });
+
+  it("includes a concrete few-shot example map", () => {
+    const { user } = buildCurrentStateWorkflowPrompt(fintech);
+    expect(user).toContain("Example output");
+    expect(user).toContain("csm_acme_invoice");
+  });
+
+  it("fences KB excerpts when context chunks are provided, omits the block otherwise", () => {
+    const withKb = buildCurrentStateWorkflowPrompt(fintech, [
+      { id: "k1", text: "Analysts re-key data into LexisNexis", label: "ops.pdf" },
+    ]);
+    expect(withKb.user).toContain('<untrusted_document_excerpt id="k1"');
+    expect(withKb.user).toMatch(/KNOWLEDGE BASE EXCERPTS/);
+    const without = buildCurrentStateWorkflowPrompt(fintech);
+    expect(without.user).not.toMatch(/KNOWLEDGE BASE EXCERPTS/);
+  });
+
+  it("carries the untrusted-document rule in the system prompt", () => {
+    const { system } = buildCurrentStateWorkflowPrompt(fintech);
+    expect(system).toMatch(/untrusted_document_excerpt/);
+  });
+});
+
+describe("slimCurrentMap", () => {
+  it("keeps structure but drops positions, timestamps, hashes, and assumptions", () => {
+    const slim = slimCurrentMap({
+      id: "csm_1",
+      projectId: "p",
+      title: "T",
+      lanes: [{ id: "l1", title: "Lane" }],
+      nodes: [
+        {
+          id: "n1",
+          type: "human_step",
+          laneId: "l1",
+          title: "Step",
+          description: "desc",
+          position: { x: 123, y: 456 },
+        },
+      ],
+      edges: [{ id: "e1", source: "n1", target: "n1", label: "loop" }],
+      assumptions: ["secret assumption"],
+      generatedFromSourceIds: [],
+      source: "manual",
+      updatedAt: "2026-01-01T00:00:00Z",
+      derivedFromHash: "hash123",
+    });
+    expect(slim).toContain("n1");
+    expect(slim).toContain("desc");
+    expect(slim).toContain("loop");
+    expect(slim).not.toContain("123");
+    expect(slim).not.toContain("hash123");
+    expect(slim).not.toContain("secret assumption");
+    expect(slim).not.toContain("2026-01-01");
   });
 });
 

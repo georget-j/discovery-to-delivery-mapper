@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { MODELS } from "@/lib/llm/models";
+import { MODELS, completionParams } from "@/lib/llm/models";
 import { guardApiRequest } from "@/lib/api-guards";
 
 // Per-doc summary endpoint. Caller posts the first N chunks of a doc and
@@ -62,8 +62,7 @@ export async function POST(req: NextRequest) {
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userPrompt },
         ],
-        temperature: 0.2,
-        max_tokens: 300,
+        ...completionParams(MODELS.cheap, { temperature: 0.2, maxTokens: 300 }),
       }),
     });
     if (!response.ok) throw new Error(`OpenAI ${response.status}`);

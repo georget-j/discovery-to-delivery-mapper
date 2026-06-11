@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import { MODELS } from "./models";
+import { MODELS, completionParams } from "./models";
 
 // Shared "call OpenAI, get schema-valid JSON back" helper for generation
 // routes. Centralises the failure handling the routes used to fumble
@@ -29,6 +29,38 @@ type CallOutcome =
   | { ok: true; content: string }
   | { ok: false; error: GenerateJsonErrorCode };
 
+// OpenAI strict structured outputs require every property to be listed in
+// `required`, with optionality expressed as nullable types — so the model
+// emits explicit nulls where our Zod schemas expect absent keys. Strip them
+// before validation. Exported for tests.
+export function stripNulls(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stripNulls);
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) {
+      if (v === null) continue;
+      out[k] = stripNulls(v);
+    }
+    return out;
+  }
+  return value;
+}
+
+export type JsonSchemaSpec = { name: string; schema: Record<string, unknown> };
+
+function responseFormat(jsonSchema?: JsonSchemaSpec): Record<string, unknown> {
+  return jsonSchema
+    ? {
+        type: "json_schema",
+        json_schema: {
+          name: jsonSchema.name,
+          strict: true,
+          schema: jsonSchema.schema,
+        },
+      }
+    : { type: "json_object" };
+}
+
 async function callOnce(
   apiKey: string,
   model: string,
@@ -36,6 +68,7 @@ async function callOnce(
   temperature: number,
   maxTokens: number,
   timeoutMs: number,
+  jsonSchema?: JsonSchemaSpec,
 ): Promise<CallOutcome> {
   let response: Response;
   try {
@@ -48,9 +81,8 @@ async function callOnce(
       body: JSON.stringify({
         model,
         messages,
-        response_format: { type: "json_object" },
-        temperature,
-        max_tokens: maxTokens,
+        response_format: responseFormat(jsonSchema),
+        ...completionParams(model, { temperature, maxTokens }),
       }),
       signal: AbortSignal.timeout(timeoutMs),
     });
@@ -90,6 +122,9 @@ export async function generateValidatedJson<S extends z.ZodTypeAny>(opts: {
   temperature?: number;
   maxTokens?: number;
   timeoutMs?: number;
+  // Hand-written OpenAI strict JSON Schema. When set, the decoder enforces
+  // enums/required/no-extra-keys and the repair pass becomes a rare path.
+  jsonSchema?: JsonSchemaSpec;
 }): Promise<GenerateJsonResult<z.infer<S>>> {
   const {
     apiKey,
@@ -100,6 +135,7 @@ export async function generateValidatedJson<S extends z.ZodTypeAny>(opts: {
     temperature = 0.3,
     maxTokens = 4000,
     timeoutMs = DEFAULT_TIMEOUT_MS,
+    jsonSchema,
   } = opts;
 
   const baseMessages: Message[] = [
@@ -114,6 +150,7 @@ export async function generateValidatedJson<S extends z.ZodTypeAny>(opts: {
     temperature,
     maxTokens,
     timeoutMs,
+    jsonSchema,
   );
   if (!first.ok) return { ok: false, error: first.error };
 
@@ -123,6 +160,7 @@ export async function generateValidatedJson<S extends z.ZodTypeAny>(opts: {
   } catch {
     return { ok: false, error: "invalid_json" };
   }
+  if (jsonSchema) raw = stripNulls(raw);
 
   const validated = schema.safeParse(raw);
   if (validated.success) {
@@ -151,6 +189,7 @@ export async function generateValidatedJson<S extends z.ZodTypeAny>(opts: {
     temperature,
     maxTokens,
     timeoutMs,
+    jsonSchema,
   );
   if (!repair.ok) return { ok: false, error: repair.error, raw };
 
@@ -160,6 +199,7 @@ export async function generateValidatedJson<S extends z.ZodTypeAny>(opts: {
   } catch {
     return { ok: false, error: "invalid_output", raw };
   }
+  if (jsonSchema) repairedRaw = stripNulls(repairedRaw);
 
   const revalidated = schema.safeParse(repairedRaw);
   if (revalidated.success) {

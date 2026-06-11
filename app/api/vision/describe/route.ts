@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { MODELS } from "@/lib/llm/models";
+import { MODELS, completionParams } from "@/lib/llm/models";
 import { guardApiRequest } from "@/lib/api-guards";
 
 // Multi-modal helper: takes 1..N PNG/JPEG data URLs (one per slide/page/diagram)
@@ -104,8 +104,7 @@ export async function POST(req: NextRequest) {
                 ],
               },
             ],
-            temperature: 0.2,
-            max_tokens: 300,
+            ...completionParams(MODELS.cheap, { temperature: 0.2, maxTokens: 300 }),
           }),
         },
       );

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { MODELS } from "@/lib/llm/models";
+import { MODELS, completionParams } from "@/lib/llm/models";
 import {
   guardApiRequest,
   parseBoundedJson,
@@ -94,8 +94,7 @@ export async function POST(req: NextRequest) {
           ...bounded.map((t) => ({ role: t.role, content: t.content })),
           { role: "user", content: message },
         ],
-        temperature: 0.4,
-        max_tokens: 800,
+        ...completionParams(MODELS.chat, { temperature: 0.4, maxTokens: 800 }),
       }),
     });
 
