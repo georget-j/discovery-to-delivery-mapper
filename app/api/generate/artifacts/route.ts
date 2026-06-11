@@ -4,7 +4,7 @@ import { buildArtifactPrompt } from "@/lib/prompts";
 import { GeneratedArtifactsSchema } from "@/lib/schemas";
 import { generateTemplateArtifacts } from "@/lib/artifact-templates";
 import { hashGenerationInputs } from "@/lib/artifact-helpers";
-import { looksLikeProject } from "@/lib/api-guards";
+import { guardApiRequest, looksLikeProject } from "@/lib/api-guards";
 import { industryVoice } from "@/lib/industry-personae";
 
 // Stamp every generated GeneratedArtifacts blob with the input hash + timestamp
@@ -26,7 +26,15 @@ const ARTIFACTS_MAX_BODY_BYTES = 1.5 * 1024 * 1024;
 
 type KbContextChunk = { id: string; text: string; label?: string };
 
+// Each chunk is interpolated verbatim into the prompt, so per-chunk text and
+// label must be capped or a crafted payload could amplify tokens well past
+// what the body-size limit implies.
+const KB_CHUNK_MAX_TEXT_CHARS = 4000;
+const KB_CHUNK_MAX_LABEL_CHARS = 200;
+
 export async function POST(req: NextRequest) {
+  const blocked = guardApiRequest(req);
+  if (blocked) return blocked;
   const declared = Number(req.headers.get("content-length") ?? 0);
   if (declared > ARTIFACTS_MAX_BODY_BYTES) {
     return NextResponse.json({ error: "too_large" }, { status: 413 });
@@ -54,7 +62,22 @@ export async function POST(req: NextRequest) {
   if (maybeWrapped && looksLikeProject(maybeWrapped.project)) {
     project = maybeWrapped.project as OnboardingProject;
     if (Array.isArray(maybeWrapped.kbContext)) {
-      kbContext = (maybeWrapped.kbContext as KbContextChunk[]).slice(0, 16);
+      kbContext = (maybeWrapped.kbContext as unknown[])
+        .filter(
+          (c): c is KbContextChunk =>
+            !!c &&
+            typeof c === "object" &&
+            typeof (c as KbContextChunk).id === "string" &&
+            typeof (c as KbContextChunk).text === "string",
+        )
+        .slice(0, 16)
+        .map((c) => ({
+          id: c.id,
+          text: c.text.slice(0, KB_CHUNK_MAX_TEXT_CHARS),
+          ...(typeof c.label === "string"
+            ? { label: c.label.slice(0, KB_CHUNK_MAX_LABEL_CHARS) }
+            : {}),
+        }));
     }
   } else if (looksLikeProject(body)) {
     project = body as OnboardingProject;

@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { NotesExtractionResultSchema } from "@/lib/schemas";
-import { parseBoundedJson } from "@/lib/api-guards";
+import {
+  guardApiRequest,
+  parseBoundedJson,
+  looksLikeProject,
+} from "@/lib/api-guards";
 import {
   INTERVIEW_SYSTEM_PROMPT,
   serializeInterviewContext,
@@ -26,6 +30,9 @@ const ChatResponseSchema = z.object({
 const MAX_HISTORY = 20;
 
 export async function POST(req: NextRequest) {
+  const blocked = guardApiRequest(req);
+  if (blocked) return blocked;
+
   const parsed = await parseBoundedJson<{
     project?: OnboardingProject;
     history?: unknown;
@@ -35,7 +42,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error }, { status });
   }
   const { project, history } = parsed.data ?? {};
-  if (!project) {
+  if (!looksLikeProject(project)) {
     return NextResponse.json({ error: "invalid_project" }, { status: 400 });
   }
   const historyParsed = z.array(MessageSchema).safeParse(history);
@@ -49,7 +56,7 @@ export async function POST(req: NextRequest) {
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: "no_api_key" });
+    return NextResponse.json({ error: "no_api_key" }, { status: 503 });
   }
 
   const systemMessage = `${INTERVIEW_SYSTEM_PROMPT}\n\nPROJECT STATE SO FAR:\n${serializeInterviewContext(project)}`;
@@ -85,18 +92,22 @@ export async function POST(req: NextRequest) {
     const validated = ChatResponseSchema.safeParse(parsedJson);
     if (!validated.success) {
       console.error("Chat schema validation failed:", validated.error);
-      return NextResponse.json({
-        error: "chat_failed",
-        message: `Response did not match schema: ${validated.error.issues[0]?.message ?? "validation error"}`,
-      });
+      return NextResponse.json(
+        {
+          error: "chat_failed",
+          message: `Response did not match schema: ${validated.error.issues[0]?.message ?? "validation error"}`,
+        },
+        { status: 502 },
+      );
     }
 
     return NextResponse.json(validated.data);
   } catch (err) {
+    // err.message can carry upstream/model fragments — keep it server-side.
     console.error("Discovery chat failed:", err);
-    return NextResponse.json({
-      error: "chat_failed",
-      message: err instanceof Error ? err.message : "Unknown error",
-    });
+    return NextResponse.json(
+      { error: "chat_failed", message: "Chat request failed" },
+      { status: 502 },
+    );
   }
 }

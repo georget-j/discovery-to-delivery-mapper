@@ -4,10 +4,20 @@ import { FutureStateAIWorkflowMapSchema } from "@/lib/visualisations/workflow-ty
 import { buildFutureStateAIWorkflowPrompt } from "@/lib/visualisations/prompts";
 import { buildFutureStateAIWorkflowTemplate } from "@/lib/visualisations/workflow-templates";
 import { hashWorkflows } from "@/lib/visualisations/workflow-helpers";
-import { parseBoundedJson, looksLikeProject } from "@/lib/api-guards";
+import {
+  guardApiRequest,
+  parseBoundedJson,
+  looksLikeProject,
+} from "@/lib/api-guards";
 
 export async function POST(req: NextRequest) {
-  const parsed = await parseBoundedJson<{ project?: unknown; currentStateMapId?: string }>(req);
+  const blocked = guardApiRequest(req);
+  if (blocked) return blocked;
+
+  const parsed = await parseBoundedJson<{
+    project?: unknown;
+    currentStateMapId?: string;
+  }>(req);
   if (!parsed.ok) {
     const status = parsed.error === "too_large" ? 413 : 400;
     return NextResponse.json({ error: parsed.error }, { status });
@@ -17,7 +27,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "invalid_project" }, { status: 400 });
   }
   const project = candidate as OnboardingProject;
-  const currentStateMapId = typeof parsed.data?.currentStateMapId === "string" ? parsed.data.currentStateMapId : undefined;
+  const currentStateMapId =
+    typeof parsed.data?.currentStateMapId === "string"
+      ? parsed.data.currentStateMapId
+      : undefined;
 
   const apiKey = process.env.OPENAI_API_KEY;
   const currentMap = project.visualisations?.currentStateWorkflowMap;
@@ -28,7 +41,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { system, user } = buildFutureStateAIWorkflowPrompt(project, currentMap);
+    const { system, user } = buildFutureStateAIWorkflowPrompt(
+      project,
+      currentMap,
+    );
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -58,11 +74,17 @@ export async function POST(req: NextRequest) {
 
     if (!validated.success) {
       console.error("Future-state map AI validation failed:", validated.error);
-      const map = buildFutureStateAIWorkflowTemplate(project, currentStateMapId);
+      const map = buildFutureStateAIWorkflowTemplate(
+        project,
+        currentStateMapId,
+      );
       return NextResponse.json({ map, source: "template_fallback" });
     }
 
-    const map = { ...validated.data, derivedFromHash: hashWorkflows(project.workflows) };
+    const map = {
+      ...validated.data,
+      derivedFromHash: hashWorkflows(project.workflows),
+    };
     return NextResponse.json({ map, source: "ai" });
   } catch (err) {
     console.error("Future-state map AI generation failed:", err);

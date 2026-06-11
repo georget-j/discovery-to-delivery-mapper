@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { parseBoundedJson, looksLikeProject } from "@/lib/api-guards";
+import {
+  guardApiRequest,
+  parseBoundedJson,
+  looksLikeProject,
+} from "@/lib/api-guards";
 import { projectContextBundle } from "@/lib/copilot-context";
 import { industryVoice } from "@/lib/industry-personae";
 import type { OnboardingProject } from "@/lib/types";
@@ -29,6 +33,9 @@ type Payload = {
 };
 
 export async function POST(req: NextRequest) {
+  const blocked = guardApiRequest(req);
+  if (blocked) return blocked;
+
   const parsed = await parseBoundedJson<Payload>(req);
   if (!parsed.ok) {
     const status = parsed.error === "too_large" ? 413 : 400;
@@ -48,7 +55,7 @@ export async function POST(req: NextRequest) {
   const project = projectRaw as OnboardingProject;
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: "no_api_key" });
+    return NextResponse.json({ error: "no_api_key" }, { status: 503 });
   }
 
   const turns: Turn[] = Array.isArray(history)
@@ -92,10 +99,16 @@ export async function POST(req: NextRequest) {
     });
 
     if (!response.ok) {
+      // Upstream error bodies can include request echoes — log server-side only.
       const detail = await response.text().catch(() => "");
-      throw new Error(
-        `OpenAI API error: ${response.status} — ${detail.slice(0, 200)}`,
+      console.error(
+        `Copilot upstream ${response.status}:`,
+        detail.slice(0, 500),
       );
+      if (response.status === 429) {
+        return NextResponse.json({ error: "rate_limited" }, { status: 429 });
+      }
+      throw new Error(`OpenAI ${response.status}`);
     }
 
     const data = await response.json();
@@ -104,10 +117,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ reply: content.trim() });
   } catch (err) {
+    // err.message can carry upstream/model fragments — keep it server-side.
     console.error("Copilot turn failed:", err);
-    return NextResponse.json({
-      error: "copilot_failed",
-      message: err instanceof Error ? err.message : "Unknown error",
-    });
+    return NextResponse.json(
+      { error: "copilot_failed", message: "Copilot request failed" },
+      { status: 502 },
+    );
   }
 }

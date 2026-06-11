@@ -44,7 +44,8 @@ export function FirstRunHint() {
         </p>
         <p className="text-[11px] text-muted-foreground/80">
           Discovery can be a chat interview or a form — your choice. Everything
-          auto-saves to your browser. No account, no backend.
+          auto-saves to your browser. No account, no backend. AI features send
+          project content to OpenAI.
         </p>
       </div>
       <button

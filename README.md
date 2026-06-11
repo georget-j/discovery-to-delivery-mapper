@@ -76,7 +76,7 @@ Teams that turn customer discovery into delivery — the people sitting between 
 
 Notable `lib/` areas: `lib/kb/` (chunker, IndexedDB storage, embed client, retrieval), `lib/patterns/` (automation pattern catalogue + market solution library), `lib/visualisations/` (workflow types, auto-layout, node proposals, workflow review, stage ordering).
 
-**Persistence:** project state lives in `localStorage` (migrated from `sessionStorage`); knowledge-base chunks + embeddings live in `IndexedDB` (`dtdm-knowledge-base`). No backend required.
+**Persistence:** project state lives in `localStorage` (migrated from `sessionStorage`); knowledge-base chunks + embeddings live in `IndexedDB` (`dtdm-knowledge-base`). No backend required. Note that AI features (generation, embeddings, voice, vision) send the relevant project content to OpenAI's API — don't feed real customer PII into the public demo.
 
 ---
 
@@ -124,6 +124,11 @@ Open [http://localhost:3000](http://localhost:3000)
 | Variable         | Required | Description                                                                                                                                                |
 | ---------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `OPENAI_API_KEY` | Optional | Enables AI generation, recommendations, embeddings, and voice transcription. Without it, deterministic templates are used and KB/voice features are inert. |
+
+### Security notes
+
+- API routes are same-origin-checked and per-IP rate-limited, but the durable spend bound is an OpenAI budget cap on the key — set one for any deployed instance (and optionally add a Vercel WAF rate rule on `/api/*`).
+- Security headers, including a CSP, are set in `next.config.ts`.
 
 ---
 

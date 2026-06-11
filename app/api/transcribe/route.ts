@@ -1,16 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
+import { guardApiRequest } from "@/lib/api-guards";
 
 // Fallback transcription endpoint for browsers without SpeechRecognition
 // (Firefox primarily). Receives a raw audio blob via multipart/form-data
 // and proxies to OpenAI Whisper. Native SpeechRecognition stays the
 // primary path because it's free + streaming.
 
-const MAX_BYTES = 25 * 1024 * 1024; // OpenAI's per-file ceiling
+const MAX_BYTES = 4 * 1024 * 1024; // Vercel rejects bodies >4.5MB at the edge anyway
 
 export async function POST(req: NextRequest) {
+  const blocked = guardApiRequest(req, { json: false, limit: 10 });
+  if (blocked) return blocked;
+
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: "no_api_key" });
+    return NextResponse.json({ error: "no_api_key" }, { status: 503 });
+  }
+
+  // Reject oversized uploads from the declared length before buffering the
+  // whole body into memory; the file.size check below is the backstop.
+  const declared = Number(req.headers.get("content-length") ?? 0);
+  if (declared > MAX_BYTES) {
+    return NextResponse.json({ error: "audio_too_large" }, { status: 413 });
   }
 
   let form: FormData;
@@ -46,19 +57,19 @@ export async function POST(req: NextRequest) {
     );
 
     if (!response.ok) {
+      // Log the upstream body server-side only — it must not reach the client.
       const detail = await response.text().catch(() => "");
-      throw new Error(
-        `Whisper error ${response.status}: ${detail.slice(0, 200)}`,
-      );
+      console.error(`Whisper error ${response.status}:`, detail.slice(0, 500));
+      throw new Error(`Whisper error ${response.status}`);
     }
 
     const text = (await response.text()).trim();
     return NextResponse.json({ text });
   } catch (err) {
     console.error("Transcription failed:", err);
-    return NextResponse.json({
-      error: "transcription_failed",
-      message: err instanceof Error ? err.message : "Unknown error",
-    });
+    return NextResponse.json(
+      { error: "transcription_failed", message: "transcription failed" },
+      { status: 502 },
+    );
   }
 }

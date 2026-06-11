@@ -4,9 +4,16 @@ import { CurrentStateWorkflowMapSchema } from "@/lib/visualisations/workflow-typ
 import { buildCurrentStateWorkflowPrompt } from "@/lib/visualisations/prompts";
 import { buildCurrentStateWorkflowTemplate } from "@/lib/visualisations/workflow-templates";
 import { hashWorkflows } from "@/lib/visualisations/workflow-helpers";
-import { parseBoundedJson, looksLikeProject } from "@/lib/api-guards";
+import {
+  guardApiRequest,
+  parseBoundedJson,
+  looksLikeProject,
+} from "@/lib/api-guards";
 
 export async function POST(req: NextRequest) {
+  const blocked = guardApiRequest(req);
+  if (blocked) return blocked;
+
   const parsed = await parseBoundedJson<{ project?: unknown }>(req);
   if (!parsed.ok) {
     const status = parsed.error === "too_large" ? 413 : 400;
@@ -62,7 +69,10 @@ export async function POST(req: NextRequest) {
 
     // Stamp the workflow hash so the canvas knows when it's stale against the
     // current step list. Trusting the AI to compute it would be silly.
-    const map = { ...validated.data, derivedFromHash: hashWorkflows(project.workflows) };
+    const map = {
+      ...validated.data,
+      derivedFromHash: hashWorkflows(project.workflows),
+    };
     return NextResponse.json({ map, source: "ai" });
   } catch (err) {
     console.error("Current-state map AI generation failed:", err);

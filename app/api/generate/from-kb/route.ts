@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { NotesExtractionResultSchema } from "@/lib/schemas";
-import { parseBoundedJson, MAX_BODY_BYTES } from "@/lib/api-guards";
+import {
+  FromKbRequestSchema,
+  NotesExtractionResultSchema,
+} from "@/lib/schemas";
+import { guardApiRequest, parseBoundedJson } from "@/lib/api-guards";
+import { fenceKbChunks, UNTRUSTED_DOCUMENT_RULE } from "@/lib/prompts";
 import type { OnboardingProject } from "@/lib/types";
 
 // Generate suggestions GROUNDED in retrieved knowledge-base chunks. The
@@ -11,7 +15,7 @@ import type { OnboardingProject } from "@/lib/types";
 // map of suggestion-row-id → chunk ids so the merge layer can stamp
 // sourceRefs.
 
-export const FROM_KB_PROMPT_VERSION = "1";
+export const FROM_KB_PROMPT_VERSION = "2";
 
 // Override the 256KB body cap — KB context chunks can push past that.
 const FROM_KB_MAX_BODY_BYTES = 1.5 * 1024 * 1024; // 1.5 MB
@@ -36,13 +40,13 @@ const SYSTEM_PROMPT = `You are an expert AI deployment strategist helping a forw
 
 You are given:
 - The customer profile + Discovery state captured so far
-- A list of KB_CONTEXT chunks retrieved from documents the user uploaded
+- KB_CONTEXT: excerpts retrieved from documents the user uploaded, each wrapped in an <untrusted_document_excerpt> tag whose id attribute is the chunk id
 
 Your job: extract concrete, grounded entries that the user can review for one or more of: Discovery fields, Workflows, Systems, Data Sources, Stakeholders, Risks.
 
 CRITICAL RULES
-- Only assert facts that the KB chunks support, OR that are widely true given the customer's industry + business problem. Do NOT invent specific tools, names, or numbers that aren't in the chunks.
-- Quote terms verbatim when they appear in the chunks (system names, team names, regulatory tags).
+- Only assert facts that the KB excerpts support, OR that are widely true given the customer's industry + business problem. Do NOT invent specific tools, names, or numbers that aren't in the excerpts.
+- Quote terms verbatim when they appear in the excerpts (system names, team names, regulatory tags).
 - If a category has no KB support and no reasonable inference, return an empty array — don't pad.
 - Never invent stakeholder NAMES. Leave name="" and fill role + team only.
 
@@ -73,7 +77,9 @@ OUTPUT SHAPE — return a JSON object with these top-level keys (all optional EX
 TARGET SCOPING
 - If target == "discovery": fill the \`discovery\` field, leave the others empty.
 - If target == "workflows" | "systems" | "stakeholders" | "risks": return ONLY the matching suggestedX field + summary.
-- If target == "all": fill any category the KB supports.`;
+- If target == "all": fill any category the KB supports.
+
+${UNTRUSTED_DOCUMENT_RULE}`;
 
 function serializeContext(project: OnboardingProject): string {
   const c = project.customer;
@@ -111,44 +117,22 @@ function serializeContext(project: OnboardingProject): string {
   );
 }
 
-function serializeChunks(
-  chunks: { id: string; text: string; label?: string }[],
-): string {
-  return chunks
-    .map(
-      (c, i) =>
-        `[chunk:${c.id}] (${c.label ?? `#${i + 1}`})\n${c.text.slice(0, 4000)}`,
-    )
-    .join("\n\n---\n\n");
-}
-
 export async function POST(req: NextRequest) {
-  // Inline bounded parse with the larger ceiling.
-  const declared = Number(req.headers.get("content-length") ?? 0);
-  if (declared > FROM_KB_MAX_BODY_BYTES) {
-    return NextResponse.json({ error: "too_large" }, { status: 413 });
-  }
-  let raw: string;
-  try {
-    raw = await req.text();
-  } catch {
-    return NextResponse.json({ error: "invalid_json" }, { status: 400 });
-  }
-  if (raw.length > FROM_KB_MAX_BODY_BYTES) {
-    return NextResponse.json({ error: "too_large" }, { status: 413 });
-  }
-  let parsed: {
+  const blocked = guardApiRequest(req);
+  if (blocked) return blocked;
+
+  // Bounded parse with the larger ceiling.
+  const parsed = await parseBoundedJson<{
     project?: OnboardingProject;
     target?: Target;
     contextChunks?: { id: string; text: string; label?: string }[];
-  };
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return NextResponse.json({ error: "invalid_json" }, { status: 400 });
+  }>(req, FROM_KB_MAX_BODY_BYTES);
+  if (!parsed.ok) {
+    const status = parsed.error === "too_large" ? 413 : 400;
+    return NextResponse.json({ error: parsed.error }, { status });
   }
 
-  const { project, target = "all", contextChunks = [] } = parsed;
+  const { project, target = "all", contextChunks = [] } = parsed.data;
   if (!project || !project.customer || !project.discovery) {
     return NextResponse.json({ error: "invalid_project" }, { status: 400 });
   }
@@ -162,15 +146,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "too_much_context" }, { status: 400 });
   }
 
+  // The wire shape carries the full project; the schema owns the rest.
+  // Rejects non-string chunk ids/text before they reach the prompt builder.
+  const shaped = FromKbRequestSchema.safeParse({
+    projectId: project.id,
+    target,
+    contextChunks,
+  });
+  if (!shaped.success) {
+    return NextResponse.json({ error: "invalid_input" }, { status: 400 });
+  }
+
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: "no_api_key" });
+    return NextResponse.json({ error: "no_api_key" }, { status: 503 });
   }
 
   const userPrompt = [
     `TARGET: ${target}`,
     `\nPROJECT_CONTEXT:\n${serializeContext(project)}`,
-    `\nKB_CONTEXT:\n${serializeChunks(contextChunks)}`,
+    `\nKB_CONTEXT:\n${fenceKbChunks(contextChunks, 4000)}`,
     `\nProduce a NotesExtractionResult JSON object that reflects everything the KB supports for this target.`,
   ].join("\n");
 
@@ -205,10 +200,13 @@ export async function POST(req: NextRequest) {
     const validated = NotesExtractionResultSchema.safeParse(parsedJson);
     if (!validated.success) {
       console.error("from-kb schema validation failed:", validated.error);
-      return NextResponse.json({
-        error: "generation_failed",
-        message: `Response did not match schema: ${validated.error.issues[0]?.message ?? "validation error"}`,
-      });
+      return NextResponse.json(
+        {
+          error: "generation_failed",
+          message: `Response did not match schema: ${validated.error.issues[0]?.message ?? "validation error"}`,
+        },
+        { status: 502 },
+      );
     }
 
     return NextResponse.json({
@@ -216,14 +214,11 @@ export async function POST(req: NextRequest) {
       chunkIds: contextChunks.map((c) => c.id),
     });
   } catch (err) {
+    // err.message can carry upstream/model fragments — keep it server-side.
     console.error("from-kb generation failed:", err);
-    return NextResponse.json({
-      error: "generation_failed",
-      message: err instanceof Error ? err.message : "Unknown error",
-    });
+    return NextResponse.json(
+      { error: "generation_failed", message: "Generation failed" },
+      { status: 502 },
+    );
   }
 }
-
-// Reference to keep tree-shaker honest about the import existing.
-void MAX_BODY_BYTES;
-void parseBoundedJson;

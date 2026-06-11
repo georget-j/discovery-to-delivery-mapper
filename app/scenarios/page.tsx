@@ -47,7 +47,8 @@ export default function ScenariosPage() {
         <p>
           The demo scenarios above are fictional. Customer names, data, and
           situations are invented for demonstration purposes. Blank projects you
-          create are stored locally in this browser only.
+          create are stored locally in this browser only. AI features send
+          project content to OpenAI.
         </p>
       </div>
     </div>
