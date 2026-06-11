@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { guardApiRequest } from "@/lib/api-guards";
 
 // Multi-modal helper: takes 1..N PNG/JPEG data URLs (one per slide/page/diagram)
 // and returns a per-image text description. The caller (intake queue's "Describe
@@ -10,7 +11,12 @@ import { NextRequest, NextResponse } from "next/server";
 // client. A vision-described-then-text-embedded path captures most of the
 // signal at zero extra dependency cost.
 
-const VISION_MAX_BODY_BYTES = 20 * 1024 * 1024; // 20 MB — images are heavy
+const VISION_MAX_BODY_BYTES = 6 * 1024 * 1024; // 6 MB — 8 low-detail page renders fit well under this
+const MAX_IMAGES = 8; // matches MAX_PAGES_PER_RUN in lib/kb/vision.ts
+
+// The legit client only ever sends canvas data: URLs. Refusing anything else
+// stops this route from being a pass-arbitrary-URL-to-OpenAI fetch proxy.
+const DATA_URL_RE = /^data:image\/(png|jpe?g|webp|gif);base64,/;
 
 const SYSTEM_PROMPT = `You describe a single page or diagram image for a forward-deployed onboarding workspace.
 Output: one paragraph (≤ 100 words). Focus on:
@@ -24,6 +30,9 @@ type VisionRequest = {
 };
 
 export async function POST(req: NextRequest) {
+  const blocked = guardApiRequest(req, { limit: 10 });
+  if (blocked) return blocked;
+
   const declared = Number(req.headers.get("content-length") ?? 0);
   if (declared > VISION_MAX_BODY_BYTES) {
     return NextResponse.json({ error: "too_large" }, { status: 413 });
@@ -47,13 +56,20 @@ export async function POST(req: NextRequest) {
   if (images.length === 0) {
     return NextResponse.json({ error: "no_images" }, { status: 400 });
   }
-  if (images.length > 12) {
+  if (images.length > MAX_IMAGES) {
     return NextResponse.json({ error: "too_many" }, { status: 400 });
+  }
+  if (
+    !images.every(
+      (img) => typeof img.dataUrl === "string" && DATA_URL_RE.test(img.dataUrl),
+    )
+  ) {
+    return NextResponse.json({ error: "invalid_image" }, { status: 400 });
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: "no_api_key" });
+    return NextResponse.json({ error: "no_api_key" }, { status: 503 });
   }
 
   const descriptions: { id: string; text: string }[] = [];
@@ -105,10 +121,10 @@ export async function POST(req: NextRequest) {
         "(Empty description)";
       descriptions.push({ id: img.id, text });
     } catch (err) {
-      descriptions.push({
-        id: img.id,
-        text: `(Vision call errored: ${err instanceof Error ? err.message : String(err)})`,
-      });
+      // Per-image partial success is deliberate; log the real error server-side
+      // and keep upstream/error text out of the returned description.
+      console.error("Vision call errored:", err);
+      descriptions.push({ id: img.id, text: "(Vision call errored)" });
     }
   }
 

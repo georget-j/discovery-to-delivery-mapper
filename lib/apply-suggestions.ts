@@ -37,7 +37,7 @@ function citationRefs(citations?: KbCitationMap): SourceRef[] {
   return Object.entries(citations).map(([refId, label]) => ({
     type: "knowledge_base_chunk" as const,
     refId,
-    label,
+    label: clampText(label, SHORT_TEXT_MAX),
   }));
 }
 
@@ -108,6 +108,24 @@ function pick<T extends string>(
   return valid.includes(candidate as T) ? (candidate as T) : fallback;
 }
 
+// Caps for AI/document-derived free text merged into persistent project
+// state. Single-line fields (names, roles, titles, teams) are capped at
+// SHORT_TEXT_MAX and lose newlines; long fields (descriptions, notes,
+// mitigations, concerns, pain points) are capped at LONG_TEXT_MAX and keep
+// newlines. ASCII control characters are stripped in both cases. Incoming
+// suggestion arrays are capped at MAX_ITEMS_PER_APPLY rows per category.
+const SHORT_TEXT_MAX = 200;
+const LONG_TEXT_MAX = 2000;
+const MAX_ITEMS_PER_APPLY = 20;
+
+function clampText(s: string, max: number): string {
+  const stripControls =
+    max >= LONG_TEXT_MAX
+      ? /[\x00-\x09\x0B-\x1F\x7F]/g // keep \n in long fields
+      : /[\x00-\x1F\x7F]/g;
+  return s.slice(0, max).replace(stripControls, "");
+}
+
 export type ApplyResult = {
   patch: Partial<OnboardingProject>;
   appliedLabels: string[];
@@ -139,20 +157,27 @@ export function applySuggestionsToProject(
         key === "primaryUseCase" ||
         key === "desiredOutcome"
       ) {
-        customerPatch[key] = value;
+        customerPatch[key] =
+          typeof value === "string" ? clampText(value, LONG_TEXT_MAX) : value;
         applied.push(`Customer · ${key}`);
       } else if (key === "regulatoryContext" && Array.isArray(value)) {
+        const tags = (value as string[])
+          .slice(0, MAX_ITEMS_PER_APPLY)
+          .map((tag) => clampText(tag, SHORT_TEXT_MAX));
         customerPatch.regulatoryContext = Array.from(
-          new Set([
-            ...(project.customer.regulatoryContext ?? []),
-            ...(value as string[]),
-          ]),
+          new Set([...(project.customer.regulatoryContext ?? []), ...tags]),
         );
         applied.push(
-          `${value.length} regulatory tag${value.length !== 1 ? "s" : ""}`,
+          `${tags.length} regulatory tag${tags.length !== 1 ? "s" : ""}`,
         );
       } else {
-        discoveryPatch[key] = value;
+        discoveryPatch[key] =
+          typeof value === "string"
+            ? clampText(
+                value,
+                key === "buyerTeam" ? SHORT_TEXT_MAX : LONG_TEXT_MAX,
+              )
+            : value;
         applied.push(`Discovery · ${key}`);
       }
     }
@@ -172,6 +197,7 @@ export function applySuggestionsToProject(
   const newStakeholders: Stakeholder[] = (
     suggestions.suggestedStakeholders ?? []
   )
+    .slice(0, MAX_ITEMS_PER_APPLY)
     .map((s, idx) => ({ s, idx }))
     .filter(({ s, idx }) => {
       if (!isPicked(`stakeholder:${idx}` as SuggestionRowId)) return false;
@@ -184,12 +210,17 @@ export function applySuggestionsToProject(
     })
     .map(({ s }) => ({
       id: generateId(),
-      name: s.name ?? "",
-      role: s.role ?? "",
-      team: s.team ?? project.discovery.buyerTeam ?? "",
+      name: clampText(s.name ?? "", SHORT_TEXT_MAX),
+      role: clampText(s.role ?? "", SHORT_TEXT_MAX),
+      team: clampText(
+        s.team ?? project.discovery.buyerTeam ?? "",
+        SHORT_TEXT_MAX,
+      ),
       influence: "medium",
       involvement: "end_user",
-      concerns: s.concerns ?? [],
+      concerns: (s.concerns ?? [])
+        .slice(0, MAX_ITEMS_PER_APPLY)
+        .map((c) => clampText(c, LONG_TEXT_MAX)),
       requiredActions: [],
     }));
   if (newStakeholders.length > 0) {
@@ -204,6 +235,7 @@ export function applySuggestionsToProject(
     project.workflows.map((w) => w.name.toLowerCase()),
   );
   const newWorkflows: WorkflowStep[] = (suggestions.suggestedWorkflows ?? [])
+    .slice(0, MAX_ITEMS_PER_APPLY)
     .map((w, idx) => ({ w, idx }))
     .filter(
       ({ w, idx }) =>
@@ -212,13 +244,18 @@ export function applySuggestionsToProject(
     )
     .map(({ w }) => ({
       id: generateId(),
-      name: w.name,
-      description: w.description ?? "",
-      ownerTeam: w.ownerTeam ?? project.discovery.buyerTeam ?? "",
+      name: clampText(w.name, SHORT_TEXT_MAX),
+      description: clampText(w.description ?? "", LONG_TEXT_MAX),
+      ownerTeam: clampText(
+        w.ownerTeam ?? project.discovery.buyerTeam ?? "",
+        SHORT_TEXT_MAX,
+      ),
       currentSystem: "",
       inputData: [],
       outputArtifact: [],
-      painPoints: w.painPoints ?? [],
+      painPoints: (w.painPoints ?? [])
+        .slice(0, MAX_ITEMS_PER_APPLY)
+        .map((p) => clampText(p, LONG_TEXT_MAX)),
       manualEffort: pick<ManualEffort>(
         w.manualEffort,
         MANUAL_EFFORTS,
@@ -241,6 +278,7 @@ export function applySuggestionsToProject(
     project.systems.map((s) => s.name.toLowerCase()),
   );
   const newSystems: CustomerSystem[] = (suggestions.suggestedSystems ?? [])
+    .slice(0, MAX_ITEMS_PER_APPLY)
     .map((s, idx) => ({ s, idx }))
     .filter(
       ({ s, idx }) =>
@@ -249,7 +287,7 @@ export function applySuggestionsToProject(
     )
     .map(({ s }) => ({
       id: generateId(),
-      name: s.name,
+      name: clampText(s.name, SHORT_TEXT_MAX),
       type: pick<SystemType>(s.type, SYSTEM_TYPES, "other"),
       owner: project.discovery.buyerTeam ?? "",
       accessMethod: "unknown",
@@ -260,7 +298,7 @@ export function applySuggestionsToProject(
           ? "regulated"
           : "medium",
       integrationComplexity: "medium",
-      notes: s.notes ?? "",
+      notes: clampText(s.notes ?? "", LONG_TEXT_MAX),
     }));
   if (newSystems.length > 0) {
     patch.systems = [...project.systems, ...newSystems];
@@ -274,6 +312,7 @@ export function applySuggestionsToProject(
     project.dataSources.map((d) => d.name.toLowerCase()),
   );
   const newSources: DataSource[] = (suggestions.suggestedDataSources ?? [])
+    .slice(0, MAX_ITEMS_PER_APPLY)
     .map((d, idx) => ({ d, idx }))
     .filter(
       ({ d, idx }) =>
@@ -282,7 +321,7 @@ export function applySuggestionsToProject(
     )
     .map(({ d }) => ({
       id: generateId(),
-      name: d.name,
+      name: clampText(d.name, SHORT_TEXT_MAX),
       sourceSystem: "",
       dataType: pick<DataType>(d.dataType, DATA_TYPES, "other"),
       format: pick<DataFormat>(d.format, DATA_FORMATS, "unknown"),
@@ -291,7 +330,7 @@ export function applySuggestionsToProject(
       updateFrequency: "",
       pii: "unknown",
       accessStatus: "unknown",
-      openQuestions: d.notes ? [d.notes] : [],
+      openQuestions: d.notes ? [clampText(d.notes, LONG_TEXT_MAX)] : [],
     }));
   if (newSources.length > 0) {
     patch.dataSources = [...project.dataSources, ...newSources];
@@ -305,6 +344,7 @@ export function applySuggestionsToProject(
     project.risks.map((r) => r.title.toLowerCase()),
   );
   const newRisks: DeploymentRisk[] = (suggestions.suggestedRisks ?? [])
+    .slice(0, MAX_ITEMS_PER_APPLY)
     .map((rk, idx) => ({ rk, idx }))
     .filter(
       ({ rk, idx }) =>
@@ -313,8 +353,8 @@ export function applySuggestionsToProject(
     )
     .map(({ rk }) => ({
       id: generateId(),
-      title: rk.title,
-      description: rk.description ?? "",
+      title: clampText(rk.title, SHORT_TEXT_MAX),
+      description: clampText(rk.description ?? "", LONG_TEXT_MAX),
       category: pick<RiskCategory>(
         rk.category,
         RISK_CATEGORIES,
@@ -327,7 +367,7 @@ export function applySuggestionsToProject(
         "medium",
       ),
       owner: "",
-      mitigation: rk.mitigation ?? "",
+      mitigation: clampText(rk.mitigation ?? "", LONG_TEXT_MAX),
       escalationTrigger: "",
       status: "open",
       source: "manual",

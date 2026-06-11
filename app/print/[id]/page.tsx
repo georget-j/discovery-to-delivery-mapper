@@ -2,6 +2,7 @@
 
 import { use, useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { artifactUrlTransform } from "@/lib/markdown-url-policy";
 import { loadProject } from "@/lib/project-store";
 import { loadScenario } from "@/lib/scenarios";
 import { assembleScopedPack } from "@/lib/markdown-export";
@@ -87,7 +88,9 @@ export default function PrintPackPage({
         id="print-root"
         className="mx-auto max-w-3xl px-8 py-10 prose prose-sm max-w-none text-foreground [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mb-4 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mt-8 [&_h2]:mb-3 [&_h2]:border-b [&_h2]:pb-1 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-5 [&_h3]:mb-2 [&_p]:leading-relaxed [&_table]:w-full [&_table]:border-collapse [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide [&_th]:border-b [&_th]:border-foreground/30 [&_th]:py-1.5 [&_td]:py-1.5 [&_td]:align-top [&_tr]:border-b [&_tr]:border-border [&_blockquote]:border-l-4 [&_blockquote]:border-amber-300 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted-foreground [&_ul]:space-y-1 [&_li]:leading-relaxed [&_hr]:my-6 [&_hr]:border-border"
       >
-        <ReactMarkdown>{markdown}</ReactMarkdown>
+        <ReactMarkdown urlTransform={artifactUrlTransform}>
+          {markdown}
+        </ReactMarkdown>
       </div>
     </>
   );

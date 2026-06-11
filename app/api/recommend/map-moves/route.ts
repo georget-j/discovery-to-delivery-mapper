@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { MapMovesResponseSchema } from "@/lib/schemas";
+import { guardApiRequest } from "@/lib/api-guards";
 import { serializePatternsForPrompt } from "@/lib/patterns/future-state-patterns";
 import type { OnboardingProject } from "@/lib/types";
 import type { FutureStateAIWorkflowMap } from "@/lib/visualisations/workflow-types";
@@ -119,6 +120,9 @@ function serializeCustomer(project: OnboardingProject): string {
 }
 
 export async function POST(req: NextRequest) {
+  const blocked = guardApiRequest(req);
+  if (blocked) return blocked;
+
   const declared = Number(req.headers.get("content-length") ?? 0);
   if (declared > MAP_MOVES_MAX_BODY_BYTES) {
     return NextResponse.json({ error: "too_large" }, { status: 413 });
@@ -153,7 +157,10 @@ export async function POST(req: NextRequest) {
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: "no_api_key", moves: [] });
+    return NextResponse.json(
+      { error: "no_api_key", moves: [] },
+      { status: 503 },
+    );
   }
 
   const slim = slimMap(map);
@@ -199,11 +206,14 @@ export async function POST(req: NextRequest) {
     const validated = MapMovesResponseSchema.safeParse(JSON.parse(content));
     if (!validated.success) {
       console.error("map-moves schema validation failed:", validated.error);
-      return NextResponse.json({
-        error: "generation_failed",
-        moves: [],
-        message: `Response did not match schema: ${validated.error.issues[0]?.message ?? "validation error"}`,
-      });
+      return NextResponse.json(
+        {
+          error: "generation_failed",
+          moves: [],
+          message: `Response did not match schema: ${validated.error.issues[0]?.message ?? "validation error"}`,
+        },
+        { status: 502 },
+      );
     }
 
     // Connection guarantee: clamp every node reference to ids that actually
@@ -236,11 +246,11 @@ export async function POST(req: NextRequest) {
       stageQuestions: validated.data.stageQuestions ?? {},
     });
   } catch (err) {
+    // err.message can carry upstream/model fragments — keep it server-side.
     console.error("Map-moves recommendation failed:", err);
-    return NextResponse.json({
-      error: "generation_failed",
-      moves: [],
-      message: err instanceof Error ? err.message : "Unknown error",
-    });
+    return NextResponse.json(
+      { error: "generation_failed", moves: [], message: "Generation failed" },
+      { status: 502 },
+    );
   }
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { EmbedRequestSchema } from "@/lib/schemas";
+import { guardApiRequest } from "@/lib/api-guards";
 
 // Server-side proxy for OpenAI's text-embedding-3-small. The client batches
 // calls (see lib/kb/embed-client.ts) and this endpoint enforces a per-call
@@ -22,6 +23,9 @@ type OpenAIEmbeddingResponse = {
 };
 
 export async function POST(req: NextRequest) {
+  const blocked = guardApiRequest(req);
+  if (blocked) return blocked;
+
   // Bounded body parse — same pattern as parseBoundedJson but with a larger cap.
   const declaredLength = Number(req.headers.get("content-length") ?? 0);
   if (declaredLength > EMBED_MAX_BODY_BYTES) {
@@ -57,7 +61,7 @@ export async function POST(req: NextRequest) {
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: "no_api_key" });
+    return NextResponse.json({ error: "no_api_key" }, { status: 503 });
   }
 
   let attempt = 0;
@@ -93,11 +97,13 @@ export async function POST(req: NextRequest) {
       }
 
       if (!response.ok) {
-        const message = await response.text().catch(() => "");
+        // Upstream error bodies can include request echoes — log server-side only.
+        const body = await response.text().catch(() => "");
+        console.error(`Embed upstream ${response.status}:`, body.slice(0, 500));
         return NextResponse.json(
           {
             error: "upstream",
-            message: message.slice(0, 500) || `status ${response.status}`,
+            message: `upstream status ${response.status}`,
           },
           { status: 502 },
         );

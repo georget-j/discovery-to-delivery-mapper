@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { RecommendationsResponseSchema } from "@/lib/schemas";
+import { guardApiRequest } from "@/lib/api-guards";
+import { fenceKbChunks, UNTRUSTED_DOCUMENT_RULE } from "@/lib/prompts";
 import {
   PATTERN_BY_ID,
   PATTERNS,
@@ -16,7 +18,7 @@ import type {
 // chunks. Output: per-step (or workflow-level) recommendations with
 // rationale, confidence, and a one-click apply patch.
 
-export const RECOMMEND_PROMPT_VERSION = "1";
+export const RECOMMEND_PROMPT_VERSION = "2";
 
 const RECOMMEND_MAX_BODY_BYTES = 1.5 * 1024 * 1024;
 
@@ -25,7 +27,7 @@ const SYSTEM_PROMPT = `You are an expert AI deployment strategist proposing inno
 You will be given:
 - The customer profile + Discovery context
 - The current workflow steps (with painPoints, manualEffort, frequency, etc.)
-- An (optional) set of KB_CONTEXT chunks retrieved from the customer's uploaded documents
+- An (optional) set of KB_CONTEXT excerpts retrieved from the customer's uploaded documents, each wrapped in an <untrusted_document_excerpt> tag whose id attribute is the chunk id
 
 Your job: produce 1–2 recommendations per step (or fewer if a step doesn't warrant change), plus optionally workflow-level recommendations when no single step is the bottleneck. Each recommendation MUST pick from the AUTOMATION PATTERN CATALOGUE below and explain WHY this pattern fits THIS step.
 
@@ -38,7 +40,7 @@ RULES
 - For each recommendation set patternId to one of the catalogue ids verbatim. Match the family field accordingly.
 - Confidence ∈ [0, 1]: high = explicit pain points + clean automation potential; low = stakeholder concern unresolved, regulatory heavy, or weak grounding.
 - valueProposition: one short sentence stating the business impact (e.g. "Cuts manual review by ~70% with traceable second-look").
-- rationale: 2-3 sentences tying the recommendation to THIS step's pain points / data / volume / stakeholder context. Cite KB chunk IDs (e.g. "[chunk:abc]") when KB chunks support a fact.
+- rationale: 2-3 sentences tying the recommendation to THIS step's pain points / data / volume / stakeholder context. Cite KB excerpts by the id attribute of their <untrusted_document_excerpt> tag (e.g. "[chunk:abc]") when they support a fact.
 - risks: 1-3 short risk titles the pattern typically introduces (you can pull from the catalogue or supplement based on customer context).
 - apply.futureState must be one of: human_led, ai_assisted, automated, requires_approval.
 - apply.futureStateDescription: 1-2 sentences describing what the future-state step looks like in this customer's context — written as if it will be pasted into the step's description field.
@@ -68,7 +70,9 @@ OUTPUT JSON SHAPE
   ]
 }
 
-Quality bar: prefer 4-6 high-signal recommendations over 12 generic ones. Empty array is acceptable if the workflow is already optimal.`;
+Quality bar: prefer 4-6 high-signal recommendations over 12 generic ones. Empty array is acceptable if the workflow is already optimal.
+
+${UNTRUSTED_DOCUMENT_RULE}`;
 
 function serializeWorkflows(workflows: WorkflowStep[]): string {
   return JSON.stringify(
@@ -120,15 +124,13 @@ function serializeKbChunks(
   chunks: { id: string; text: string; label?: string }[],
 ): string {
   if (chunks.length === 0) return "(none)";
-  return chunks
-    .map(
-      (c, i) =>
-        `[chunk:${c.id}] (${c.label ?? `#${i + 1}`})\n${c.text.slice(0, 3500)}`,
-    )
-    .join("\n\n---\n\n");
+  return fenceKbChunks(chunks, 3500);
 }
 
 export async function POST(req: NextRequest) {
+  const blocked = guardApiRequest(req);
+  if (blocked) return blocked;
+
   const declared = Number(req.headers.get("content-length") ?? 0);
   if (declared > RECOMMEND_MAX_BODY_BYTES) {
     return NextResponse.json({ error: "too_large" }, { status: 413 });
@@ -165,7 +167,7 @@ export async function POST(req: NextRequest) {
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: "no_api_key" });
+    return NextResponse.json({ error: "no_api_key" }, { status: 503 });
   }
 
   const customCatalogueBlock =
@@ -217,10 +219,13 @@ export async function POST(req: NextRequest) {
     const validated = RecommendationsResponseSchema.safeParse(parsedJson);
     if (!validated.success) {
       console.error("recommend schema validation failed:", validated.error);
-      return NextResponse.json({
-        error: "generation_failed",
-        message: `Response did not match schema: ${validated.error.issues[0]?.message ?? "validation error"}`,
-      });
+      return NextResponse.json(
+        {
+          error: "generation_failed",
+          message: `Response did not match schema: ${validated.error.issues[0]?.message ?? "validation error"}`,
+        },
+        { status: 502 },
+      );
     }
 
     // Clamp patternId / family to known catalogue (built-in + custom).
@@ -244,10 +249,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ recommendations: cleaned });
   } catch (err) {
+    // err.message can carry upstream/model fragments — keep it server-side.
     console.error("Future-state recommendation failed:", err);
-    return NextResponse.json({
-      error: "generation_failed",
-      message: err instanceof Error ? err.message : "Unknown error",
-    });
+    return NextResponse.json(
+      { error: "generation_failed", message: "Generation failed" },
+      { status: 502 },
+    );
   }
 }

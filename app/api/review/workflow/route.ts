@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { WorkflowReviewResponseSchema } from "@/lib/schemas";
+import { guardApiRequest } from "@/lib/api-guards";
 import type { FutureStateAIWorkflowMap } from "@/lib/visualisations/workflow-types";
 
 // Semantic "review & tidy" pass. Deterministic rules (lib/visualisations/
@@ -46,6 +47,8 @@ type SlimNode = {
 };
 
 export async function POST(req: NextRequest) {
+  const blocked = guardApiRequest(req);
+  if (blocked) return blocked;
   const declared = Number(req.headers.get("content-length") ?? 0);
   if (declared > REVIEW_MAX_BODY_BYTES) {
     return NextResponse.json({ error: "too_large" }, { status: 413 });
@@ -67,14 +70,22 @@ export async function POST(req: NextRequest) {
   }
 
   const { map } = parsed;
-  if (!map || !Array.isArray(map.nodes) || map.nodes.length < 2) {
+  if (
+    !map ||
+    !Array.isArray(map.nodes) ||
+    !Array.isArray(map.edges) ||
+    map.nodes.length < 2
+  ) {
     // Nothing to compare — empty findings, not an error.
     return NextResponse.json({ findings: [] });
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: "no_api_key", findings: [] });
+    return NextResponse.json(
+      { error: "no_api_key", findings: [] },
+      { status: 503 },
+    );
   }
 
   const nodes: SlimNode[] = map.nodes.map((n) => ({
@@ -116,7 +127,10 @@ export async function POST(req: NextRequest) {
     );
     if (!validated.success) {
       console.error("review schema validation failed:", validated.error);
-      return NextResponse.json({ error: "generation_failed", findings: [] });
+      return NextResponse.json(
+        { error: "generation_failed", findings: [] },
+        { status: 502 },
+      );
     }
 
     // Clamp nodeIds to ids that actually exist; drop findings left empty.
@@ -127,11 +141,15 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ findings });
   } catch (err) {
+    // Upstream error text stays in the server log; clients get a generic body.
     console.error("Workflow review failed:", err);
-    return NextResponse.json({
-      error: "generation_failed",
-      findings: [],
-      message: err instanceof Error ? err.message : "Unknown error",
-    });
+    return NextResponse.json(
+      {
+        error: "generation_failed",
+        findings: [],
+        message: "Workflow review failed",
+      },
+      { status: 502 },
+    );
   }
 }

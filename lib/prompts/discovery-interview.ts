@@ -58,8 +58,17 @@ RULES
 // than serializeProject because the chat history already carries the bulk
 // of the signal.
 export function serializeInterviewContext(project: OnboardingProject): string {
-  const c = project.customer;
-  const d = project.discovery;
+  // The API route only shape-checks id + customer.companyName, so any nested
+  // field may be missing on a client-supplied project — fall back rather than
+  // throw. JSON.stringify drops undefined values, which the model reads as
+  // "not captured yet".
+  const c = (project.customer ?? {}) as Partial<OnboardingProject["customer"]>;
+  const d = (project.discovery ?? {}) as Partial<
+    OnboardingProject["discovery"]
+  >;
+  const stakeholders = Array.isArray(project.stakeholders)
+    ? project.stakeholders
+    : [];
   return JSON.stringify(
     {
       stateSoFar: {
@@ -80,8 +89,8 @@ export function serializeInterviewContext(project: OnboardingProject): string {
           constraints: d.constraints,
           implementationDeadline: d.implementationDeadline,
         },
-        stakeholderCount: project.stakeholders.length,
-        stakeholderRoles: project.stakeholders.map((s) => s.role),
+        stakeholderCount: stakeholders.length,
+        stakeholderRoles: stakeholders.map((s) => s?.role),
       },
     },
     null,

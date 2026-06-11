@@ -72,8 +72,8 @@ export function NewProjectButton({
           <div>
             <p className="text-sm font-semibold">Start a blank project</p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Stored locally in this browser. You can rename it any time from
-              the workspace.
+              Stored locally in this browser. AI features send project content
+              to OpenAI. You can rename it any time from the workspace.
             </p>
           </div>
           <div className="space-y-1.5">

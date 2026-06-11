@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { NotesExtractionResultSchema } from "@/lib/schemas";
-import { parseBoundedJson } from "@/lib/api-guards";
+import { guardApiRequest, parseBoundedJson } from "@/lib/api-guards";
 
 // Notes have their own ceiling — longer than the project-shape cap, since a
 // pasted transcript may legitimately be 100KB+, but capped to avoid burning
@@ -65,6 +65,9 @@ GUIDELINES
 - Empty arrays are fine; omit fields not mentioned rather than inserting placeholder strings.`;
 
 export async function POST(req: NextRequest) {
+  const blocked = guardApiRequest(req);
+  if (blocked) return blocked;
+
   const parsed = await parseBoundedJson<{ notes?: unknown }>(req);
   if (!parsed.ok) {
     const status = parsed.error === "too_large" ? 413 : 400;
@@ -80,7 +83,7 @@ export async function POST(req: NextRequest) {
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: "no_api_key" });
+    return NextResponse.json({ error: "no_api_key" }, { status: 503 });
   }
 
   try {
@@ -118,18 +121,22 @@ export async function POST(req: NextRequest) {
 
     if (!validated.success) {
       console.error("Extraction schema validation failed:", validated.error);
-      return NextResponse.json({
-        error: "extraction_failed",
-        message: `Response did not match expected schema: ${validated.error.issues[0]?.message ?? "validation error"}`,
-      });
+      return NextResponse.json(
+        {
+          error: "extraction_failed",
+          message: `Response did not match expected schema: ${validated.error.issues[0]?.message ?? "validation error"}`,
+        },
+        { status: 502 },
+      );
     }
 
     return NextResponse.json({ suggestions: validated.data });
   } catch (err) {
+    // err.message can carry upstream/model fragments — keep it server-side.
     console.error("Notes extraction failed:", err);
-    return NextResponse.json({
-      error: "extraction_failed",
-      message: err instanceof Error ? err.message : "Unknown error",
-    });
+    return NextResponse.json(
+      { error: "extraction_failed", message: "Notes extraction failed" },
+      { status: 502 },
+    );
   }
 }

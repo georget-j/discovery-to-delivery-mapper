@@ -3,6 +3,7 @@
 import { Fragment, useMemo, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import { SourceChip } from "@/components/outputs/SourceChip";
+import { artifactUrlTransform } from "@/lib/markdown-url-policy";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -63,6 +64,7 @@ export function ArtifactProse({ content, onChipClick }: Props) {
       )}
       <div className={cn(PROSE, "min-w-0 flex-1")}>
         <ReactMarkdown
+          urlTransform={artifactUrlTransform}
           components={{
             h2: ({ children }) => (
               <h2 id={slugify(nodeText(children))}>{children}</h2>
@@ -71,6 +73,16 @@ export function ArtifactProse({ content, onChipClick }: Props) {
             li: ({ children }) => <li>{renderChips(children)}</li>,
             td: ({ children }) => <td>{renderChips(children)}</td>,
             blockquote: ({ children }) => <Callout>{children}</Callout>,
+            // Defence in depth on top of urlTransform: an off-allowlist href
+            // (already collapsed to "") renders as plain text, not a link.
+            a: ({ href, children }) => {
+              const safe = artifactUrlTransform(href ?? "");
+              return safe ? (
+                <a href={safe}>{children}</a>
+              ) : (
+                <span>{children}</span>
+              );
+            },
           }}
         >
           {content}

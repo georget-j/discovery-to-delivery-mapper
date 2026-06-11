@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { NotesExtractionResultSchema } from "@/lib/schemas";
-import { parseBoundedJson } from "@/lib/api-guards";
+import { guardApiRequest, parseBoundedJson } from "@/lib/api-guards";
 import type { OnboardingProject } from "@/lib/types";
 
 // Generate suggestions from Discovery state (rather than from free-text
@@ -108,6 +108,8 @@ const VALID_TARGETS: Target[] = [
 ];
 
 export async function POST(req: NextRequest) {
+  const blocked = guardApiRequest(req);
+  if (blocked) return blocked;
   const parsed = await parseBoundedJson<{
     project?: OnboardingProject;
     target?: Target;
@@ -136,7 +138,7 @@ export async function POST(req: NextRequest) {
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: "no_api_key" });
+    return NextResponse.json({ error: "no_api_key" }, { status: 503 });
   }
 
   const userPrompt =
@@ -174,19 +176,27 @@ export async function POST(req: NextRequest) {
     const parsedJson = JSON.parse(content);
     const validated = NotesExtractionResultSchema.safeParse(parsedJson);
     if (!validated.success) {
+      // Detail goes to the server log only — schema internals and upstream
+      // error text must not reach the client.
       console.error("Suggestions schema validation failed:", validated.error);
-      return NextResponse.json({
-        error: "generation_failed",
-        message: `Response did not match schema: ${validated.error.issues[0]?.message ?? "validation error"}`,
-      });
+      return NextResponse.json(
+        {
+          error: "generation_failed",
+          message: "Model response did not match the expected schema",
+        },
+        { status: 502 },
+      );
     }
 
     return NextResponse.json({ suggestions: validated.data });
   } catch (err) {
     console.error("Suggestions generation failed:", err);
-    return NextResponse.json({
-      error: "generation_failed",
-      message: err instanceof Error ? err.message : "Unknown error",
-    });
+    return NextResponse.json(
+      {
+        error: "generation_failed",
+        message: "Suggestions generation failed",
+      },
+      { status: 502 },
+    );
   }
 }

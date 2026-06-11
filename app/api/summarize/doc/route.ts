@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { guardApiRequest } from "@/lib/api-guards";
 
 // Per-doc summary endpoint. Caller posts the first N chunks of a doc and
 // gets back a short paragraph summary. The caller persists the summary back
@@ -11,6 +12,8 @@ Output: ONE paragraph, ≤ 90 words. Lead with the document's purpose; then 2-3 
 (systems mentioned, teams, processes, deadlines). Plain prose — no markdown, no headers.`;
 
 export async function POST(req: NextRequest) {
+  const blocked = guardApiRequest(req);
+  if (blocked) return blocked;
   const declared = Number(req.headers.get("content-length") ?? 0);
   if (declared > SUM_MAX_BODY_BYTES) {
     return NextResponse.json({ error: "too_large" }, { status: 413 });
@@ -37,10 +40,13 @@ export async function POST(req: NextRequest) {
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: "no_api_key" });
+    return NextResponse.json({ error: "no_api_key" }, { status: 503 });
   }
 
-  const userPrompt = `Document name: ${docName}\n\nExcerpt:\n${chunks.slice(0, 8).join("\n---\n").slice(0, 12000)}`;
+  // The excerpt is capped at 12000 chars; the name needs its own cap or it
+  // becomes an uncapped prompt-size vector.
+  const safeDocName = String(docName).slice(0, 200);
+  const userPrompt = `Document name: ${safeDocName}\n\nExcerpt:\n${chunks.slice(0, 8).join("\n---\n").slice(0, 12000)}`;
 
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -65,9 +71,14 @@ export async function POST(req: NextRequest) {
     if (!summary) throw new Error("Empty summary");
     return NextResponse.json({ summary });
   } catch (err) {
-    return NextResponse.json({
-      error: "summary_failed",
-      message: err instanceof Error ? err.message : "Unknown error",
-    });
+    // Upstream error text stays in the server log; clients get a generic body.
+    console.error("Doc summary failed:", err);
+    return NextResponse.json(
+      {
+        error: "summary_failed",
+        message: "Summary generation failed",
+      },
+      { status: 502 },
+    );
   }
 }

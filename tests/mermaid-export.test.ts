@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { currentStateToMermaid, futureStateToMermaid } from "../lib/visualisations/mermaid-export";
+import {
+  currentStateToMermaid,
+  futureStateToMermaid,
+} from "../lib/visualisations/mermaid-export";
 import {
   buildCurrentStateWorkflowTemplate,
   buildFutureStateAIWorkflowTemplate,
@@ -40,7 +43,9 @@ describe("currentStateToMermaid", () => {
     for (const e of map.edges) {
       const arrow = e.style === "dashed" ? "-.->" : "-->";
       // Match e.source ... arrow ... e.target on a single line, allowing optional |label|
-      const re = new RegExp(`${e.source}\\s+${arrow.replace(/[.>-]/g, (m) => "\\" + m)}.*${e.target}`);
+      const re = new RegExp(
+        `${e.source}\\s+${arrow.replace(/[.>-]/g, (m) => "\\" + m)}.*${e.target}`,
+      );
       expect(out).toMatch(re);
     }
   });
@@ -55,7 +60,10 @@ describe("currentStateToMermaid", () => {
 
   it("strips bracket characters from titles to avoid Mermaid parse errors", () => {
     const map = buildCurrentStateWorkflowTemplate(fintech);
-    map.nodes[0] = { ...map.nodes[0], title: "Title with [brackets] and (parens)" };
+    map.nodes[0] = {
+      ...map.nodes[0],
+      title: "Title with [brackets] and (parens)",
+    };
     const out = currentStateToMermaid(map);
     expect(out).not.toMatch(/\[brackets\]/);
     expect(out).not.toMatch(/\(parens\)/);
@@ -102,5 +110,82 @@ describe("futureStateToMermaid", () => {
     if (!dashedEdge) return;
     const out = futureStateToMermaid(map);
     expect(out).toContain("-.->");
+  });
+});
+
+// ── id sanitisation ────────────────────────────────────────────────────────
+// Ids land outside quoted labels, so hostile (AI-generated) ids with
+// whitespace or metacharacters must be reduced to bare identifiers and the
+// reserved word "end" must be renamed.
+
+describe("id sanitisation", () => {
+  const evil = "a b\nclick x callback";
+
+  // The template builders share module-level lane arrays, so copy the
+  // arrays before swapping elements to keep tests isolated.
+  const cloneCurrent = () => {
+    const map = buildCurrentStateWorkflowTemplate(fintech);
+    return {
+      ...map,
+      lanes: [...map.lanes],
+      nodes: [...map.nodes],
+      edges: [...map.edges],
+    };
+  };
+  const cloneFuture = () => {
+    const map = buildFutureStateAIWorkflowTemplate(fintech);
+    return {
+      ...map,
+      lanes: [...map.lanes],
+      nodes: [...map.nodes],
+      edges: [...map.edges],
+    };
+  };
+
+  it("sanitises node ids with whitespace/newlines in current-state output", () => {
+    const map = cloneCurrent();
+    map.nodes[0] = { ...map.nodes[0], id: evil };
+    const out = currentStateToMermaid(map);
+    expect(out).not.toContain(evil);
+    // No line may start with an injected directive.
+    expect(out).not.toMatch(/^\s*click /m);
+    expect(out).toContain("a_b_click_x_callback");
+  });
+
+  it("sanitises edge endpoints in current-state output", () => {
+    const map = cloneCurrent();
+    map.edges[0] = { ...map.edges[0], source: evil, target: "t;arget" };
+    const out = currentStateToMermaid(map);
+    expect(out).not.toContain(evil);
+    expect(out).not.toContain("t;arget");
+    expect(out).toMatch(/a_b_click_x_callback\s+(-->|-\.->)/);
+    expect(out).toContain("t_arget");
+  });
+
+  it("sanitises lane ids in subgraph headers", () => {
+    const map = cloneCurrent();
+    map.lanes[0] = { ...map.lanes[0], id: "lane one;init" };
+    const out = currentStateToMermaid(map);
+    expect(out).toContain("subgraph lane_one_init[");
+    expect(out).not.toContain("lane one;init[");
+  });
+
+  it("renames the reserved id 'end' to 'end_'", () => {
+    const map = cloneCurrent();
+    map.nodes[0] = { ...map.nodes[0], id: "end", type: "human_step" };
+    map.edges[0] = { ...map.edges[0], source: "end" };
+    const out = currentStateToMermaid(map);
+    expect(out).toContain('end_("');
+    expect(out).toMatch(/end_\s+(-->|-\.->)/);
+  });
+
+  it("sanitises ids in future-state output too", () => {
+    const map = cloneFuture();
+    map.nodes[0] = { ...map.nodes[0], id: evil };
+    map.lanes[0] = { ...map.lanes[0], id: "end" };
+    const out = futureStateToMermaid(map);
+    expect(out).not.toContain(evil);
+    expect(out).toContain("a_b_click_x_callback");
+    expect(out).toContain("subgraph end_[");
   });
 });
