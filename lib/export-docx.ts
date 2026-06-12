@@ -1,17 +1,26 @@
 // Markdown → .docx exporter. Uses `marked` to tokenize the assembled pack
 // markdown and the `docx` package to emit a real Word document in the
 // browser (Packer.toBlob — no Node Buffer polyfills needed). Both libs are
-// dynamically imported so they stay out of the main bundle.
+// dynamically imported so they stay out of the main bundle; the top-level
+// `docx` import is type-only and erased at compile time.
 
+import type { Document as DocxDocument } from "docx";
 import type { OnboardingProject } from "./types";
+import { stripCitationMarkers } from "./artifact-helpers";
 import { assembleScopedPack, type PackScope } from "./markdown-export";
+
+export type DocxExportOptions = {
+  title?: string;
+};
 
 export async function downloadPackDocx(
   project: OnboardingProject,
   scope: PackScope = "full",
 ): Promise<void> {
   const markdown = assembleScopedPack(project, scope);
-  const blob = await markdownToDocxBlob(markdown);
+  const blob = await markdownToDocxBlob(markdown, {
+    title: `Deployment Pack — ${project.customer.companyName}`,
+  });
   const slug = project.customer.companyName
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "-")
@@ -20,15 +29,27 @@ export async function downloadPackDocx(
   triggerDownload(blob, `${slug || "deployment"}-${scope}-pack.docx`);
 }
 
-// Exported for unit testing the token→docx mapping without a DOM.
-export async function markdownToDocxBlob(markdown: string): Promise<Blob> {
+export async function markdownToDocxBlob(
+  markdown: string,
+  options: DocxExportOptions = {},
+): Promise<Blob> {
+  const { Packer } = await import("docx");
+  const doc = await markdownToDocxDocument(markdown, options);
+  return Packer.toBlob(doc);
+}
+
+// Exported for unit testing the token→docx mapping without a DOM — the
+// returned Document is an inspectable object tree, not packed binary.
+export async function markdownToDocxDocument(
+  markdown: string,
+  options: DocxExportOptions = {},
+): Promise<DocxDocument> {
   const [{ marked }, docx] = await Promise.all([
     import("marked"),
     import("docx"),
   ]);
   const {
     Document,
-    Packer,
     Paragraph,
     HeadingLevel,
     TextRun,
@@ -37,9 +58,13 @@ export async function markdownToDocxBlob(markdown: string): Promise<Blob> {
     TableCell,
     WidthType,
     BorderStyle,
+    Footer,
+    PageNumber,
+    AlignmentType,
   } = docx;
 
-  const tokens = marked.lexer(markdown);
+  // Exported documents have no sources panel for [n] markers to point at.
+  const tokens = marked.lexer(stripCitationMarkers(markdown));
 
   type DocChild = InstanceType<typeof Paragraph> | InstanceType<typeof Table>;
   const children: DocChild[] = [];
@@ -68,9 +93,10 @@ export async function markdownToDocxBlob(markdown: string): Promise<Blob> {
   function runsFromInline(
     inline: InlineToken[] | undefined,
     fallback: string,
+    base: { bold?: boolean } = {},
   ): InstanceType<typeof TextRun>[] {
     if (!inline || inline.length === 0) {
-      return [new TextRun({ text: fallback })];
+      return [new TextRun({ text: fallback, ...base })];
     }
     const runs: InstanceType<typeof TextRun>[] = [];
     const walk = (
@@ -95,8 +121,8 @@ export async function markdownToDocxBlob(markdown: string): Promise<Blob> {
         }
       }
     };
-    walk(inline, {});
-    return runs.length > 0 ? runs : [new TextRun({ text: fallback })];
+    walk(inline, base);
+    return runs.length > 0 ? runs : [new TextRun({ text: fallback, ...base })];
   }
 
   type Tok = {
@@ -110,6 +136,11 @@ export async function markdownToDocxBlob(markdown: string): Promise<Blob> {
     rows?: { tokens?: InlineToken[]; text?: string }[][];
   };
 
+  // The pack assembler (lib/markdown-export.ts) delimits every artifact with
+  // `---` immediately before its `## N. Title` heading — that hr+h2 pair is
+  // the page-break signal so artifacts don't flow mid-page into each other.
+  let prevWasHr = false;
+
   for (const tokenRaw of tokens as unknown as Tok[]) {
     const token = tokenRaw;
     switch (token.type) {
@@ -118,6 +149,7 @@ export async function markdownToDocxBlob(markdown: string): Promise<Blob> {
           new Paragraph({
             heading: headingFor(token.depth ?? 2),
             children: runsFromInline(token.tokens, token.text ?? ""),
+            pageBreakBefore: token.depth === 2 && prevWasHr,
           }),
         );
         break;
@@ -169,9 +201,11 @@ export async function markdownToDocxBlob(markdown: string): Promise<Blob> {
             new TableCell({
               children: [
                 new Paragraph({
-                  children: runsFromInline(c.tokens, c.text ?? "").map(
-                    () => new TextRun({ text: c.text ?? "", bold: true }),
-                  ),
+                  // Parsed runs pass through (bolded) — rebuilding from raw
+                  // cell text would re-emit literal ** markers.
+                  children: runsFromInline(c.tokens, c.text ?? "", {
+                    bold: true,
+                  }),
                 }),
               ],
             }),
@@ -219,9 +253,44 @@ export async function markdownToDocxBlob(markdown: string): Promise<Blob> {
           children.push(new Paragraph({ text: token.text }));
         }
     }
+    if (token.type !== "space") {
+      prevWasHr = token.type === "hr";
+    }
   }
 
   const doc = new Document({
+    title: options.title ?? "Deployment Pack",
+    creator: "Discovery to Delivery Mapper",
+    styles: {
+      default: {
+        // Run sizes are half-points (22 = 11pt); heading colors follow
+        // Word's default blue heading theme.
+        document: {
+          run: { font: "Calibri", size: 22 },
+          paragraph: { spacing: { line: 276 } },
+        },
+        heading1: {
+          run: { font: "Calibri Light", size: 40, bold: true, color: "1F3864" },
+          paragraph: { spacing: { before: 240, after: 160 } },
+        },
+        heading2: {
+          run: { font: "Calibri Light", size: 30, bold: true, color: "1F3864" },
+          paragraph: { spacing: { before: 240, after: 120 } },
+        },
+        heading3: {
+          run: { font: "Calibri Light", size: 26, bold: true, color: "2F5496" },
+          paragraph: { spacing: { before: 200, after: 100 } },
+        },
+        heading4: {
+          run: { size: 24, bold: true },
+          paragraph: { spacing: { before: 160, after: 80 } },
+        },
+        heading5: {
+          run: { size: 22, bold: true, italics: true },
+          paragraph: { spacing: { before: 160, after: 80 } },
+        },
+      },
+    },
     numbering: {
       config: [
         {
@@ -237,10 +306,35 @@ export async function markdownToDocxBlob(markdown: string): Promise<Blob> {
         },
       ],
     },
-    sections: [{ children }],
+    sections: [
+      {
+        footers: {
+          default: new Footer({
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [
+                  new TextRun({
+                    children: [
+                      "Page ",
+                      PageNumber.CURRENT,
+                      " of ",
+                      PageNumber.TOTAL_PAGES,
+                    ],
+                    size: 18,
+                    color: "808080",
+                  }),
+                ],
+              }),
+            ],
+          }),
+        },
+        children,
+      },
+    ],
   });
 
-  return Packer.toBlob(doc);
+  return doc;
 }
 
 function triggerDownload(blob: Blob, filename: string) {

@@ -1,8 +1,12 @@
 import type { OnboardingProject } from "./types";
 import type { ArtifactKey } from "./artifact-sources";
+import { stripCitationMarkers } from "./artifact-helpers";
 
+// Citation markers ([1], [2]) reference the in-app sources panel, which does
+// not exist in an exported document — strip them at assembly time so every
+// pack export (markdown, docx, print) ships clean text.
 function section(title: string, content: string): string {
-  return `## ${title}\n\n${content || "_Not yet generated._"}\n`;
+  return `## ${title}\n\n${stripCitationMarkers(content) || "_Not yet generated._"}\n`;
 }
 
 // Audience-scoped pack assembly. Mirrors the bundles in

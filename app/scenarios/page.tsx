@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { listScenarios } from "@/lib/scenarios";
+import { listScenarios, SCENARIO_META } from "@/lib/scenarios";
 import { ScenarioCard } from "@/components/ScenarioCard";
 import { NewProjectButton } from "@/components/NewProjectButton";
 import { LocalProjectsList } from "@/components/LocalProjectsList";
+import { Badge } from "@/components/ui/badge";
 
 export const metadata: Metadata = {
   title: "Scenarios · Discovery to Delivery Mapper",
@@ -10,7 +11,14 @@ export const metadata: Metadata = {
 };
 
 export default function ScenariosPage() {
-  const scenarios = listScenarios();
+  // Recommended starter first — SCENARIO_META.sortOrder ranks by how soft a
+  // landing each scenario gives a first-time visitor.
+  const scenarios = [...listScenarios()].sort(
+    (a, b) =>
+      SCENARIO_META[a.scenarioType].sortOrder -
+      SCENARIO_META[b.scenarioType].sortOrder,
+  );
+  const starter = scenarios.find((s) => SCENARIO_META[s.scenarioType].starter);
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-12 space-y-8">
@@ -33,9 +41,27 @@ export default function ScenariosPage() {
         <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           Demo scenarios
         </h2>
+        {starter && (
+          <p className="text-sm text-muted-foreground">
+            New here? Start with{" "}
+            <span className="font-medium text-foreground">
+              {starter.customer.companyName}
+            </span>{" "}
+            — the softest landing, ~
+            {SCENARIO_META[starter.scenarioType].estimatedMinutes} min end to
+            end.
+          </p>
+        )}
         <div className="grid sm:grid-cols-2 lg:grid-cols-2 gap-5">
           {scenarios.map((scenario) => (
-            <ScenarioCard key={scenario.id} scenario={scenario} />
+            <div key={scenario.id} className="relative">
+              {SCENARIO_META[scenario.scenarioType].starter && (
+                <Badge className="absolute -top-2.5 left-4 z-10">
+                  Start here
+                </Badge>
+              )}
+              <ScenarioCard scenario={scenario} />
+            </div>
           ))}
         </div>
       </section>

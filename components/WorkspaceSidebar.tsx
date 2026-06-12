@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/components/WorkspaceProvider";
+import { pendingSuggestionCountForTab } from "@/components/SuggestionsBanner";
 import {
   PHASES,
   isPhaseComplete,
@@ -162,6 +163,10 @@ function PhaseGroup({
         {phase.tabs.map((tab) => {
           const fullHref = `${base}${tab.href}`;
           const isActive = pathname === fullHref;
+          const suggestionCount = pendingSuggestionCountForTab(
+            project?.pendingSuggestions,
+            tab.href,
+          );
           return (
             <Link
               key={fullHref}
@@ -185,6 +190,14 @@ function PhaseGroup({
                 )}
               />
               {tab.label}
+              {suggestionCount > 0 && (
+                <span
+                  className="ml-auto shrink-0 text-[10px] font-semibold px-1.5 py-px rounded-full bg-amber-100 text-amber-800 border border-amber-300"
+                  title={`${suggestionCount} AI suggestion${suggestionCount !== 1 ? "s" : ""} to review`}
+                >
+                  {suggestionCount}
+                </span>
+              )}
             </Link>
           );
         })}

@@ -15,6 +15,7 @@ import {
 } from "../shared/CanvasContextMenu";
 import { useUndoRedo } from "../shared/useUndoRedo";
 import { useCanvasShortcuts } from "../shared/useCanvasShortcuts";
+import { useCanvasActive } from "../shared/CanvasActivityContext";
 import { FutureWorkflowCanvas } from "./FutureWorkflowCanvas";
 import { FutureWorkflowInspectorPanel } from "./FutureWorkflowInspectorPanel";
 import { FutureWorkflowToolbar } from "./FutureWorkflowToolbar";
@@ -22,6 +23,7 @@ import { FutureWorkflowLegend } from "./FutureWorkflowLegend";
 import { CurrentFutureComparisonPanel } from "./CurrentFutureComparisonPanel";
 import {
   newBlankFutureNode,
+  laneIdForY,
   FUTURE_LANE_Y,
   applyProposalToMap,
 } from "./futureWorkflowUtils";
@@ -51,6 +53,8 @@ import { generateId } from "@/lib/utils";
 
 export function FutureStateAIWorkflowMap() {
   const { project, updateProject, syncRequests } = useWorkspace();
+  // False while this map's tab is CSS-hidden — gates the window-level shortcuts.
+  const isActive = useCanvasActive();
   const [generating, setGenerating] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [multiSelectIds, setMultiSelectIds] = useState<string[]>([]);
@@ -60,6 +64,8 @@ export function FutureStateAIWorkflowMap() {
     x: number;
     y: number;
     nodeId: string | null;
+    // Canvas-space position of a pane right-click, for "Add node here".
+    flowPos?: { x: number; y: number };
   } | null>(null);
   const [preview, setPreview] = useState<ProposalPreview>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -188,10 +194,13 @@ export function FutureStateAIWorkflowMap() {
   }, [map, persist]);
 
   const handleAddNode = useCallback(
-    (type: FutureWorkflowNodeType) => {
+    (type: FutureWorkflowNodeType, atPos?: { x: number; y: number }) => {
       if (!map) return;
-      const laneId =
-        type === "ai_assist" || type === "ai_agent"
+      // With an explicit position the lane follows the drop point (same rule
+      // as dragging); otherwise the node type picks its default lane.
+      const laneId = atPos
+        ? laneIdForY(atPos.y, map.lanes)
+        : type === "ai_assist" || type === "ai_agent"
           ? "lane_ai"
           : type === "system_action" || type === "data_retrieval"
             ? "lane_systems"
@@ -202,8 +211,8 @@ export function FutureStateAIWorkflowMap() {
                 : type === "monitoring" || type === "audit_log"
                   ? "lane_monitoring"
                   : "lane_human";
-      const y = FUTURE_LANE_Y[laneId];
-      const x = 200 + (map.nodes.length % 6) * 240;
+      const y = atPos?.y ?? FUTURE_LANE_Y[laneId];
+      const x = atPos?.x ?? 200 + (map.nodes.length % 6) * 240;
       const node = newBlankFutureNode(type, laneId, { x, y });
       persist({
         ...map,
@@ -391,14 +400,26 @@ export function FutureStateAIWorkflowMap() {
     [map, handleUpdateNode],
   );
 
+  // Reset is confirmed via modal and keeps a one-shot in-memory snapshot so
+  // the empty state can offer "Restore" (the undo stack dies with the map).
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false);
+  const [resetSnapshot, setResetSnapshot] = useState<MapType | null>(null);
+
   const handleReset = useCallback(() => {
-    if (!project) return;
+    if (!project || !map) return;
+    setResetSnapshot(map);
     const next = { ...(project.visualisations ?? {}) };
     delete next.futureStateAIWorkflowMap;
     updateProject({ visualisations: next });
     setSelectedNodeId(null);
     setMultiSelectIds([]);
-  }, [project, updateProject]);
+  }, [project, map, updateProject]);
+
+  const handleRestoreReset = useCallback(() => {
+    if (!resetSnapshot) return;
+    persist(resetSnapshot);
+    setResetSnapshot(null);
+  }, [resetSnapshot, persist]);
 
   const handleConvertToRequirement = useCallback(
     (node: FutureWorkflowNode) => {
@@ -483,6 +504,8 @@ export function FutureStateAIWorkflowMap() {
         }));
       }
       persist(next);
+      // The hover ghost must not outlive the apply — the real nodes are in now.
+      setPreview(null);
       if (insertedIds[0]) setSelectedNodeId(insertedIds[0]);
     },
     [map, persist],
@@ -548,7 +571,7 @@ export function FutureStateAIWorkflowMap() {
         setContextMenu(null);
       },
     },
-    !!map,
+    !!map && isActive,
   );
 
   const selectedNode = map?.nodes.find((n) => n.id === selectedNodeId) ?? null;
@@ -587,6 +610,8 @@ export function FutureStateAIWorkflowMap() {
       ]
     : [];
 
+  // "Add node here" drops the node at the right-clicked canvas position.
+  const paneFlowPos = contextMenu?.flowPos;
   const paneContextItems: ContextMenuItem[] = [
     {
       type: "submenu",
@@ -595,37 +620,37 @@ export function FutureStateAIWorkflowMap() {
         {
           type: "item",
           label: "AI assist",
-          onClick: () => handleAddNode("ai_assist"),
+          onClick: () => handleAddNode("ai_assist", paneFlowPos),
         },
         {
           type: "item",
           label: "AI agent",
-          onClick: () => handleAddNode("ai_agent"),
+          onClick: () => handleAddNode("ai_agent", paneFlowPos),
         },
         {
           type: "item",
           label: "Human action",
-          onClick: () => handleAddNode("human_action"),
+          onClick: () => handleAddNode("human_action", paneFlowPos),
         },
         {
           type: "item",
           label: "Guardrail",
-          onClick: () => handleAddNode("guardrail"),
+          onClick: () => handleAddNode("guardrail", paneFlowPos),
         },
         {
           type: "item",
           label: "Decision gate",
-          onClick: () => handleAddNode("decision_gate"),
+          onClick: () => handleAddNode("decision_gate", paneFlowPos),
         },
         {
           type: "item",
           label: "Monitoring",
-          onClick: () => handleAddNode("monitoring"),
+          onClick: () => handleAddNode("monitoring", paneFlowPos),
         },
         {
           type: "item",
           label: "Audit log",
-          onClick: () => handleAddNode("audit_log"),
+          onClick: () => handleAddNode("audit_log", paneFlowPos),
         },
       ],
     },
@@ -689,7 +714,7 @@ export function FutureStateAIWorkflowMap() {
             onAddNode={handleAddNode}
             onExportMermaid={handleExportMermaid}
             onExportJson={handleExportJson}
-            onReset={handleReset}
+            onReset={() => setConfirmResetOpen(true)}
           />
         }
         canvas={
@@ -703,8 +728,8 @@ export function FutureStateAIWorkflowMap() {
               onNodeContextMenu={(nodeId, x, y) =>
                 setContextMenu({ nodeId, x, y })
               }
-              onPaneContextMenu={(x, y) =>
-                setContextMenu({ nodeId: null, x, y })
+              onPaneContextMenu={(x, y, flowPosition) =>
+                setContextMenu({ nodeId: null, x, y, flowPos: flowPosition })
               }
               onDuplicateNode={handleDuplicateNode}
               onDeleteNode={handleDeleteNode}
@@ -720,7 +745,19 @@ export function FutureStateAIWorkflowMap() {
               focusNodeId={walkthroughOpen ? focusNodeId : null}
             />
           ) : (
-            <div className="h-full flex items-center justify-center px-8">
+            <div className="h-full flex flex-col items-center justify-center gap-3 px-8">
+              {resetSnapshot && (
+                <div className="flex items-center gap-2 text-xs rounded-md border bg-background px-3 py-1.5 shadow-sm">
+                  <span className="text-muted-foreground">Map reset.</span>
+                  <button
+                    type="button"
+                    onClick={handleRestoreReset}
+                    className="font-medium text-primary hover:underline"
+                  >
+                    Restore
+                  </button>
+                </div>
+              )}
               <EmptyState
                 icon="🤖"
                 title="No future-state map yet"
@@ -833,6 +870,15 @@ export function FutureStateAIWorkflowMap() {
         description="This map contains manual edits (applied proposals, added nodes, notes). Regenerating replaces it with a fresh AI map — undo (⌘Z) can bring the current version back during this session."
         confirmLabel="Regenerate map"
         onConfirm={() => void runGenerate()}
+      />
+
+      <ConfirmActionModal
+        open={confirmResetOpen}
+        onOpenChange={setConfirmResetOpen}
+        title="Reset this map?"
+        description="This deletes the future-state map. A one-time Restore stays available on the empty canvas until you generate again or leave the page."
+        confirmLabel="Reset map"
+        onConfirm={handleReset}
       />
     </div>
   );

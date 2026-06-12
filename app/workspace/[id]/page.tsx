@@ -12,7 +12,7 @@ import { JourneyOverview } from "@/components/JourneyOverview";
 import { DataFlowDiagram } from "@/components/DataFlowDiagram";
 import { SessionLog } from "@/components/SessionLog";
 import { ActionItems } from "@/components/ActionItems";
-import { FirstRunHint } from "@/components/FirstRunHint";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { MissingInfoItem, MissingInfoOwner } from "@/lib/types";
 
 const SEVERITY_COLOR: Record<string, string> = {
@@ -164,11 +164,20 @@ export default function WorkspaceDashboard() {
 
   const kbEmpty = (project.knowledgeBase?.totalChunks ?? 0) === 0;
 
+  // A project with nothing captured yet gets a getting-started block instead
+  // of an "N open actions" blocker — those actions are noise before any input.
+  const isBlank =
+    kbEmpty &&
+    !project.discovery.currentProcess &&
+    project.workflows.length === 0 &&
+    project.systems.length === 0 &&
+    project.stakeholders.length === 0 &&
+    project.risks.length === 0 &&
+    (project.meetingSessions?.length ?? 0) === 0;
+
   return (
     <div className="p-8 space-y-8 max-w-6xl">
-      <FirstRunHint />
-
-      {kbEmpty && (
+      {kbEmpty && !isBlank && (
         <Surface
           variant="muted"
           className="px-4 py-3 flex items-center justify-between gap-3 border-primary/30 bg-primary/5"
@@ -211,10 +220,37 @@ export default function WorkspaceDashboard() {
         )}
       </div>
 
+      {/* Truly-blank project: orient the user instead of listing blockers. */}
+      {isBlank && (
+        <EmptyState
+          tone="prominent"
+          icon="🧭"
+          title="Start by adding what you know"
+          body="Drop customer docs on Intake to auto-fill discovery, workflows, systems, and risks — or head to Discovery and capture it by hand."
+          cta={
+            <div className="flex items-center gap-2">
+              <Link
+                href={`/workspace/${project.id}/intake`}
+                className={buttonVariants({ size: "sm" })}
+              >
+                Add documents
+              </Link>
+              <Link
+                href={`/workspace/${project.id}/discovery`}
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
+                Fill in manually
+              </Link>
+            </div>
+          }
+        />
+      )}
+
       {/* Top blocker banner — single CTA so the user knows what to do next.
           Open actions take priority over phase-complete signals. */}
       {(() => {
         const openCount = missingInfo.length;
+        if (isBlank) return null;
         if (openCount > 0) {
           return (
             <Surface
@@ -229,8 +265,7 @@ export default function WorkspaceDashboard() {
                 <span className="font-semibold">
                   {openCount} open action{openCount !== 1 ? "s" : ""}
                 </span>{" "}
-                before pilot can launch — review and resolve to unblock the
-                pack.
+                worth resolving before the pilot — review them below.
               </p>
               <a
                 href="#open-actions"

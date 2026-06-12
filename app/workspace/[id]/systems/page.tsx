@@ -8,6 +8,7 @@ import {
   useSaveIndicator,
 } from "@/components/ui/save-indicator";
 import { SuggestionsBanner } from "@/components/SuggestionsBanner";
+import { GenerateFromDiscoveryButton } from "@/components/GenerateFromDiscoveryButton";
 
 export default function SystemsPage() {
   const { project, loading, updateProject } = useWorkspace();
@@ -33,7 +34,16 @@ export default function SystemsPage() {
             automatically.
           </p>
         </div>
-        <SaveIndicator state={saveState} className="shrink-0 mt-1" />
+        <div className="flex items-center gap-3 shrink-0 mt-1">
+          {/* Persistent path to AI drafting; the empty state shows its own. */}
+          {project.systems.length > 0 && (
+            <GenerateFromDiscoveryButton
+              target="systems"
+              label="✨ Draft suggestions"
+            />
+          )}
+          <SaveIndicator state={saveState} />
+        </div>
       </div>
 
       <SuggestionsBanner target="systems" />

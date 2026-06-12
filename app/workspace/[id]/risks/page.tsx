@@ -11,6 +11,7 @@ import {
   useSaveIndicator,
 } from "@/components/ui/save-indicator";
 import { SuggestionsBanner } from "@/components/SuggestionsBanner";
+import { GenerateFromDiscoveryButton } from "@/components/GenerateFromDiscoveryButton";
 import { toast } from "@/lib/toast";
 import type { DeploymentRisk, RiskStatus } from "@/lib/types";
 
@@ -90,6 +91,13 @@ export default function RisksPage() {
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <SaveIndicator state={saveState} />
+          {/* Persistent path to AI drafting; the empty state shows its own. */}
+          {project.risks.length > 0 && (
+            <GenerateFromDiscoveryButton
+              target="risks"
+              label="✨ Draft suggestions"
+            />
+          )}
           {!showForm && (
             <button
               type="button"

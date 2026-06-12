@@ -8,6 +8,7 @@ import {
   getProjectChunksWithEmbeddings,
   getProjectChunks,
   getChunksByIds,
+  getProjectChunkStats,
   deleteProjectChunks,
 } from "@/lib/kb/storage";
 import type { KnowledgeBaseDoc } from "@/lib/types";
@@ -200,6 +201,58 @@ describe("kb/storage", () => {
     expect(await getProjectChunks(projectA)).toEqual([]);
     expect((await getDocs(projectB)).length).toBe(1);
     expect((await getProjectChunks(projectB)).length).toBe(1);
+  });
+
+  it("getProjectChunkStats aggregates per-doc counts and approx tokens", async () => {
+    const docA = "stats-a";
+    const docB = "stats-b";
+    await putDoc(mkDoc({ id: docA, projectId: projectA }));
+    await putDoc(mkDoc({ id: docB, projectId: projectA }));
+    await putDoc(mkDoc({ id: "stats-other", projectId: projectB }));
+    await putChunks([
+      {
+        id: "sa1",
+        projectId: projectA,
+        docId: docA,
+        text: "a".repeat(40), // 10 approx tokens at 4 chars/token
+        chunkIndex: 0,
+        embedding: mkEmbedding(10),
+      },
+      {
+        id: "sa2",
+        projectId: projectA,
+        docId: docA,
+        text: "b".repeat(20), // 5 approx tokens
+        chunkIndex: 1,
+        embedding: mkEmbedding(11),
+      },
+      {
+        id: "sb1",
+        projectId: projectA,
+        docId: docB,
+        text: "c".repeat(8), // 2 approx tokens
+        chunkIndex: 0,
+        embedding: mkEmbedding(12),
+      },
+      {
+        id: "so1",
+        projectId: projectB,
+        docId: "stats-other",
+        text: "d".repeat(400),
+        chunkIndex: 0,
+        embedding: mkEmbedding(13),
+      },
+    ]);
+
+    const stats = await getProjectChunkStats(projectA);
+    expect(stats[docA]).toEqual({ chunkCount: 2, approxTokens: 15 });
+    expect(stats[docB]).toEqual({ chunkCount: 1, approxTokens: 2 });
+    // Other projects' chunks never leak into the stats.
+    expect(stats["stats-other"]).toBeUndefined();
+  });
+
+  it("getProjectChunkStats returns an empty record for an unknown project", async () => {
+    expect(await getProjectChunkStats(`nope-${projectA}`)).toEqual({});
   });
 
   it("throws when embedding has wrong dimensions", async () => {

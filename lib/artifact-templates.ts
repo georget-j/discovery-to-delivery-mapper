@@ -637,7 +637,7 @@ ${customer.regulatoryContext.length > 0 ? "- [ ] Prepare compliance documentatio
 // Only narrows to string-typed artifact keys (excludes derivedFromHash etc).
 export type ArtifactPreviewKey = Exclude<
   keyof GeneratedArtifacts,
-  "derivedFromHash" | "generatedAt" | "editedArtifacts"
+  "derivedFromHash" | "generatedAt" | "editedArtifacts" | "generationSource"
 >;
 
 export function previewArtifact(

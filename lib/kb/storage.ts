@@ -10,6 +10,7 @@
 // Why no `idb` library: the surface is small and the native API is fine
 // once wrapped in a few Promise helpers. Saves ~10 KB on the client bundle.
 
+import { approxTokenCount } from "@/lib/kb/chunker";
 import type { KnowledgeBaseChunk, KnowledgeBaseDoc } from "@/lib/types";
 
 const DB_NAME = "dtdm-knowledge-base";
@@ -253,6 +254,28 @@ export async function getChunksByIds(
         const { embedding: _embedding, ...rest } = p;
         out.push(rest);
       }
+    }
+    return out;
+  });
+}
+
+// Per-doc chunk stats so a restored session can show truthful doc/chunk/
+// token totals after the in-memory queue state (chunk blueprints) is gone.
+export type DocChunkStats = { chunkCount: number; approxTokens: number };
+
+export async function getProjectChunkStats(
+  projectId: string,
+): Promise<Record<string, DocChunkStats>> {
+  return tx(CHUNKS_STORE, "readonly", async (store) => {
+    const index = (store as IDBObjectStore).index("projectId");
+    const persisted = await req(
+      index.getAll(projectId) as IDBRequest<PersistedChunk[]>,
+    );
+    const out: Record<string, DocChunkStats> = {};
+    for (const p of persisted) {
+      const stats = (out[p.docId] ??= { chunkCount: 0, approxTokens: 0 });
+      stats.chunkCount += 1;
+      stats.approxTokens += approxTokenCount(p.text);
     }
     return out;
   });

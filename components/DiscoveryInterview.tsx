@@ -22,29 +22,75 @@ type Props = {
   onComplete?: () => void;
 };
 
+const transcriptKey = (projectId: string) =>
+  `dtdm:discovery-transcript:${projectId}`;
+
+const INTRO_MESSAGE: ChatMessage = {
+  id: "intro",
+  role: "assistant",
+  content: INTERVIEW_OPENING,
+};
+
+// The transcript must survive view toggles and navigation mid-call, so it
+// lives in sessionStorage keyed by project id rather than component state.
+function restoreTranscript(projectId: string | undefined): ChatMessage[] {
+  if (!projectId || typeof window === "undefined") return [INTRO_MESSAGE];
+  try {
+    const raw = sessionStorage.getItem(transcriptKey(projectId));
+    if (raw) {
+      const parsed = JSON.parse(raw) as ChatMessage[];
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {
+    // Corrupt entry — start a fresh transcript.
+  }
+  return [INTRO_MESSAGE];
+}
+
 // Conversational alternative to the form-based Discovery flow. Asks one
 // question at a time, parses each reply into a structured patch, and
 // auto-applies it to the project. The form view remains togglable from
 // the page; switching to it shows everything the chat captured.
 export function DiscoveryInterview({ onComplete }: Props) {
   const { project, updateProject } = useWorkspace();
-  const [messages, setMessages] = useState<ChatMessage[]>(() => [
-    {
-      id: "intro",
-      role: "assistant",
-      content: INTERVIEW_OPENING,
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() =>
+    restoreTranscript(project?.id),
+  );
+  // Mirrors `messages` synchronously — a queued send fires from the previous
+  // turn's finally block, before React re-renders, so the state closure is
+  // stale at that point.
+  const messagesRef = useRef<ChatMessage[]>(messages);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
+  // One-slot queue for replies submitted while a turn is in flight.
+  const [queued, setQueued] = useState<string | null>(null);
+  const queuedRef = useRef<string | null>(null);
   const [done, setDone] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  const appendMessages = (next: ChatMessage[]) => {
+    messagesRef.current = [...messagesRef.current, ...next];
+    setMessages(messagesRef.current);
+  };
+
+  const projectId = project?.id;
+  useEffect(() => {
+    if (!projectId) return;
+    sessionStorage.setItem(transcriptKey(projectId), JSON.stringify(messages));
+  }, [messages, projectId]);
+
+  // A restored transcript may already have reached the wrap-up message.
+  useEffect(() => {
+    if (messagesRef.current.some((m) => m.id.startsWith("done-")))
+      setDone(true);
+  }, []);
 
   // Auto-scroll on new message.
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages.length, sending]);
+  }, [messages.length, sending, queued]);
 
   if (!project) return null;
 
@@ -77,15 +123,26 @@ export function DiscoveryInterview({ onComplete }: Props) {
 
   const send = async (overrideText?: string) => {
     const text = (overrideText ?? draft).trim();
-    if (!text || sending) return;
+    if (!text) return;
+    if (sendingRef.current) {
+      // Queue instead of dropping — the input stays live while a turn is in
+      // flight, and the held reply dispatches when the turn resolves.
+      queuedRef.current = queuedRef.current
+        ? `${queuedRef.current}\n${text}`
+        : text;
+      setQueued(queuedRef.current);
+      if (overrideText === undefined) setDraft("");
+      return;
+    }
     const userMsg: ChatMessage = {
       id: `u-${Date.now()}`,
       role: "user",
       content: text,
     };
-    const nextHistory = [...messages, userMsg];
-    setMessages(nextHistory);
-    setDraft("");
+    appendMessages([userMsg]);
+    const nextHistory = messagesRef.current;
+    if (overrideText === undefined) setDraft("");
+    sendingRef.current = true;
     setSending(true);
     try {
       const res = await fetch("/api/discovery/chat", {
@@ -143,13 +200,18 @@ export function DiscoveryInterview({ onComplete }: Props) {
         });
         setDone(true);
       }
-      setMessages((prev) => [...prev, ...newMessages]);
+      appendMessages(newMessages);
     } catch (err) {
       toast.error("Network error", {
         description: err instanceof Error ? err.message : "Unknown error",
       });
     } finally {
+      sendingRef.current = false;
       setSending(false);
+      const held = queuedRef.current;
+      queuedRef.current = null;
+      setQueued(null);
+      if (held) void send(held);
     }
   };
 
@@ -196,6 +258,19 @@ export function DiscoveryInterview({ onComplete }: Props) {
             </Surface>
           </div>
         )}
+        {queued && (
+          <div className="flex justify-end">
+            <Surface
+              variant="default"
+              className="max-w-[85%] px-3 py-2 text-sm leading-relaxed bg-primary/5 border-primary/20 opacity-70"
+            >
+              <p>{queued}</p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Queued — sends when the current turn finishes
+              </p>
+            </Surface>
+          </div>
+        )}
       </div>
       {done && onComplete && (
         <div className="pb-2">
@@ -221,7 +296,6 @@ export function DiscoveryInterview({ onComplete }: Props) {
             }
           }}
           placeholder="Type your answer, or press the mic to speak…"
-          disabled={sending}
         />
         <div className="flex items-center justify-between gap-2">
           <VoiceInputButton
@@ -233,10 +307,10 @@ export function DiscoveryInterview({ onComplete }: Props) {
           <button
             type="button"
             onClick={() => void send()}
-            disabled={sending || !draft.trim()}
+            disabled={!draft.trim()}
             className="text-xs px-4 py-1.5 rounded-md bg-foreground text-background hover:bg-foreground/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-medium"
           >
-            {sending ? "Sending…" : "Send ↵"}
+            {sending ? (draft.trim() ? "Queue ↵" : "Sending…") : "Send ↵"}
           </button>
         </div>
       </div>

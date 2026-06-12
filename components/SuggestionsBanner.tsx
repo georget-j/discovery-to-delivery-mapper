@@ -27,7 +27,7 @@ const TARGET_LABEL: Record<Target, string> = {
   risks: "risk",
 };
 
-function countForTarget(
+export function countForTarget(
   suggestions: NotesExtractionResult,
   target: Target,
 ): number {
@@ -40,6 +40,122 @@ function countForTarget(
       return suggestions.suggestedStakeholders?.length ?? 0;
     case "risks":
       return suggestions.suggestedRisks?.length ?? 0;
+  }
+}
+
+// Which journey tab href surfaces each suggestion target — drives the
+// sidebar's pending-suggestion badges.
+const TARGET_BY_TAB: Record<string, Target> = {
+  "/discovery": "stakeholders",
+  "/workflow": "workflows",
+  "/systems": "systems",
+  "/risks": "risks",
+};
+
+export function pendingSuggestionCountForTab(
+  suggestions: NotesExtractionResult | null | undefined,
+  tabHref: string,
+): number {
+  const target = TARGET_BY_TAB[tabHref];
+  if (!suggestions || !target) return 0;
+  return countForTarget(suggestions, target);
+}
+
+export function countAllSuggestions(
+  suggestions: NotesExtractionResult | null | undefined,
+): number {
+  if (!suggestions) return 0;
+  return (
+    (suggestions.suggestedWorkflows?.length ?? 0) +
+    (suggestions.suggestedSystems?.length ?? 0) +
+    (suggestions.suggestedDataSources?.length ?? 0) +
+    (suggestions.suggestedRisks?.length ?? 0) +
+    (suggestions.suggestedStakeholders?.length ?? 0)
+  );
+}
+
+// Concatenate two suggestion sets category-by-category. Used to accumulate
+// dismissed payloads in the stash and to merge them back into pending.
+export function mergeSuggestions(
+  a: NotesExtractionResult,
+  b: NotesExtractionResult,
+): NotesExtractionResult {
+  const concat = <T,>(x?: T[], y?: T[]): T[] | undefined => {
+    const merged = [...(x ?? []), ...(y ?? [])];
+    return merged.length > 0 ? merged : undefined;
+  };
+  return {
+    discovery:
+      a.discovery || b.discovery
+        ? { ...(a.discovery ?? {}), ...(b.discovery ?? {}) }
+        : undefined,
+    suggestedStakeholders: concat(
+      a.suggestedStakeholders,
+      b.suggestedStakeholders,
+    ),
+    suggestedSystems: concat(a.suggestedSystems, b.suggestedSystems),
+    suggestedDataSources: concat(
+      a.suggestedDataSources,
+      b.suggestedDataSources,
+    ),
+    suggestedWorkflows: concat(a.suggestedWorkflows, b.suggestedWorkflows),
+    suggestedRisks: concat(a.suggestedRisks, b.suggestedRisks),
+    suggestedActionItems: concat(
+      a.suggestedActionItems,
+      b.suggestedActionItems,
+    ),
+    summary:
+      a.summary === b.summary
+        ? a.summary
+        : [a.summary, b.summary].filter(Boolean).join(" · "),
+  };
+}
+
+// ── Dismissed-suggestion stash ───────────────────────────────────────────
+// Dismissing a banner used to permanently discard that subset of an LLM
+// round-trip. The subset now survives in localStorage so the Overview can
+// offer a "Restore dismissed" path.
+
+const dismissedKey = (projectId: string) =>
+  `dtdm:dismissed-suggestions:${projectId}`;
+
+export function readDismissedSuggestions(
+  projectId: string,
+): NotesExtractionResult | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(dismissedKey(projectId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as NotesExtractionResult;
+    return countAllSuggestions(parsed) > 0 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function stashDismissedSuggestions(
+  projectId: string,
+  subset: NotesExtractionResult,
+): void {
+  if (typeof window === "undefined") return;
+  try {
+    const existing = readDismissedSuggestions(projectId);
+    const merged = existing ? mergeSuggestions(existing, subset) : subset;
+    window.localStorage.setItem(
+      dismissedKey(projectId),
+      JSON.stringify(merged),
+    );
+  } catch {
+    // Storage unavailable/full — the dismissal proceeds without a recovery copy.
+  }
+}
+
+export function clearDismissedSuggestions(projectId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(dismissedKey(projectId));
+  } catch {
+    // Nothing to clean up if storage is unavailable.
   }
 }
 
@@ -79,6 +195,8 @@ export function SuggestionsBanner({ target }: Props) {
 
   const dismiss = () => {
     if (!project.pendingSuggestions) return;
+    // Stash the dismissed subset so it can be restored from the Overview.
+    stashDismissedSuggestions(project.id, scoped);
     // Strip the relevant categories from pending.
     const next = { ...project.pendingSuggestions };
     if (target === "workflows") delete next.suggestedWorkflows;
@@ -88,14 +206,11 @@ export function SuggestionsBanner({ target }: Props) {
     }
     if (target === "stakeholders") delete next.suggestedStakeholders;
     if (target === "risks") delete next.suggestedRisks;
-    const remainingHits =
-      (next.suggestedWorkflows?.length ?? 0) +
-      (next.suggestedSystems?.length ?? 0) +
-      (next.suggestedDataSources?.length ?? 0) +
-      (next.suggestedRisks?.length ?? 0) +
-      (next.suggestedStakeholders?.length ?? 0);
     updateProject({
-      pendingSuggestions: remainingHits > 0 ? next : null,
+      pendingSuggestions: countAllSuggestions(next) > 0 ? next : null,
+    });
+    toast.info("Suggestions dismissed", {
+      description: "Restore them anytime from the workspace Overview.",
     });
   };
 
@@ -119,15 +234,9 @@ export function SuggestionsBanner({ target }: Props) {
     }
     if (target === "stakeholders") delete next.suggestedStakeholders;
     if (target === "risks") delete next.suggestedRisks;
-    const remainingHits =
-      (next.suggestedWorkflows?.length ?? 0) +
-      (next.suggestedSystems?.length ?? 0) +
-      (next.suggestedDataSources?.length ?? 0) +
-      (next.suggestedRisks?.length ?? 0) +
-      (next.suggestedStakeholders?.length ?? 0);
     updateProject({
       ...patch,
-      pendingSuggestions: remainingHits > 0 ? next : null,
+      pendingSuggestions: countAllSuggestions(next) > 0 ? next : null,
     });
     setOpen(false);
     toast.success(

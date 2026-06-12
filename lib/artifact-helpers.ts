@@ -39,3 +39,11 @@ export function hashGenerationInputs(project: OnboardingProject): string {
   ];
   return parts.join("::");
 }
+
+// Citation markers like "reduces review time by 70%[3]" reference the in-app
+// sources panel; exported/copied documents have no such panel, so a customer
+// receives bare [3] markers pointing at nothing. Strip them on the way out
+// (markdown links like [text](url) are left intact).
+export function stripCitationMarkers(markdown: string): string {
+  return markdown.replace(/\[\d+\](?!\()/g, "");
+}

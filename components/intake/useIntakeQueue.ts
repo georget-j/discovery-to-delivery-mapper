@@ -10,6 +10,8 @@ import {
   putDoc,
   deleteDoc,
   getProjectChunksWithEmbeddings,
+  getProjectChunkStats,
+  type DocChunkStats,
 } from "@/lib/kb/storage";
 import { approxTokenCount, chunkSources, chunkText } from "@/lib/kb/chunker";
 import {
@@ -29,6 +31,21 @@ import type {
 
 const MAX_FILES_PER_DROP = 10;
 
+// Pasted-note text is persisted on the project doc record (it's small) so a
+// post-reload Retry can genuinely re-process. Uploads can't be persisted —
+// their restore path offers Re-upload instead. The cap guards localStorage
+// quota against pathological pastes.
+const MAX_PERSISTED_RAWTEXT_CHARS = 200_000;
+
+// /api/vision/describe returns these per-page placeholders instead of
+// throwing; embedding them would poison retrieval, so failed pages are
+// skipped before chunking.
+const VISION_FAILURE_RE = /^\(Vision call (?:failed: status \d+|errored)\)$/;
+
+// lib/types.ts is owned elsewhere — extend the persisted doc shape locally
+// to carry pasted-note text through the project record.
+type KnowledgeBaseDocWithText = KnowledgeBaseDoc & { rawText?: string };
+
 export type IntakeJob = {
   id: string; // promoted to docId once persisted
   name: string;
@@ -40,8 +57,16 @@ export type IntakeJob = {
   stage?: "parsing" | "chunking" | "embedding";
   file?: File; // null for raw-text pastes
   rawText?: string;
+  // Original ingest surface — survives restore, where `file` does not.
+  source: "upload" | "paste";
   // When set, the user can hit "Retry" without re-uploading the file.
   recoverable: boolean;
+  // Non-fatal note that should survive the doc going ready (e.g. "2 pages
+  // failed the vision pass") — statusDetail gets cleared on success.
+  warning?: string;
+  // Chunk count from the persisted doc record, for restored jobs whose
+  // blueprints are gone.
+  persistedChunkCount?: number;
   // Bookkeeping for embedding so retries skip re-parse.
   pendingChunkBlueprints?: import("@/lib/kb/chunker").ChunkBlueprint[];
   pageCount?: number;
@@ -58,7 +83,9 @@ export type IntakeQueueApi = {
   jobs: IntakeJob[];
   enqueue: (input: EnqueueInput) => void;
   cancel: (jobId: string) => void;
-  retry: (jobId: string) => void;
+  // With a file, re-associates the payload with the doc row (post-reload
+  // "Re-upload") before re-queueing.
+  retry: (jobId: string, file?: File) => void;
   remove: (jobId: string) => void;
   summarise: (jobId: string) => Promise<void>;
   summaries: Record<string, string>;
@@ -81,6 +108,43 @@ export function useIntakeQueue(): IntakeQueueApi {
   useEffect(() => {
     jobsRef.current = jobs;
   }, [jobs]);
+
+  // Fresh project for callbacks that fire after awaits — closures over
+  // `project` go stale across async boundaries.
+  const projectRef = useRef<OnboardingProject | null>(project);
+  useEffect(() => {
+    projectRef.current = project;
+  }, [project]);
+
+  // Embedding tokens not yet folded into the project totals; consumed by the
+  // next mirror write so totals and docs land in a single update.
+  const pendingEmbedTokensRef = useRef(0);
+  // Doc ids the user removed this session — stops the mirror from
+  // resurrecting them from the previously persisted doc list.
+  const removedIdsRef = useRef<Set<string>>(new Set());
+  // Set once the project has loaded (and any prior docs were restored) so
+  // the mirror never wipes the persisted doc list with an empty queue.
+  const hydratedRef = useRef(false);
+
+  // Persisted chunk stats back restored docs whose in-memory blueprints are
+  // gone, so totals stay truthful after a reload.
+  const [chunkStats, setChunkStats] = useState<Record<string, DocChunkStats>>(
+    {},
+  );
+  useEffect(() => {
+    if (!projectId) return;
+    let cancelled = false;
+    getProjectChunkStats(projectId)
+      .then((stats) => {
+        if (!cancelled) setChunkStats(stats);
+      })
+      .catch(() => {
+        /* stats are display-only — IDB unavailability is non-fatal */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
 
   const workerRef = useRef<Worker | null>(null);
 
@@ -189,7 +253,7 @@ export function useIntakeQueue(): IntakeQueueApi {
         chunkCount: j.pendingChunkBlueprints?.length ?? 0,
         pageCount: j.pageCount,
         sheetCount: j.sheetCount,
-        source: j.file ? "upload" : "paste",
+        source: j.source,
       };
       try {
         await putDoc(doc);
@@ -287,7 +351,7 @@ export function useIntakeQueue(): IntakeQueueApi {
           progress: 1,
         });
         await persistDoc(job.id);
-        bumpKbTotals();
+        // Status flip → ready; the mirror effect picks it up.
         embeddingInProgress.current.delete(job.id);
         return;
       }
@@ -318,6 +382,9 @@ export function useIntakeQueue(): IntakeQueueApi {
         }));
         await putChunks(persisted);
 
+        // Folded into the project totals by the mirror effect when the
+        // ready transition lands.
+        pendingEmbedTokensRef.current += tokensUsed;
         updateJob(job.id, {
           status: "ready",
           progress: 1,
@@ -325,9 +392,6 @@ export function useIntakeQueue(): IntakeQueueApi {
           embeddingAbort: undefined,
         });
         await persistDoc(job.id);
-
-        addTokensToTotals(tokensUsed);
-        bumpKbTotals(blueprints.length, job);
       } catch (err) {
         const reason = (err as { reason?: string })?.reason;
         const message =
@@ -356,90 +420,116 @@ export function useIntakeQueue(): IntakeQueueApi {
   );
 
   // ── KB summary mirror on project ──────────────────────────────────────
+  // Mirrors EVERY queue status (not just ready/failed) into the project
+  // record so docs still parsing/embedding at tab close show up as
+  // interrupted after a reload instead of vanishing.
 
-  const bumpKbTotals = useCallback(
-    (newChunks?: number, job?: IntakeJob) => {
-      if (!project) return;
-      const existing: KnowledgeBaseSummary = project.knowledgeBase ?? {
-        docs: [],
-        totalChunks: 0,
-        totalTokensEmbedded: 0,
+  const mirrorKbToProject = useCallback(() => {
+    const proj = projectRef.current;
+    if (!proj) return;
+    const existing: KnowledgeBaseSummary = proj.knowledgeBase ?? {
+      docs: [],
+      totalChunks: 0,
+      totalTokensEmbedded: 0,
+    };
+    const prevById = new Map<string, KnowledgeBaseDocWithText>(
+      existing.docs.map((d) => [d.id, d as KnowledgeBaseDocWithText]),
+    );
+    const jobIds = new Set(jobsRef.current.map((j) => j.id));
+    const docs = jobsRef.current.map<KnowledgeBaseDocWithText>((j) => {
+      const prev = prevById.get(j.id);
+      return {
+        id: j.id,
+        projectId,
+        name: j.name,
+        mimeType: j.file?.type ?? prev?.mimeType ?? "text/plain",
+        byteSize: j.byteSize,
+        type: j.type,
+        addedAt: prev?.addedAt ?? new Date().toISOString(),
+        status: j.status,
+        statusDetail: j.statusDetail ?? j.warning,
+        chunkCount:
+          j.pendingChunkBlueprints?.length ??
+          (j.status === "ready"
+            ? (prev?.chunkCount ?? j.persistedChunkCount ?? 0)
+            : 0),
+        pageCount: j.pageCount,
+        sheetCount: j.sheetCount,
+        source: j.source,
+        summary: prev?.summary,
+        rawText:
+          j.source === "paste" &&
+          j.rawText !== undefined &&
+          j.rawText.length <= MAX_PERSISTED_RAWTEXT_CHARS
+            ? j.rawText
+            : undefined,
       };
-      const docs = jobsRef.current
-        .filter((j) => j.status === "ready" || j.status === "failed")
-        .map<KnowledgeBaseDoc>((j) => ({
-          id: j.id,
-          projectId,
-          name: j.name,
-          mimeType: j.file?.type ?? "text/plain",
-          byteSize: j.byteSize,
-          type: j.type,
-          addedAt: new Date().toISOString(),
-          status: j.status,
-          statusDetail: j.statusDetail,
-          chunkCount:
-            j.status === "ready" ? (j.pendingChunkBlueprints?.length ?? 0) : 0,
-          pageCount: j.pageCount,
-          sheetCount: j.sheetCount,
-          source: j.file ? "upload" : "paste",
-        }));
-      const totalChunks = docs.reduce((sum, d) => sum + d.chunkCount, 0);
-      updateProject({
-        knowledgeBase: {
-          docs,
-          totalChunks,
-          totalTokensEmbedded: existing.totalTokensEmbedded + (newChunks ?? 0),
-          lastIngestedAt: new Date().toISOString(),
-        },
-      });
-      // Silence unused params — they exist for forward extensibility.
-      void newChunks;
-      void job;
-    },
-    [project, projectId, updateProject],
-  );
+    });
+    // Docs added outside the queue this session (e.g. shared-library
+    // imports) have no job — keep them unless the user removed them.
+    for (const d of existing.docs) {
+      if (!jobIds.has(d.id) && !removedIdsRef.current.has(d.id)) docs.push(d);
+    }
+    const totalChunks = docs.reduce(
+      (sum, d) => (d.status === "ready" ? sum + d.chunkCount : sum),
+      0,
+    );
+    const embedTokens = pendingEmbedTokensRef.current;
+    pendingEmbedTokensRef.current = 0;
+    updateProject({
+      knowledgeBase: {
+        docs,
+        totalChunks,
+        totalTokensEmbedded: existing.totalTokensEmbedded + embedTokens,
+        lastIngestedAt: new Date().toISOString(),
+      },
+    });
+  }, [projectId, updateProject]);
 
-  const addTokensToTotals = useCallback(
-    (tokens: number) => {
-      if (!project) return;
-      const existing: KnowledgeBaseSummary = project.knowledgeBase ?? {
-        docs: [],
-        totalChunks: 0,
-        totalTokensEmbedded: 0,
-      };
-      updateProject({
-        knowledgeBase: {
-          ...existing,
-          totalTokensEmbedded: existing.totalTokensEmbedded + tokens,
-        },
-      });
-    },
-    [project, updateProject],
-  );
+  // Status (not progress) transitions drive the mirror — progress ticks
+  // would thrash localStorage.
+  const mirrorSignature = jobs.map((j) => `${j.id}:${j.status}`).join("|");
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    mirrorKbToProject();
+    // mirrorKbToProject reads refs — the signature is the real dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mirrorSignature]);
 
   // ── Restore on mount: any non-terminal docs from a prior session ──────
 
   useEffect(() => {
-    if (!project?.knowledgeBase) return;
-    if (jobsRef.current.length > 0) return; // hydrate only once per session
-    const restored: IntakeJob[] = project.knowledgeBase.docs.map((d) => ({
-      id: d.id,
-      name: d.name,
-      byteSize: d.byteSize,
-      type: d.type,
-      status:
-        d.status === "ready" || d.status === "failed" ? d.status : "failed",
-      progress: d.status === "ready" ? 1 : 0,
-      statusDetail:
-        d.status === "ready" || d.status === "failed"
-          ? d.statusDetail
-          : "Interrupted — retry",
-      pageCount: d.pageCount,
-      sheetCount: d.sheetCount,
-      recoverable: d.status !== "ready",
-    }));
+    if (!project) return;
+    if (hydratedRef.current) return; // hydrate only once per session
+    hydratedRef.current = true;
+    const docs = (project.knowledgeBase?.docs ??
+      []) as KnowledgeBaseDocWithText[];
+    if (docs.length === 0 || jobsRef.current.length > 0) return;
+    const restored: IntakeJob[] = docs.map((d) => {
+      const interrupted = d.status !== "ready" && d.status !== "failed";
+      const hasText = typeof d.rawText === "string" && d.rawText.length > 0;
+      return {
+        id: d.id,
+        name: d.name,
+        byteSize: d.byteSize,
+        type: d.type,
+        status: interrupted ? "failed" : d.status,
+        progress: d.status === "ready" ? 1 : 0,
+        statusDetail: interrupted
+          ? hasText
+            ? "Interrupted by reload — retry to re-process."
+            : "Interrupted by reload — re-upload the file to finish."
+          : d.statusDetail,
+        pageCount: d.pageCount,
+        sheetCount: d.sheetCount,
+        rawText: hasText ? d.rawText : undefined,
+        source: d.source,
+        persistedChunkCount: d.chunkCount,
+        recoverable: d.status !== "ready",
+      };
+    });
     setJobs(restored);
-  }, [project?.knowledgeBase]);
+  }, [project]);
 
   // ── Public actions ────────────────────────────────────────────────────
 
@@ -460,6 +550,7 @@ export function useIntakeQueue(): IntakeQueueApi {
             status: "queued",
             progress: 0,
             rawText: text,
+            source: "paste",
             recoverable: true,
           },
         ]);
@@ -481,6 +572,7 @@ export function useIntakeQueue(): IntakeQueueApi {
             status: "failed",
             progress: 0,
             statusDetail: detection.reason,
+            source: "upload",
             recoverable: false,
           });
           continue;
@@ -496,6 +588,7 @@ export function useIntakeQueue(): IntakeQueueApi {
             statusDetail: `File too large (${(file.size / 1024 / 1024).toFixed(
               1,
             )} MB). Limit is ${MAX_FILE_BYTES / 1024 / 1024} MB.`,
+            source: "upload",
             recoverable: false,
           });
           continue;
@@ -508,6 +601,7 @@ export function useIntakeQueue(): IntakeQueueApi {
           status: "queued",
           progress: 0,
           file,
+          source: "upload",
           recoverable: true,
         });
       }
@@ -527,6 +621,7 @@ export function useIntakeQueue(): IntakeQueueApi {
             status: "failed",
             progress: 0,
             statusDetail: `Limit is ${MAX_FILES_PER_DROP} files per drop. Re-drop the rest.`,
+            source: "upload",
             recoverable: false,
           },
         ]);
@@ -541,6 +636,7 @@ export function useIntakeQueue(): IntakeQueueApi {
       if (!job) return;
       if (job.embeddingAbort) job.embeddingAbort.abort();
       workerRef.current?.postMessage({ type: "cancel", jobId });
+      removedIdsRef.current.add(jobId);
       removeJob(jobId);
       void deleteDoc(jobId);
     },
@@ -549,6 +645,7 @@ export function useIntakeQueue(): IntakeQueueApi {
 
   const remove = useCallback(
     (jobId: string) => {
+      removedIdsRef.current.add(jobId);
       removeJob(jobId);
       void deleteDoc(jobId);
     },
@@ -556,9 +653,44 @@ export function useIntakeQueue(): IntakeQueueApi {
   );
 
   const retry = useCallback(
-    (jobId: string) => {
+    (jobId: string, file?: File) => {
       const job = jobsRef.current.find((j) => j.id === jobId);
       if (!job) return;
+      if (file) {
+        // Re-upload path: re-associate the picked file with this doc row.
+        const detection = detectDocType(file.name, file.type);
+        if (!detection.ok) {
+          toast.error("Unsupported file", { description: detection.reason });
+          return;
+        }
+        if (file.size > MAX_FILE_BYTES) {
+          toast.error("File too large", {
+            description: `Limit is ${MAX_FILE_BYTES / 1024 / 1024} MB.`,
+          });
+          return;
+        }
+        // Wipe any chunks left from a previous run of this doc id so a
+        // shorter re-upload can't leave stale chunks behind.
+        void deleteDoc(jobId).catch(() => {});
+        updateJob(jobId, {
+          status: "queued",
+          progress: 0,
+          statusDetail: undefined,
+          warning: undefined,
+          file,
+          rawText: undefined,
+          name: file.name,
+          byteSize: file.size,
+          type: detection.docType,
+          source: "upload",
+          pendingChunkBlueprints: undefined,
+          pageCount: undefined,
+          sheetCount: undefined,
+          persistedChunkCount: undefined,
+          recoverable: true,
+        });
+        return;
+      }
       if (job.pendingChunkBlueprints && job.pendingChunkBlueprints.length > 0) {
         // Already past parse — just retry embedding.
         updateJob(jobId, {
@@ -567,11 +699,18 @@ export function useIntakeQueue(): IntakeQueueApi {
           stage: "embedding",
           statusDetail: undefined,
         });
+      } else if (!job.file && job.rawText === undefined) {
+        // Post-reload the file bytes are gone — a blind retry is guaranteed
+        // to fail with "No file or text payload".
+        toast.error("Original file isn't stored after a reload", {
+          description: "Use Re-upload to pick the file again.",
+        });
       } else {
         updateJob(jobId, {
           status: "queued",
           progress: 0,
           statusDetail: undefined,
+          warning: undefined,
         });
       }
     },
@@ -596,6 +735,7 @@ export function useIntakeQueue(): IntakeQueueApi {
         progress: 0,
         statusDetail: "Running OCR — this may take a few minutes for big PDFs.",
         stage: "parsing",
+        warning: undefined,
       });
       try {
         const ocrMod = await import("@/lib/kb/ocr");
@@ -658,6 +798,7 @@ export function useIntakeQueue(): IntakeQueueApi {
         progress: 0,
         stage: "parsing",
         statusDetail: "Rendering pages for vision pass…",
+        warning: undefined,
       });
       try {
         const visionMod = await import("@/lib/kb/vision");
@@ -679,11 +820,35 @@ export function useIntakeQueue(): IntakeQueueApi {
           });
           return;
         }
-        const sources = descriptions.map((d) => ({
+        // The API returns per-page failure placeholders instead of throwing.
+        // Skip those pages — embedding them would poison retrieval.
+        const usable = descriptions.filter(
+          (d) => !VISION_FAILURE_RE.test(d.text.trim()),
+        );
+        const failedPages = descriptions.length - usable.length;
+        if (usable.length === 0) {
+          updateJob(jobId, {
+            status: "failed",
+            statusDetail: `Vision pass failed on all ${failedPages} page${
+              failedPages !== 1 ? "s" : ""
+            } — no image descriptions were produced. Try again.`,
+            recoverable: false,
+          });
+          return;
+        }
+        const sources = usable.map((d) => ({
           text: d.text,
           page: d.page,
         }));
         const blueprints = chunkSources(sources);
+        if (blueprints.length === 0) {
+          updateJob(jobId, {
+            status: "failed",
+            statusDetail: "Vision descriptions were too short to index.",
+            recoverable: false,
+          });
+          return;
+        }
         updateJob(jobId, (j) => ({
           ...j,
           status: "embedding",
@@ -692,6 +857,14 @@ export function useIntakeQueue(): IntakeQueueApi {
           pendingChunkBlueprints: blueprints,
           pageCount,
           statusDetail: undefined,
+          warning:
+            failedPages > 0
+              ? `${failedPages} page${
+                  failedPages !== 1 ? "s" : ""
+                } failed the vision pass and ${
+                  failedPages !== 1 ? "were" : "was"
+                } skipped.`
+              : undefined,
         }));
       } catch (err) {
         updateJob(jobId, {
@@ -734,6 +907,7 @@ export function useIntakeQueue(): IntakeQueueApi {
         pendingChunkBlueprints: blueprints,
         rawText: text,
         statusDetail: undefined,
+        warning: undefined,
       }));
       // Embedding dispatcher picks it up.
     },
@@ -821,21 +995,23 @@ export function useIntakeQueue(): IntakeQueueApi {
 
   const totals = useMemo(() => {
     const ready = jobs.filter((j) => j.status === "ready");
-    const chunks = ready.reduce(
-      (sum, j) => sum + (j.pendingChunkBlueprints?.length ?? 0),
-      0,
-    );
-    const tokens = ready.reduce(
-      (sum, j) =>
-        sum +
-        (j.pendingChunkBlueprints ?? []).reduce(
-          (s, c) => s + approxTokenCount(c.text),
-          0,
-        ),
-      0,
-    );
+    let chunks = 0;
+    let tokens = 0;
+    for (const j of ready) {
+      const blueprints = j.pendingChunkBlueprints ?? [];
+      if (blueprints.length > 0) {
+        chunks += blueprints.length;
+        tokens += blueprints.reduce((s, c) => s + approxTokenCount(c.text), 0);
+      } else {
+        // Restored docs have no in-memory blueprints — fall back to the
+        // chunk stats persisted in IndexedDB.
+        const stats = chunkStats[j.id];
+        chunks += stats?.chunkCount ?? j.persistedChunkCount ?? 0;
+        tokens += stats?.approxTokens ?? 0;
+      }
+    }
     return { docs: ready.length, chunks, tokens };
-  }, [jobs]);
+  }, [jobs, chunkStats]);
 
   const parsingCount = jobs.filter(
     (j) => j.status === "parsing" || j.status === "chunking",

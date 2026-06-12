@@ -94,6 +94,23 @@ describe("getPhaseForPath", () => {
       "discover",
     );
   });
+
+  it("prefix-matches nested routes to the owning tab's phase", () => {
+    expect(getPhaseForPath(`/workspace/${PID}/outputs/matrix`, PID).id).toBe(
+      "deliver",
+    );
+    expect(getPhaseForPath(`/workspace/${PID}/workflow/future`, PID).id).toBe(
+      "design",
+    );
+    expect(getPhaseForPath(`/workspace/${PID}/risks/some/deep`, PID).id).toBe(
+      "plan",
+    );
+  });
+
+  it("does not prefix-match the empty Overview href against everything", () => {
+    // /pilot must resolve via its own tab (plan), not the "" Overview tab.
+    expect(getPhaseForPath(`/workspace/${PID}/pilot`, PID).id).toBe("plan");
+  });
 });
 
 // ── getTabForPath ──────────────────────────────────────────────────────────
@@ -178,8 +195,21 @@ describe("isPhaseComplete", () => {
     expect(isPhaseComplete(project, "discover")).toBe(false);
   });
 
-  it("design is incomplete without requirements", () => {
+  it("design counts auto-derived requirements when none are manual", () => {
+    // The fintech scenario ships with zero manual requirements but derives
+    // several from its workflows, systems, and regulatory context — the
+    // phase must complete without the user persisting any by hand.
     const project: OnboardingProject = { ...fintech, requirements: [] };
+    expect(isPhaseComplete(project, "design")).toBe(true);
+  });
+
+  it("design is incomplete without workflow steps", () => {
+    const project: OnboardingProject = { ...fintech, workflows: [] };
+    expect(isPhaseComplete(project, "design")).toBe(false);
+  });
+
+  it("design is incomplete without systems", () => {
+    const project: OnboardingProject = { ...fintech, systems: [] };
     expect(isPhaseComplete(project, "design")).toBe(false);
   });
 
@@ -230,6 +260,14 @@ describe("phaseProgress", () => {
     expect(result.total).toBe(3);
     expect(result.done).toBeGreaterThanOrEqual(0);
     expect(result.done).toBeLessThanOrEqual(3);
+  });
+
+  it("design requirements check passes via derived requirements", () => {
+    const result = phaseProgress({ ...fintech, requirements: [] }, "design");
+    const check = result.checks.find(
+      (c) => c.label === "Requirements captured",
+    );
+    expect(check?.done).toBe(true);
   });
 
   it("deliver is 0/1 when no outputs", () => {

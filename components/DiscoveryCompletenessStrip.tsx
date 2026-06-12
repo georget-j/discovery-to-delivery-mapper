@@ -53,7 +53,7 @@ export function DiscoveryCompletenessStrip() {
         <p className="text-[11px] text-muted-foreground/80 sm:max-w-xs">
           {done === 0
             ? "Start with the current process and add at least one stakeholder."
-            : "One more step and Design unlocks."}
+            : "One more step for a complete discovery picture."}
         </p>
       )}
     </Surface>

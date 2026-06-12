@@ -13,7 +13,10 @@ type Handlers = {
   onEscape?: () => void;
 };
 
-export function useCanvasShortcuts(handlers: Handlers, enabled: boolean = true) {
+export function useCanvasShortcuts(
+  handlers: Handlers,
+  enabled: boolean = true,
+) {
   useEffect(() => {
     if (!enabled) return;
 
@@ -21,44 +24,84 @@ export function useCanvasShortcuts(handlers: Handlers, enabled: boolean = true) 
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName.toLowerCase();
       // Don't intercept when focus is in form fields.
-      if (tag === "input" || tag === "textarea" || tag === "select" || target?.isContentEditable) return;
+      if (
+        tag === "input" ||
+        tag === "textarea" ||
+        tag === "select" ||
+        target?.isContentEditable
+      )
+        return;
 
       const meta = e.metaKey || e.ctrlKey;
 
+      // Only preventDefault when a handler is actually wired — the browser
+      // default (e.g. ⌘A select-all, arrow-key scrolling) must survive otherwise.
       if (meta && e.key.toLowerCase() === "z" && !e.shiftKey) {
+        if (!handlers.onUndo) return;
         e.preventDefault();
-        handlers.onUndo?.();
+        handlers.onUndo();
         return;
       }
-      if (meta && (e.key.toLowerCase() === "z" && e.shiftKey || e.key.toLowerCase() === "y")) {
+      if (
+        meta &&
+        ((e.key.toLowerCase() === "z" && e.shiftKey) ||
+          e.key.toLowerCase() === "y")
+      ) {
+        if (!handlers.onRedo) return;
         e.preventDefault();
-        handlers.onRedo?.();
+        handlers.onRedo();
         return;
       }
       if (meta && e.key.toLowerCase() === "d") {
+        if (!handlers.onDuplicate) return;
         e.preventDefault();
-        handlers.onDuplicate?.();
+        handlers.onDuplicate();
         return;
       }
       if (meta && e.key.toLowerCase() === "a") {
+        if (!handlers.onSelectAll) return;
         e.preventDefault();
-        handlers.onSelectAll?.();
+        handlers.onSelectAll();
         return;
       }
       if (meta && e.key.toLowerCase() === "l") {
+        if (!handlers.onAutoLayout) return;
         e.preventDefault();
-        handlers.onAutoLayout?.();
+        handlers.onAutoLayout();
+        return;
+      }
+      if (e.key === "Delete" || e.key === "Backspace") {
+        if (!handlers.onDelete) return;
+        e.preventDefault();
+        handlers.onDelete();
         return;
       }
       if (e.key === "Escape") {
         handlers.onEscape?.();
         return;
       }
+      if (!handlers.onNudge) return;
       const step = e.shiftKey ? 1 : 10;
-      if (e.key === "ArrowUp")    { e.preventDefault(); handlers.onNudge?.(0, -step); return; }
-      if (e.key === "ArrowDown")  { e.preventDefault(); handlers.onNudge?.(0, step);  return; }
-      if (e.key === "ArrowLeft")  { e.preventDefault(); handlers.onNudge?.(-step, 0); return; }
-      if (e.key === "ArrowRight") { e.preventDefault(); handlers.onNudge?.(step, 0);  return; }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        handlers.onNudge(0, -step);
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        handlers.onNudge(0, step);
+        return;
+      }
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        handlers.onNudge(-step, 0);
+        return;
+      }
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        handlers.onNudge(step, 0);
+        return;
+      }
     };
 
     window.addEventListener("keydown", handler);

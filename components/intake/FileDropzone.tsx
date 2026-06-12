@@ -8,7 +8,8 @@ type Props = {
   disabled?: boolean;
 };
 
-const ACCEPT_ATTR = [
+// Shared with IntakeQueue's per-row Re-upload picker.
+export const ACCEPT_ATTR = [
   ".pdf",
   ".docx",
   ".xlsx",

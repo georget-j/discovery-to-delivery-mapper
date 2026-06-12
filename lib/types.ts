@@ -410,6 +410,10 @@ export type GeneratedArtifacts = {
   // Artifact keys the user has hand-edited in the Outputs tab. Regeneration
   // offers to preserve these so manual edits aren't silently overwritten.
   editedArtifacts?: string[];
+  // How this pack was produced — "ai" (grounded LLM output), "template" (no
+  // API key) or "template_fallback" (AI response was invalid). Written
+  // client-side when a generation is persisted; absent on legacy packs.
+  generationSource?: "ai" | "template" | "template_fallback";
 };
 
 // ────────────────────────────────────────────────────────────

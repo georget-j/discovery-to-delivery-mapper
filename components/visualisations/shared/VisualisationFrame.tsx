@@ -3,6 +3,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Sheet } from "@/components/ui/sheet";
 import { Surface } from "@/components/ui/surface";
+import { useIsMobile } from "@/lib/use-media-query";
 import {
   SaveIndicator,
   useSaveIndicator,
@@ -51,6 +52,9 @@ export function VisualisationFrame({
   lastSavedAt,
 }: Props) {
   const [toolsOpen, setToolsOpen] = useState(false);
+  // Mobile-only bottom sheets must not mount on desktop: their fixed backdrop
+  // covers the page (md:hidden only hides the panel) and blocks the inspector.
+  const isMobile = useIsMobile();
   // Which right-column panel is showing. Selecting a node flips to the
   // inspector; deselecting returns to the suggestions rail.
   const [rightPanel, setRightPanel] = useState<"inspector" | "rail">("rail");
@@ -154,7 +158,7 @@ export function VisualisationFrame({
       )}
 
       {/* Mobile inspector — bottom sheet */}
-      {inspector && onInspectorOpenChange && (
+      {isMobile && inspector && onInspectorOpenChange && (
         <Sheet
           open={inspectorOpen}
           onOpenChange={onInspectorOpenChange}
@@ -180,7 +184,7 @@ export function VisualisationFrame({
       )}
 
       {/* Mobile toolbar — bottom sheet */}
-      {toolbar && (
+      {isMobile && toolbar && (
         <Sheet
           open={toolsOpen}
           onOpenChange={setToolsOpen}
