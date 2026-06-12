@@ -2,8 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useWorkspace } from "@/components/WorkspaceProvider";
+import { loadScenario } from "@/lib/scenarios";
 
 const STORAGE_KEY = "ux:tourV1Completed";
+
+// Dispatched (window-level) by the Command Palette's "Replay guided tour"
+// entry — the tour restarts from step 0 regardless of completion state.
+export const TOUR_REPLAY_EVENT = "ux:tour:replay";
 
 type Step = {
   title: string;
@@ -13,20 +19,8 @@ type Step = {
   ctaAction?: "next" | "close";
 };
 
-const STEPS: Step[] = [
-  {
-    title: "Welcome — let's walk the journey",
-    body: "This tool maps customer discovery into a deployable plan. Start by dropping documents on Intake, then walk 4 phases. Press Cmd+K any time to jump around.",
-    ctaLabel: "Show me Intake",
-    ctaAction: "next",
-  },
-  {
-    title: "Start: drop your documents",
-    body: "Intake takes any customer docs — PDFs, Word, Excel, raw notes. The tool builds a knowledge base and pre-fills Discovery, workflows, systems, stakeholders, and risks for you to review. No docs? Skip it and fill manually.",
-    ctaLabel: "Open Intake",
-    ctaHref: (id) => `/workspace/${id}/intake`,
-    ctaAction: "next",
-  },
+// Phase walkthrough shared by both tour variants.
+const PHASE_STEPS: Step[] = [
   {
     title: "1. Capture what you learned",
     body: "Discovery holds the customer profile, business problem, and stakeholders. Use the chat interview or the form — and paste meeting notes to have the AI extract structured suggestions you review row by row.",
@@ -48,6 +42,24 @@ const STEPS: Step[] = [
     ctaHref: (id) => `/workspace/${id}/pilot`,
     ctaAction: "next",
   },
+];
+
+// Blank projects have nothing to show yet — the tour points at Intake first.
+const BLANK_STEPS: Step[] = [
+  {
+    title: "Welcome — let's walk the journey",
+    body: "This tool maps customer discovery into a deployable plan. Start by dropping documents on Intake, then walk 4 phases. Press Cmd+K any time to jump around.",
+    ctaLabel: "Show me Intake",
+    ctaAction: "next",
+  },
+  {
+    title: "Start: drop your documents",
+    body: "Intake takes any customer docs — PDFs, Word, Excel, raw notes. The tool builds a knowledge base and pre-fills Discovery, workflows, systems, stakeholders, and risks for you to review. No docs? Skip it and fill manually.",
+    ctaLabel: "Open Intake",
+    ctaHref: (id) => `/workspace/${id}/intake`,
+    ctaAction: "next",
+  },
+  ...PHASE_STEPS,
   {
     title: "4. Generate the deployment pack",
     body: "Outputs assembles 15 customer-facing + internal artifacts (Exec summary, Comms plan, Engineering handoff…). Click Generate, then Export to ship.",
@@ -56,12 +68,33 @@ const STEPS: Step[] = [
   },
 ];
 
+// Seeded demos arrive pre-filled — skip Intake and land the user on
+// Outputs → Generate, the fastest payoff.
+const SEEDED_STEPS: Step[] = [
+  {
+    title: "Welcome — this demo is pre-filled",
+    body: "This scenario ships with discovery, workflows, systems, and risks already captured. Walk the 4 phases to see how it fits together, then generate the deployment pack. Press Cmd+K any time to jump around.",
+    ctaLabel: "Show me around",
+    ctaAction: "next",
+  },
+  ...PHASE_STEPS,
+  {
+    title: "4. Generate the deployment pack",
+    body: "Outputs assembles 15 customer-facing + internal artifacts (Exec summary, Comms plan, Engineering handoff…). Click Generate, then Export to ship.",
+    ctaLabel: "Open Outputs",
+    ctaHref: (id) => `/workspace/${id}/outputs`,
+    ctaAction: "close",
+  },
+];
+
 type Props = { projectId: string };
 
-// Multi-step tour shown on first visit to any workspace. Replaces the static
-// FirstRunHint banner with an active walkthrough. Persists completion in
-// localStorage; user can re-trigger via the help icon (TODO future).
+// Multi-step tour shown on first visit to any workspace. Persists completion
+// in localStorage; user can re-trigger via the Command Palette's "Replay
+// guided tour". Renders nothing while the workspace is loading or missing so
+// it never floats over an error state.
 export function GuidedTour({ projectId }: Props) {
+  const { project, loading } = useWorkspace();
   const [step, setStep] = useState<number | null>(null);
 
   useEffect(() => {
@@ -70,10 +103,17 @@ export function GuidedTour({ projectId }: Props) {
     setStep(0);
   }, []);
 
-  if (step === null) return null;
+  useEffect(() => {
+    const onReplay = () => setStep(0);
+    window.addEventListener(TOUR_REPLAY_EVENT, onReplay);
+    return () => window.removeEventListener(TOUR_REPLAY_EVENT, onReplay);
+  }, []);
 
-  const current = STEPS[step];
-  const isLast = step === STEPS.length - 1;
+  if (loading || !project || step === null) return null;
+
+  const steps = loadScenario(projectId) ? SEEDED_STEPS : BLANK_STEPS;
+  const current = steps[Math.min(step, steps.length - 1)];
+  const isLast = step >= steps.length - 1;
 
   const finish = () => {
     try {
@@ -92,9 +132,9 @@ export function GuidedTour({ projectId }: Props) {
   const dots = (
     <div
       className="flex items-center gap-1.5"
-      aria-label={`Step ${step + 1} of ${STEPS.length}`}
+      aria-label={`Step ${step + 1} of ${steps.length}`}
     >
-      {STEPS.map((_, i) => (
+      {steps.map((_, i) => (
         <span
           key={i}
           aria-hidden

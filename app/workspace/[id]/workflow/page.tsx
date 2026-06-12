@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/save-indicator";
 import { Surface } from "@/components/ui/surface";
 import { SuggestionsBanner } from "@/components/SuggestionsBanner";
+import { GenerateFromDiscoveryButton } from "@/components/GenerateFromDiscoveryButton";
 
 export default function WorkflowPage() {
   const { project, loading, updateProject } = useWorkspace();
@@ -40,7 +41,16 @@ export default function WorkflowPage() {
             — generate or sync them once your steps are populated.
           </p>
         </div>
-        <SaveIndicator state={saveState} className="shrink-0 mt-1" />
+        <div className="flex items-center gap-3 shrink-0 mt-1">
+          {/* Persistent path to AI drafting; the empty state shows its own. */}
+          {project.workflows.length > 0 && (
+            <GenerateFromDiscoveryButton
+              target="workflows"
+              label="✨ Draft suggestions"
+            />
+          )}
+          <SaveIndicator state={saveState} />
+        </div>
       </div>
 
       <SuggestionsBanner target="workflows" />

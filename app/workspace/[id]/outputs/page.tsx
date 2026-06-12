@@ -8,8 +8,9 @@ import { ArtifactProse } from "@/components/outputs/ArtifactProse";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/toast";
 import {
-  assembleOnboardingPack,
+  assembleScopedPack,
   downloadMarkdown,
+  type PackScope,
 } from "@/lib/markdown-export";
 import { downloadPackDocx } from "@/lib/export-docx";
 import { PageNav } from "@/components/PageNav";
@@ -18,7 +19,12 @@ import { ArtifactSourcesPanel } from "@/components/outputs/ArtifactSourcesPanel"
 import { PackOverview } from "@/components/outputs/PackOverview";
 import { Sheet } from "@/components/ui/sheet";
 import { Modal } from "@/components/ui/modal";
-import { hashGenerationInputs } from "@/lib/artifact-helpers";
+import { ConfirmActionModal } from "@/components/visualisations/shared/ConfirmActionModal";
+import type { GeneratedArtifacts, OnboardingProject } from "@/lib/types";
+import {
+  hashGenerationInputs,
+  stripCitationMarkers,
+} from "@/lib/artifact-helpers";
 import { getArtifactReadiness, type ArtifactKey } from "@/lib/artifact-sources";
 import {
   READINESS_DOT,
@@ -160,6 +166,72 @@ const GROUPS: Group[] = [
 const ALL_TABS: TabMeta[] = GROUPS.flatMap((g) => g.tabs);
 const ALL_TAB_KEYS = new Set<string>(ALL_TABS.map((t) => t.key));
 
+// One level of regeneration undo. The outgoing outputs blob is parked in
+// localStorage (outside the project blob, so updateProject stays a plain
+// patch) and swapped back via "Restore previous generation".
+const OUTPUTS_HISTORY_KEY = (projectId: string) =>
+  `dtdm:outputs-history:${projectId}`;
+
+function stashOutputsHistory(
+  projectId: string,
+  outputs: GeneratedArtifacts,
+): void {
+  try {
+    localStorage.setItem(
+      OUTPUTS_HISTORY_KEY(projectId),
+      JSON.stringify(outputs),
+    );
+  } catch {
+    /* quota exceeded — history is best-effort */
+  }
+}
+
+function readOutputsHistory(projectId: string): GeneratedArtifacts | null {
+  try {
+    const raw = localStorage.getItem(OUTPUTS_HISTORY_KEY(projectId));
+    return raw ? (JSON.parse(raw) as GeneratedArtifacts) : null;
+  } catch {
+    return null;
+  }
+}
+
+// Shared by full regeneration and single-artifact regeneration: ground the
+// prompt in the knowledge base when one exists, then call the generation
+// endpoint. The endpoint always produces the full 15-artifact set; callers
+// decide how much of it to merge.
+async function fetchGeneration(project: OnboardingProject): Promise<{
+  artifacts: GeneratedArtifacts;
+  source: string;
+}> {
+  let kbContext: { id: string; text: string; label?: string }[] = [];
+  if ((project.knowledgeBase?.totalChunks ?? 0) > 0) {
+    try {
+      const { retrieveForTarget } = await import("@/lib/kb/retrieve");
+      const hits = await retrieveForTarget(project.id, "all", 12);
+      kbContext = hits.map((h) => ({
+        id: h.chunk.id,
+        text: h.chunk.text,
+        label: h.label,
+      }));
+    } catch {
+      /* retrieval is best-effort; generation proceeds without it */
+    }
+  }
+  const res = await fetch("/api/generate/artifacts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(
+      kbContext.length > 0 ? { project, kbContext } : project,
+    ),
+  });
+  const data = await res.json();
+  if (!data.artifacts) throw new Error(data.error ?? "no_artifacts");
+  return {
+    artifacts: data.artifacts as GeneratedArtifacts,
+    source: data.source as string,
+  };
+}
+
 export default function OutputsPage() {
   const { project, loading, updateProject } = useWorkspace();
   const searchParams = useSearchParams();
@@ -173,12 +245,26 @@ export default function OutputsPage() {
   const [sourcesOpen, setSourcesOpen] = useState(false);
   // Mobile-only: artifact picker also opens as a bottom Sheet.
   const [preflightOpen, setPreflightOpen] = useState(false);
-  // Export menu (Markdown / PDF / Word).
+  // Export menu (Markdown / PDF / Word) + audience scope for all three paths.
   const [exportOpen, setExportOpen] = useState(false);
-  // Inline editing of the active artifact.
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
+  const [exportScope, setExportScope] = useState<PackScope>("full");
+  // Per-artifact draft stash — keyed by artifact so switching tabs parks an
+  // in-progress edit instead of destroying it; reopening the tab resumes it.
+  const [drafts, setDrafts] = useState<Partial<Record<Tab, string>>>({});
+  const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
   const [exportingDocx, setExportingDocx] = useState(false);
+  // "Regenerate all" decision modal — shown when hand-edited artifacts exist.
+  const [regenChoiceOpen, setRegenChoiceOpen] = useState(false);
+  // Single-artifact regeneration in flight (drives the per-artifact spinner).
+  const [regeneratingArtifact, setRegeneratingArtifact] = useState<Tab | null>(
+    null,
+  );
+  // Whether a previous-generation blob exists for this project.
+  const [historyAvailable, setHistoryAvailable] = useState(false);
+
+  const draft = drafts[activeTab];
+  const editing = draft !== undefined;
+  const draftDirty = editing && draft !== (project?.outputs?.[activeTab] ?? "");
 
   // Deep-link from /outputs/matrix → ?artifact=KEY. Switch to that artifact
   // on mount, then drop the param via history.replaceState so it's a one-shot.
@@ -196,85 +282,94 @@ export default function OutputsPage() {
 
   const openSources = useCallback(() => setSourcesOpen(true), []);
 
-  // Leaving an artifact discards an unsaved edit session (Save persists; this
-  // just prevents a half-edited draft bleeding across artifacts).
+  // Browser refresh/close with an unsaved edit in flight gets the native
+  // "leave site?" prompt. In-app tab switches are safe — drafts stay parked.
+  const hasDirtyDraft = useMemo(
+    () =>
+      Object.entries(drafts).some(
+        ([key, value]) =>
+          value !== undefined &&
+          value !== (project?.outputs?.[key as Tab] ?? ""),
+      ),
+    [drafts, project],
+  );
   useEffect(() => {
-    setEditing(false);
-    setDraft("");
-  }, [activeTab]);
+    if (!hasDirtyDraft) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [hasDirtyDraft]);
 
-  const runGenerate = useCallback(async () => {
-    if (!project) return;
-    // Preserve hand-edited artifacts unless the user opts to overwrite.
-    const edited = project.outputs?.editedArtifacts ?? [];
-    let preserveEdits = false;
-    if (edited.length > 0) {
-      preserveEdits = window.confirm(
-        `You've edited ${edited.length} artifact${edited.length !== 1 ? "s" : ""}. ` +
-          `Keep your edits?\n\nOK = keep my edited text\nCancel = overwrite everything with fresh output`,
-      );
-    }
-    const priorOutputs = project.outputs;
-    setGenerating(true);
-    setSource(null);
-    const startedAt = Date.now();
-    const work = (async () => {
-      // Ground generation in the knowledge base when one exists — retrieve a
-      // handful of broadly-relevant chunks and pass them alongside the project.
-      let kbContext: { id: string; text: string; label?: string }[] = [];
-      if ((project.knowledgeBase?.totalChunks ?? 0) > 0) {
-        try {
-          const { retrieveForTarget } = await import("@/lib/kb/retrieve");
-          const hits = await retrieveForTarget(project.id, "all", 12);
-          kbContext = hits.map((h) => ({
-            id: h.chunk.id,
-            text: h.chunk.text,
-            label: h.label,
-          }));
-        } catch {
-          /* retrieval is best-effort; generation proceeds without it */
+  // History lives in localStorage; sniff it whenever the project changes.
+  useEffect(() => {
+    if (!project?.id) return;
+    setHistoryAvailable(readOutputsHistory(project.id) !== null);
+  }, [project?.id]);
+
+  const runGenerate = useCallback(
+    async (preserveEdits: boolean) => {
+      if (!project) return;
+      const edited = project.outputs?.editedArtifacts ?? [];
+      const priorOutputs = project.outputs;
+      setGenerating(true);
+      setSource(null);
+      const startedAt = Date.now();
+      const work = (async () => {
+        const { artifacts, source } = await fetchGeneration(project);
+        let merged: GeneratedArtifacts = {
+          ...artifacts,
+          generationSource: source as GeneratedArtifacts["generationSource"],
+        };
+        if (preserveEdits && priorOutputs) {
+          const kept: Record<string, string> = {};
+          for (const key of edited) {
+            const prev = (priorOutputs as Record<string, unknown>)[key];
+            if (typeof prev === "string") kept[key] = prev;
+          }
+          merged = { ...merged, ...kept, editedArtifacts: edited };
         }
-      }
-      const res = await fetch("/api/generate/artifacts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(
-          kbContext.length > 0 ? { project, kbContext } : project,
-        ),
+        // Park the outgoing blob as a one-step undo before overwriting.
+        if (priorOutputs) {
+          stashOutputsHistory(project.id, priorOutputs);
+          setHistoryAvailable(true);
+        }
+        updateProject({ outputs: merged });
+        setSource(source);
+        return { source, ms: Date.now() - startedAt };
+      })();
+      toast.promise(work, {
+        loading: "Generating 15 artifacts…",
+        success: ({ source, ms }) => {
+          const secs = (ms / 1000).toFixed(1);
+          if (source === "ai") return `Generated via OpenAI in ${secs}s`;
+          if (source === "template_fallback")
+            return `Used template fallback (${secs}s) — AI response was invalid`;
+          return `Generated from templates in ${secs}s (no OPENAI_API_KEY)`;
+        },
+        error: "Generation failed — check the console and try again",
       });
-      const data = await res.json();
-      if (!data.artifacts) throw new Error(data.error ?? "no_artifacts");
-      let merged = data.artifacts as typeof data.artifacts;
-      if (preserveEdits && priorOutputs) {
-        const kept: Record<string, string> = {};
-        for (const key of edited) {
-          const prev = (priorOutputs as Record<string, unknown>)[key];
-          if (typeof prev === "string") kept[key] = prev;
-        }
-        merged = { ...merged, ...kept, editedArtifacts: edited };
+      try {
+        await work;
+      } catch {
+        /* surfaced via toast */
       }
-      updateProject({ outputs: merged });
-      setSource(data.source);
-      return { source: data.source as string, ms: Date.now() - startedAt };
-    })();
-    toast.promise(work, {
-      loading: "Generating 15 artifacts…",
-      success: ({ source, ms }) => {
-        const secs = (ms / 1000).toFixed(1);
-        if (source === "ai") return `Generated via OpenAI in ${secs}s`;
-        if (source === "template_fallback")
-          return `Used template fallback (${secs}s) — AI response was invalid`;
-        return `Generated from templates in ${secs}s (no OPENAI_API_KEY)`;
-      },
-      error: "Generation failed — check the console and try again",
-    });
-    try {
-      await work;
-    } catch {
-      /* surfaced via toast */
+      setGenerating(false);
+    },
+    [project, updateProject],
+  );
+
+  // Step 2 of the generate flow: when hand-edited artifacts exist, the user
+  // picks keep/overwrite/cancel in a modal — dismissal is never destructive.
+  const startGenerate = useCallback(() => {
+    if (!project) return;
+    if ((project.outputs?.editedArtifacts?.length ?? 0) > 0) {
+      setRegenChoiceOpen(true);
+      return;
     }
-    setGenerating(false);
-  }, [project, updateProject]);
+    void runGenerate(false);
+  }, [project, runGenerate]);
 
   // Pre-flight: if the project is thin in many artifacts, surface a confirm
   // dialog before burning an LLM round-trip.
@@ -285,18 +380,91 @@ export default function OutputsPage() {
       setPreflightOpen(true);
       return;
     }
-    void runGenerate();
-  }, [project, runGenerate]);
+    startGenerate();
+  }, [project, startGenerate]);
 
   const generateAnyway = useCallback(() => {
     setPreflightOpen(false);
-    void runGenerate();
+    startGenerate();
+  }, [startGenerate]);
+
+  const regenKeepEdits = useCallback(() => {
+    setRegenChoiceOpen(false);
+    void runGenerate(true);
   }, [runGenerate]);
+
+  const regenOverwriteAll = useCallback(() => {
+    setRegenChoiceOpen(false);
+    void runGenerate(false);
+  }, [runGenerate]);
+
+  // Swap the stored pack with the parked previous generation. Stashing the
+  // current pack first makes restore reversible (a second click swaps back).
+  const restorePrevious = useCallback(() => {
+    if (!project) return;
+    const previous = readOutputsHistory(project.id);
+    if (!previous) {
+      setHistoryAvailable(false);
+      return;
+    }
+    if (project.outputs) stashOutputsHistory(project.id, project.outputs);
+    updateProject({ outputs: previous });
+    setSource(null);
+    toast.success("Previous generation restored", {
+      description: "Restore again to swap back.",
+    });
+  }, [project, updateProject]);
+
+  // Regenerate a single artifact: full generation under the hood, but only
+  // the selected key is merged into the stored pack. Pack-level metadata
+  // (hash, timestamp, provenance) stays put so stale detection still
+  // reflects the pack as a whole.
+  const regenerateArtifact = useCallback(
+    async (key: Tab) => {
+      if (!project?.outputs || generating || regeneratingArtifact) return;
+      const priorOutputs = project.outputs;
+      setRegeneratingArtifact(key);
+      const label = ALL_TABS.find((t) => t.key === key)?.label ?? "artifact";
+      const work = (async () => {
+        const { artifacts, source } = await fetchGeneration(project);
+        const fresh = artifacts[key];
+        if (typeof fresh !== "string" || !fresh) throw new Error("no_artifact");
+        stashOutputsHistory(project.id, priorOutputs);
+        setHistoryAvailable(true);
+        updateProject({
+          outputs: {
+            ...priorOutputs,
+            [key]: fresh,
+            editedArtifacts: (priorOutputs.editedArtifacts ?? []).filter(
+              (k) => k !== key,
+            ),
+          },
+        });
+        return source;
+      })();
+      toast.promise(work, {
+        loading: `Regenerating ${label}…`,
+        success: (source) =>
+          source === "ai"
+            ? `${label} regenerated via OpenAI`
+            : `${label} regenerated from templates`,
+        error: "Regeneration failed — try again",
+      });
+      try {
+        await work;
+      } catch {
+        /* surfaced via toast */
+      }
+      setRegeneratingArtifact(null);
+    },
+    [project, generating, regeneratingArtifact, updateProject],
+  );
 
   const copyTab = useCallback(async () => {
     const content = project?.outputs?.[activeTab];
     if (!content) return;
-    await navigator.clipboard.writeText(content);
+    // Copies leave the app, so the in-app sources panel's [n] markers go too.
+    await navigator.clipboard.writeText(stripCitationMarkers(content));
     setCopied(true);
     toast.success("Copied to clipboard");
     setTimeout(() => setCopied(false), 2000);
@@ -309,25 +477,25 @@ export default function OutputsPage() {
       .toLowerCase()
       .replace(/[^a-z0-9]/g, "-");
     const filename = `${slug}-${activeTab.replace(/([A-Z])/g, "-$1").toLowerCase()}.md`;
-    downloadMarkdown(content, filename);
+    downloadMarkdown(stripCitationMarkers(content), filename);
   }, [project, activeTab]);
 
   const exportMarkdown = useCallback(() => {
     if (!project) return;
-    const content = assembleOnboardingPack(project);
+    const content = assembleScopedPack(project, exportScope);
     const slug = project.customer.companyName
       .toLowerCase()
       .replace(/[^a-z0-9]/g, "-");
-    downloadMarkdown(content, `${slug}-onboarding-pack.md`);
+    downloadMarkdown(content, `${slug}-${exportScope}-pack.md`);
     setExportOpen(false);
-  }, [project]);
+  }, [project, exportScope]);
 
   const exportDocx = useCallback(async () => {
     if (!project) return;
     setExportOpen(false);
     setExportingDocx(true);
     try {
-      await downloadPackDocx(project, "full");
+      await downloadPackDocx(project, exportScope);
       toast.success("Word document downloaded");
     } catch (err) {
       toast.error("Word export failed", {
@@ -336,41 +504,61 @@ export default function OutputsPage() {
     } finally {
       setExportingDocx(false);
     }
-  }, [project]);
+  }, [project, exportScope]);
 
   const exportPdf = useCallback(() => {
     if (!project) return;
     setExportOpen(false);
     // Open the layout-free print view in a new tab; it auto-opens the
     // browser's print dialog (Save as PDF).
-    window.open(`/print/${project.id}?scope=full&auto=1`, "_blank");
-  }, [project]);
+    window.open(`/print/${project.id}?scope=${exportScope}&auto=1`, "_blank");
+  }, [project, exportScope]);
 
   // ── Inline editing ────────────────────────────────────────────────────────
   const startEditing = useCallback(() => {
-    setDraft(project?.outputs?.[activeTab] ?? "");
-    setEditing(true);
+    // A parked draft for this artifact resumes as-is; otherwise seed from
+    // the stored content.
+    setDrafts((prev) =>
+      prev[activeTab] !== undefined
+        ? prev
+        : { ...prev, [activeTab]: project?.outputs?.[activeTab] ?? "" },
+    );
   }, [project, activeTab]);
 
+  const discardDraft = useCallback(() => {
+    setDrafts((prev) => {
+      const next = { ...prev };
+      delete next[activeTab];
+      return next;
+    });
+  }, [activeTab]);
+
+  // Cancel discards silently only when the draft is untouched; a dirty draft
+  // requires explicit confirmation (Escape/Cancel keep the draft).
   const cancelEditing = useCallback(() => {
-    setEditing(false);
-    setDraft("");
-  }, []);
+    if (draftDirty) {
+      setConfirmDiscardOpen(true);
+      return;
+    }
+    discardDraft();
+  }, [draftDirty, discardDraft]);
 
   const saveEditing = useCallback(() => {
     if (!project?.outputs) return;
+    const value = drafts[activeTab];
+    if (value === undefined) return;
     const edited = new Set(project.outputs.editedArtifacts ?? []);
     edited.add(activeTab);
     updateProject({
       outputs: {
         ...project.outputs,
-        [activeTab]: draft,
+        [activeTab]: value,
         editedArtifacts: Array.from(edited),
       },
     });
-    setEditing(false);
+    discardDraft();
     toast.success("Artifact saved");
-  }, [project, activeTab, draft, updateProject]);
+  }, [project, activeTab, drafts, discardDraft, updateProject]);
 
   // Stale detection: project inputs changed since the artifacts were generated.
   const stale = useMemo(() => {
@@ -390,6 +578,9 @@ export default function OutputsPage() {
   const hasOutputs = !!project.outputs;
   const activeContent = project.outputs?.[activeTab];
   const activeTabMeta = ALL_TABS.find((t) => t.key === activeTab)!;
+  const editedCount = project.outputs?.editedArtifacts?.length ?? 0;
+  // Session state wins (freshest), then the provenance persisted on the blob.
+  const displaySource = source ?? project.outputs?.generationSource ?? null;
 
   return (
     <div className="flex flex-col h-full">
@@ -429,8 +620,39 @@ export default function OutputsPage() {
                     />
                     <div
                       role="menu"
-                      className="absolute right-0 top-full mt-1 z-20 w-44 rounded-md border bg-background shadow-md py-1"
+                      className="absolute right-0 top-full mt-1 z-20 w-56 rounded-md border bg-background shadow-md py-1"
                     >
+                      {/* Audience scope — applies to all three formats. */}
+                      <div className="px-3 pt-1.5 pb-2 border-b mb-1">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
+                          Scope
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {(
+                            [
+                              "full",
+                              "customer",
+                              "internal",
+                              "technical",
+                            ] as const
+                          ).map((s) => (
+                            <button
+                              key={s}
+                              type="button"
+                              onClick={() => setExportScope(s)}
+                              aria-pressed={exportScope === s}
+                              className={cn(
+                                "text-[11px] px-2 py-0.5 rounded-full border transition-colors capitalize",
+                                exportScope === s
+                                  ? "bg-foreground text-background border-foreground"
+                                  : "border-border text-muted-foreground hover:bg-muted/40",
+                              )}
+                            >
+                              {s}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                       <button
                         type="button"
                         role="menuitem"
@@ -460,6 +682,16 @@ export default function OutputsPage() {
                 )}
               </div>
             )}
+            {historyAvailable && !generating && (
+              <button
+                type="button"
+                onClick={restorePrevious}
+                title="Swap back to the pack from before the last regeneration"
+                className="text-xs text-muted-foreground hover:text-foreground px-2 py-1.5 rounded-md hover:bg-muted/50 transition-colors"
+              >
+                ↺ Restore previous
+              </button>
+            )}
             <button
               type="button"
               onClick={generate}
@@ -480,23 +712,31 @@ export default function OutputsPage() {
           </div>
         </div>
 
-        {source && (
-          <p className="text-xs text-muted-foreground">
-            Generated via{" "}
-            <span className="font-medium">
-              {source === "ai"
-                ? "OpenAI (gpt-4o-mini)"
-                : "deterministic templates"}
+        {displaySource && (
+          <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span>
+              Generated via{" "}
+              <span className="font-medium">
+                {displaySource === "ai"
+                  ? "OpenAI (gpt-4o-mini)"
+                  : "deterministic templates"}
+              </span>
+              {project.outputs?.generatedAt && (
+                <>
+                  {" "}
+                  at{" "}
+                  {new Date(project.outputs.generatedAt).toLocaleString(
+                    undefined,
+                    { dateStyle: "medium", timeStyle: "short" },
+                  )}
+                </>
+              )}
             </span>
-            {project.outputs?.generatedAt && (
-              <>
-                {" "}
-                at{" "}
-                {new Date(project.outputs.generatedAt).toLocaleString(
-                  undefined,
-                  { dateStyle: "medium", timeStyle: "short" },
-                )}
-              </>
+            {displaySource === "template_fallback" && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200 font-medium">
+                ⚠ Fallback content — the AI response was invalid, so this pack
+                is template boilerplate
+              </span>
             )}
           </p>
         )}
@@ -687,7 +927,7 @@ export default function OutputsPage() {
                   setViewMode("artifact");
                 }}
                 generatedAt={project.outputs?.generatedAt}
-                source={source}
+                source={displaySource}
                 stale={stale}
               />
             </div>
@@ -748,6 +988,29 @@ export default function OutputsPage() {
                             ✎ Edit
                           </button>
                         )}
+                        {activeContent && (
+                          <button
+                            type="button"
+                            onClick={() => void regenerateArtifact(activeTab)}
+                            disabled={
+                              generating || regeneratingArtifact !== null
+                            }
+                            title="Regenerate only this artifact; everything else is left untouched"
+                            className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-md border border-border hover:bg-muted/50 transition-colors bg-background inline-flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {regeneratingArtifact === activeTab ? (
+                              <>
+                                <span
+                                  className="inline-block w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin"
+                                  aria-hidden
+                                />
+                                Regenerating…
+                              </>
+                            ) : (
+                              "↻ Regenerate"
+                            )}
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={copyTab}
@@ -786,8 +1049,13 @@ export default function OutputsPage() {
                       overwrite.
                     </p>
                     <textarea
-                      value={draft}
-                      onChange={(e) => setDraft(e.target.value)}
+                      value={draft ?? ""}
+                      onChange={(e) =>
+                        setDrafts((prev) => ({
+                          ...prev,
+                          [activeTab]: e.target.value,
+                        }))
+                      }
                       rows={24}
                       className="w-full font-mono text-xs leading-relaxed rounded-md border bg-background px-3 py-2 resize-y focus:outline-none focus:ring-1 focus:ring-ring"
                       spellCheck={false}
@@ -945,6 +1213,66 @@ export default function OutputsPage() {
           </div>
         </Modal>
       )}
+
+      {/* Regenerate-all choice — replaces window.confirm. Three explicit
+          choices; Escape/backdrop = Cancel, so dismissal is never the
+          destructive path. */}
+      {project && (
+        <Modal
+          open={regenChoiceOpen}
+          onOpenChange={setRegenChoiceOpen}
+          dismissOnBackdrop
+          ariaLabel="Choose what happens to your edited artifacts"
+        >
+          <div className="p-5 space-y-4">
+            <div>
+              <p className="text-sm font-semibold">
+                You&apos;ve hand-edited {editedCount} artifact
+                {editedCount !== 1 ? "s" : ""}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Regenerating can keep your edited text in place or replace
+                everything with fresh output. Either way the current pack is
+                kept as a one-step undo (&quot;Restore previous&quot;).
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setRegenChoiceOpen(false)}
+                className="text-xs px-3 py-1.5 rounded-md border border-border hover:bg-muted/50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={regenOverwriteAll}
+                className="text-xs px-3 py-1.5 rounded-md border border-red-200 text-red-700 hover:bg-red-50 transition-colors"
+              >
+                Overwrite all
+              </button>
+              <button
+                type="button"
+                onClick={regenKeepEdits}
+                className="text-xs px-3 py-1.5 rounded-md bg-foreground text-background hover:bg-foreground/90 transition-colors font-medium"
+              >
+                Keep my edits
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Discard-draft confirm — Cancel on a dirty draft routes here instead
+          of silently dropping the text. */}
+      <ConfirmActionModal
+        open={confirmDiscardOpen}
+        onOpenChange={setConfirmDiscardOpen}
+        title="Discard unsaved changes?"
+        description={`Your edits to "${activeTabMeta.label}" haven't been saved. Discarded text can't be recovered.`}
+        confirmLabel="Discard changes"
+        onConfirm={discardDraft}
+      />
     </div>
   );
 }

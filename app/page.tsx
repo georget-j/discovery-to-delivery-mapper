@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { NewProjectButton } from "@/components/NewProjectButton";
 
 const PHASES = [
   {
@@ -88,12 +89,12 @@ export default function Home() {
           <Link href="/scenarios" className={buttonVariants({ size: "lg" })}>
             Browse Scenarios
           </Link>
-          <Link
-            href="/workspace/custom"
+          {/* /workspace/custom has no backing project — mint a real one via
+              the new-project modal instead of dead-linking. */}
+          <NewProjectButton
+            label="Start Custom Project"
             className={buttonVariants({ variant: "outline", size: "lg" })}
-          >
-            Start Custom Project
-          </Link>
+          />
         </div>
       </section>
 

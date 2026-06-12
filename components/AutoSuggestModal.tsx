@@ -1,48 +1,33 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useWorkspace } from "@/components/WorkspaceProvider";
-import { Modal } from "@/components/ui/modal";
 import { toast } from "@/lib/toast";
 import { isPhaseComplete } from "@/lib/journey";
 import type { NotesExtractionResult } from "@/lib/types";
 
-// One-shot modal that fires when Discovery transitions to fully complete
-// AND the user has never been offered suggestions for this project.
-// Accepting kicks off a single AI call for the "all" target; the response
-// is stored on project.pendingSuggestions and surfaced via banners in
-// each downstream tab.
+// Non-blocking offer shown while Discovery is complete, the user has never
+// been offered suggestions, and none are pending. Replaces the old one-shot
+// modal: it never steals focus mid-typing, and declining only hides this
+// offer — the "Draft suggestions" buttons on the Workflow/Systems/Risks tabs
+// remain available. Export name kept so the workspace layout mount is
+// unchanged. Accepting kicks off a single AI call for the "all" target; the
+// response is stored on project.pendingSuggestions and surfaced via banners
+// in each downstream tab.
 export function AutoSuggestModal() {
   const { project, updateProject } = useWorkspace();
-  const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  // Track previous completion state so we can detect the false→true edge.
-  const wasComplete = useRef<boolean | null>(null);
-
-  useEffect(() => {
-    if (!project) return;
-    const complete = isPhaseComplete(project, "discover");
-    const previously = wasComplete.current;
-    wasComplete.current = complete;
-
-    // Only fire on the transition, not on every render. Also skip when
-    // the user has already been offered (suggestionsOfferedAt set) or
-    // when pending suggestions already exist.
-    if (
-      previously === false &&
-      complete &&
-      !project.suggestionsOfferedAt &&
-      !project.pendingSuggestions
-    ) {
-      setOpen(true);
-    }
-  }, [project]);
 
   if (!project) return null;
+  if (
+    !isPhaseComplete(project, "discover") ||
+    project.suggestionsOfferedAt ||
+    project.pendingSuggestions
+  )
+    return null;
 
   const decline = () => {
     updateProject({ suggestionsOfferedAt: new Date().toISOString() });
-    setOpen(false);
   };
 
   const accept = async () => {
@@ -60,7 +45,6 @@ export function AutoSuggestModal() {
             typeof data.message === "string" ? data.message : data.error,
         });
         updateProject({ suggestionsOfferedAt: new Date().toISOString() });
-        setOpen(false);
         return;
       }
       const suggestions = data.suggestions as NotesExtractionResult;
@@ -77,45 +61,33 @@ export function AutoSuggestModal() {
       toast.success(`Drafted ${hits} suggestion${hits !== 1 ? "s" : ""}`, {
         description: "Each downstream tab now shows a review banner.",
       });
-      setOpen(false);
     } catch (err) {
       toast.error("Network error", {
         description: err instanceof Error ? err.message : "Unknown error",
       });
       updateProject({ suggestionsOfferedAt: new Date().toISOString() });
-      setOpen(false);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Modal
-      open={open}
-      onOpenChange={(next) => {
-        if (!next && !loading) decline();
-        setOpen(next);
-      }}
-      ariaLabel="Draft suggestions from Discovery?"
+    <div
+      role="status"
+      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 w-[min(30rem,calc(100vw-2rem))] rounded-lg border border-amber-200 bg-amber-50 shadow-lg px-4 py-3 flex items-start gap-3"
     >
-      <div className="p-5 space-y-3">
-        <div>
-          <p className="text-sm font-semibold">Discovery complete</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Want me to draft typical workflows, systems, stakeholders, and risks
-            from what you've filled in? You'll review each suggestion before it
-            lands.
-          </p>
-        </div>
-        <div className="flex items-center justify-end gap-2 pt-1">
-          <button
-            type="button"
-            onClick={decline}
-            disabled={loading}
-            className="text-xs px-3 py-1.5 rounded-md border border-border hover:bg-muted/50 transition-colors disabled:opacity-60"
-          >
-            I'll do it manually
-          </button>
+      <span
+        className="w-2 h-2 rounded-full bg-amber-500 shrink-0 mt-1.5"
+        aria-hidden
+      />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold">Discovery complete</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Want me to draft typical workflows, systems, stakeholders, and risks
+          from what you&apos;ve filled in? You&apos;ll review each suggestion
+          before it lands.
+        </p>
+        <div className="flex items-center gap-2 mt-2">
           <button
             type="button"
             onClick={accept}
@@ -124,8 +96,26 @@ export function AutoSuggestModal() {
           >
             {loading ? "Drafting…" : "Yes, draft suggestions"}
           </button>
+          <button
+            type="button"
+            onClick={decline}
+            disabled={loading}
+            className="text-xs px-3 py-1.5 rounded-md border border-amber-300 bg-background hover:bg-amber-100/40 transition-colors disabled:opacity-60"
+          >
+            Not now
+          </button>
         </div>
       </div>
-    </Modal>
+      <button
+        type="button"
+        onClick={decline}
+        disabled={loading}
+        aria-label="Dismiss suggestion offer"
+        title="Dismiss — you can still draft suggestions from each tab"
+        className="text-xs text-muted-foreground hover:text-foreground shrink-0 disabled:opacity-60"
+      >
+        ✕
+      </button>
+    </div>
   );
 }

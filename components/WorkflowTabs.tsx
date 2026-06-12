@@ -8,6 +8,7 @@ import {
 } from "react";
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { hashWorkflows } from "@/lib/visualisations/workflow-helpers";
+import { CanvasActivityProvider } from "@/components/visualisations/shared/CanvasActivityContext";
 import { cn } from "@/lib/utils";
 
 export type WorkflowTabId = "steps" | "current" | "future";
@@ -167,10 +168,14 @@ function TabPanel({
   active: boolean;
   children: ReactNode;
 }) {
-  // Keep mounted; use hidden so canvases retain state across switches.
+  // Keep mounted; use hidden so canvases retain state across switches. The
+  // activity provider lets hidden canvases disable their window-level
+  // shortcut listeners (see useCanvasShortcuts).
   return (
     <div role="tabpanel" hidden={!active} className={active ? "" : "hidden"}>
-      {children}
+      <CanvasActivityProvider active={active}>
+        {children}
+      </CanvasActivityProvider>
     </div>
   );
 }

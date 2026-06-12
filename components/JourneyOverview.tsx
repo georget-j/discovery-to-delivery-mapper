@@ -1,8 +1,22 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { Surface } from "@/components/ui/surface";
+import { Sheet } from "@/components/ui/sheet";
+import { NotesDiffPanel } from "@/components/NotesDiffPanel";
+import {
+  clearDismissedSuggestions,
+  countAllSuggestions,
+  mergeSuggestions,
+  readDismissedSuggestions,
+} from "@/components/SuggestionsBanner";
+import {
+  applySuggestionsToProject,
+  type SuggestionRowId,
+} from "@/lib/apply-suggestions";
+import { toast } from "@/lib/toast";
 import {
   PHASES,
   isPhaseComplete,
@@ -10,6 +24,7 @@ import {
   type Phase,
 } from "@/lib/journey";
 import { cn } from "@/lib/utils";
+import type { NotesExtractionResult } from "@/lib/types";
 
 // Hero block that visualises the 4-phase journey at a glance — each phase
 // is a card showing its tabs, completion, and a CTA to open it.
@@ -40,6 +55,8 @@ export function JourneyOverview() {
         </p>
       </div>
 
+      <PendingSuggestionsCard />
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
         {PHASES.map((phase) => (
           <PhaseCard
@@ -51,6 +68,142 @@ export function JourneyOverview() {
         ))}
       </div>
     </div>
+  );
+}
+
+// One review-everything entry point for AI-drafted suggestions. The per-tab
+// banners only surface their own subset; this card shows the full pending
+// count and lets the user review all categories in a single diff panel. It
+// also offers restore for banner dismissals stashed in localStorage.
+function PendingSuggestionsCard() {
+  const { project, updateProject } = useWorkspace();
+  const [open, setOpen] = useState(false);
+  const [dismissed, setDismissed] = useState<NotesExtractionResult | null>(
+    null,
+  );
+
+  // localStorage is browser-only; read after mount to avoid hydration drift.
+  useEffect(() => {
+    if (!project) return;
+    setDismissed(readDismissedSuggestions(project.id));
+  }, [project?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const pendingCount = countAllSuggestions(project?.pendingSuggestions);
+  const dismissedCount = countAllSuggestions(dismissed);
+  if (!project || (pendingCount === 0 && dismissedCount === 0)) return null;
+
+  const restoreDismissed = () => {
+    if (!dismissed) return;
+    const merged = project.pendingSuggestions
+      ? mergeSuggestions(project.pendingSuggestions, dismissed)
+      : dismissed;
+    updateProject({ pendingSuggestions: merged });
+    clearDismissedSuggestions(project.id);
+    setDismissed(null);
+    toast.success(
+      `Restored ${dismissedCount} dismissed suggestion${dismissedCount !== 1 ? "s" : ""}`,
+      { description: "They're back in the review queue on each tab." },
+    );
+  };
+
+  const handleApply = (selected: Set<SuggestionRowId>) => {
+    if (!project.pendingSuggestions) return;
+    const { patch, appliedLabels } = applySuggestionsToProject(
+      project,
+      project.pendingSuggestions,
+      selected,
+    );
+    if (Object.keys(patch).length === 0) {
+      toast.info("Nothing selected");
+      return;
+    }
+    updateProject({ ...patch, pendingSuggestions: null });
+    setOpen(false);
+    toast.success(
+      `Added ${appliedLabels.length} suggestion${appliedLabels.length !== 1 ? "s" : ""}`,
+      { description: appliedLabels.slice(0, 3).join(" · ") },
+    );
+  };
+
+  return (
+    <>
+      <Surface
+        variant="muted"
+        className="px-4 py-2.5 flex items-center gap-3 flex-wrap border-amber-200 bg-amber-50/40"
+      >
+        <span
+          className="w-2 h-2 rounded-full bg-amber-500 shrink-0"
+          aria-hidden
+        />
+        <p className="text-sm flex-1 min-w-40">
+          {pendingCount > 0 ? (
+            <>
+              <span className="font-semibold">
+                {pendingCount} AI-drafted suggestion
+                {pendingCount !== 1 ? "s" : ""}
+              </span>{" "}
+              waiting for review
+            </>
+          ) : (
+            <span className="text-muted-foreground">
+              Dismissed suggestions can be restored
+            </span>
+          )}
+        </p>
+        {dismissedCount > 0 && (
+          <button
+            type="button"
+            onClick={restoreDismissed}
+            className="text-xs text-amber-900 underline underline-offset-2 hover:no-underline shrink-0"
+          >
+            Restore {dismissedCount} dismissed
+          </button>
+        )}
+        {pendingCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="text-xs px-3 py-1.5 rounded-md border border-amber-300 bg-background hover:bg-amber-100/40 transition-colors font-medium text-amber-900 shrink-0"
+          >
+            Review all suggestions ({pendingCount})
+          </button>
+        )}
+      </Surface>
+      {project.pendingSuggestions && (
+        <Sheet
+          open={open}
+          onOpenChange={setOpen}
+          side="right"
+          ariaLabel="Review all AI suggestions"
+          className="!w-[min(32rem,90vw)] !max-w-[90vw]"
+        >
+          <div className="flex items-center justify-between px-4 py-3 border-b">
+            <div>
+              <p className="text-sm font-semibold">All suggestions</p>
+              <p className="text-[11px] text-muted-foreground">
+                Everything drafted from your Discovery — pick what to apply.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="text-xs px-2 py-1 rounded hover:bg-muted/50"
+              aria-label="Close suggestions"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            <NotesDiffPanel
+              suggestions={project.pendingSuggestions}
+              project={project}
+              onApply={(picked) => handleApply(picked as Set<SuggestionRowId>)}
+              onCancel={() => setOpen(false)}
+            />
+          </div>
+        </Sheet>
+      )}
+    </>
   );
 }
 

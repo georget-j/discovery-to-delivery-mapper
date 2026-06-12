@@ -72,6 +72,9 @@ export function Modal({
   return (
     <div
       aria-hidden={!open}
+      // inert keeps the invisible dialog's controls out of the Tab order —
+      // visibility classes alone leave them focusable.
+      inert={!open}
       className={cn(
         "fixed inset-0 z-50 flex items-center justify-center p-4 transition-opacity duration-150",
         open ? "opacity-100" : "opacity-0 pointer-events-none",

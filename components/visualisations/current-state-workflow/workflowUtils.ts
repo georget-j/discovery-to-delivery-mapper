@@ -7,6 +7,11 @@ import type {
   WorkflowLane,
 } from "@/lib/visualisations/workflow-types";
 
+// Window CustomEvent (detail: { id }) dispatched by the node context menu's
+// "Edit title"; the matching WorkflowNode opens its inline rename input —
+// same path as double-click.
+export const EDIT_NODE_TITLE_EVENT = "dtdm:edit-node-title";
+
 export const CURRENT_LANE_Y: Record<string, number> = {
   lane_operator: 80,
   lane_systems: 240,

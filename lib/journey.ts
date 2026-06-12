@@ -2,6 +2,7 @@
 // Used by JourneyBar, WorkspaceSidebar, PageNav, and Overview.
 
 import type { OnboardingProject } from "./types";
+import { generateRequirements } from "./requirements-engine";
 
 export type PhaseId = "discover" | "design" | "plan" | "deliver";
 
@@ -157,10 +158,20 @@ export const ALL_TABS: { tab: Tab; phase: Phase }[] = PHASES.flatMap((p) =>
 );
 
 // Resolve the active phase from a pathname like "/workspace/abc/workflow".
+// Nested routes (e.g. /outputs/matrix) resolve to the owning tab's phase via
+// prefix match; the empty Overview href is exact-only so it can't swallow
+// every path.
 export function getPhaseForPath(pathname: string, projectId: string): Phase {
   const stripped = pathname.replace(`/workspace/${projectId}`, "") || "";
   for (const phase of PHASES) {
-    if (phase.tabs.some((t) => t.href === stripped)) return phase;
+    if (
+      phase.tabs.some(
+        (t) =>
+          t.href === stripped ||
+          (t.href !== "" && stripped.startsWith(`${t.href}/`)),
+      )
+    )
+      return phase;
   }
   return PHASES[0];
 }
@@ -197,6 +208,19 @@ export function getPrevNext(
 // Phase completion logic
 // ────────────────────────────────────────────────────────────
 
+// Manual requirements plus auto-derived ones (deduped by title, mirroring the
+// Requirements tab merge). The requirements engine is deterministic from
+// project state but its output is never persisted, so the Design phase must
+// count it here — otherwise the phase can never complete for projects that
+// rely on derived requirements alone.
+export function requirementsCount(project: OnboardingProject): number {
+  const manualTitles = new Set(project.requirements.map((r) => r.title));
+  const derived = generateRequirements(project).filter(
+    (r) => !manualTitles.has(r.title),
+  );
+  return project.requirements.length + derived.length;
+}
+
 export function isPhaseComplete(
   project: OnboardingProject | null,
   phaseId: PhaseId,
@@ -211,7 +235,7 @@ export function isPhaseComplete(
       return (
         project.workflows.length > 0 &&
         project.systems.length > 0 &&
-        project.requirements.length > 0
+        requirementsCount(project) > 0
       );
     case "plan":
       return project.risks.length > 0 && !!project.pilotPlan?.objective;
@@ -252,7 +276,7 @@ export function phaseProgress(
     design: [
       { label: "Workflow steps captured", done: project.workflows.length > 0 },
       { label: "Systems documented", done: project.systems.length > 0 },
-      { label: "Requirements captured", done: project.requirements.length > 0 },
+      { label: "Requirements captured", done: requirementsCount(project) > 0 },
     ],
     plan: [
       { label: "Risks identified", done: project.risks.length > 0 },

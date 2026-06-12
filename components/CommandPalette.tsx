@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sheet } from "@/components/ui/sheet";
+import { TOUR_REPLAY_EVENT } from "@/components/GuidedTour";
 import { ALL_TABS, PHASES } from "@/lib/journey";
 import { listScenarios } from "@/lib/scenarios";
 import { cn } from "@/lib/utils";
@@ -10,10 +11,13 @@ import { cn } from "@/lib/utils";
 type Command = {
   id: string;
   label: string;
-  group: "Navigate" | "Add" | "Generate" | "Scenarios";
+  group: "Navigate" | "Add" | "Generate" | "Scenarios" | "Help";
   hint?: string;
   run: () => void;
 };
+
+const LISTBOX_ID = "command-palette-listbox";
+const optionId = (commandId: string) => `command-palette-option-${commandId}`;
 
 type Props = {
   projectId: string;
@@ -102,7 +106,23 @@ export function CommandPalette({ projectId }: Props) {
       group: "Scenarios",
       run: () => router.push(`/workspace/${s.id}`),
     }));
-    return [...navTabs, ...navPhases, ...adds, ...generate, ...scenarios];
+    const help: Command[] = [
+      {
+        id: "help:replay-tour",
+        label: "Replay guided tour",
+        hint: "Walk the 4 phases again",
+        group: "Help",
+        run: () => window.dispatchEvent(new Event(TOUR_REPLAY_EVENT)),
+      },
+    ];
+    return [
+      ...navTabs,
+      ...navPhases,
+      ...adds,
+      ...generate,
+      ...scenarios,
+      ...help,
+    ];
   }, [router, projectId]);
 
   const filtered = useMemo(() => {
@@ -139,6 +159,17 @@ export function CommandPalette({ projectId }: Props) {
       requestAnimationFrame(() => inputRef.current?.focus());
     }
   }, [open]);
+
+  const activeId = filtered[selected]
+    ? optionId(filtered[selected].id)
+    : undefined;
+
+  // Keep the keyboard selection visible — the list scrolls but arrowing past
+  // the viewport never moved scrollTop on its own.
+  useEffect(() => {
+    if (!open || !activeId) return;
+    document.getElementById(activeId)?.scrollIntoView({ block: "nearest" });
+  }, [open, activeId]);
 
   const run = (cmd: Command) => {
     cmd.run();
@@ -191,17 +222,30 @@ export function CommandPalette({ projectId }: Props) {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search commands…  (Cmd+K)"
             className="w-full bg-transparent outline-none text-sm py-1"
+            role="combobox"
+            aria-expanded={open}
+            aria-controls={LISTBOX_ID}
+            aria-activedescendant={activeId}
+            aria-autocomplete="list"
           />
         </div>
-        <div className="max-h-80 overflow-y-auto py-1">
+        <div
+          id={LISTBOX_ID}
+          role="listbox"
+          aria-label="Commands"
+          className="max-h-80 overflow-y-auto py-1"
+        >
           {filtered.length === 0 && (
             <p className="px-3 py-6 text-center text-xs text-muted-foreground">
               No commands match.
             </p>
           )}
           {grouped.map(([group, cmds]) => (
-            <div key={group} className="mb-1">
-              <p className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">
+            <div key={group} role="group" aria-label={group} className="mb-1">
+              <p
+                aria-hidden
+                className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60"
+              >
                 {group}
               </p>
               {cmds.map((c) => {
@@ -210,7 +254,10 @@ export function CommandPalette({ projectId }: Props) {
                 return (
                   <button
                     key={c.id}
+                    id={optionId(c.id)}
                     type="button"
+                    role="option"
+                    aria-selected={isActive}
                     onClick={() => run(c)}
                     className={cn(
                       "w-full flex items-center justify-between text-left px-3 py-1.5 text-sm transition-colors",

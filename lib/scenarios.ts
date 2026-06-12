@@ -29,6 +29,10 @@ export type ScenarioMeta = {
   bestFor: string;
   /** How many AI surfaces the scenario exercises in the deployment pack. */
   aiSurfaces: number;
+  /** Position in the scenarios grid — ascending, starter first. */
+  sortOrder: number;
+  /** Recommended first scenario — gets the "Start here" badge. */
+  starter?: boolean;
 };
 
 export const SCENARIO_META: Record<ScenarioType, ScenarioMeta> = {
@@ -38,6 +42,7 @@ export const SCENARIO_META: Record<ScenarioType, ScenarioMeta> = {
     estimatedMinutes: 45,
     bestFor: "Regulated industries (FCA, SAR workflows)",
     aiSurfaces: 4,
+    sortOrder: 3,
   },
   legaltech_contract: {
     complexity: "High",
@@ -45,6 +50,7 @@ export const SCENARIO_META: Record<ScenarioType, ScenarioMeta> = {
     estimatedMinutes: 40,
     bestFor: "Document-heavy professional services",
     aiSurfaces: 3,
+    sortOrder: 2,
   },
   hardware_ops: {
     complexity: "Medium",
@@ -52,6 +58,7 @@ export const SCENARIO_META: Record<ScenarioType, ScenarioMeta> = {
     estimatedMinutes: 30,
     bestFor: "Field-ops + signal-driven workflows",
     aiSurfaces: 3,
+    sortOrder: 1,
   },
   enterprise_support: {
     complexity: "Medium",
@@ -59,6 +66,8 @@ export const SCENARIO_META: Record<ScenarioType, ScenarioMeta> = {
     estimatedMinutes: 25,
     bestFor: "First-time visitors — softest landing",
     aiSurfaces: 3,
+    sortOrder: 0,
+    starter: true,
   },
   custom: {
     complexity: "Low",
@@ -66,5 +75,6 @@ export const SCENARIO_META: Record<ScenarioType, ScenarioMeta> = {
     estimatedMinutes: 15,
     bestFor: "Bringing your own data",
     aiSurfaces: 0,
+    sortOrder: 4,
   },
 };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { FormField, ChipInput } from "@/components/ui/form-field";
@@ -119,6 +119,13 @@ export function SessionEditor({
   );
   const [lastApplied, setLastApplied] = useState<string[] | null>(null);
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Accumulated not-yet-persisted edits — the flush handlers below must see
+  // the latest pending snapshot without a render in between.
+  const pendingRef = useRef<DiscoverySession | null>(null);
+  const onChangeRef = useRef(onChange);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   const persist = useCallback(
     (next: DiscoverySession) => {
@@ -137,11 +144,36 @@ export function SessionEditor({
     value: DiscoverySession[K],
   ) => {
     if (saveTimeout.current) clearTimeout(saveTimeout.current);
-    saveTimeout.current = setTimeout(
-      () => persist({ ...session, [key]: value }),
-      400,
-    );
+    const next = { ...(pendingRef.current ?? session), [key]: value };
+    pendingRef.current = next;
+    saveTimeout.current = setTimeout(() => {
+      pendingRef.current = null;
+      persist(next);
+    }, 400);
   };
+
+  // The debounce drops the final keystrokes of a live call if the editor
+  // unmounts or the tab is hidden/closed before the timer fires — flush the
+  // pending write both ways.
+  const flushPendingSave = useCallback(() => {
+    if (saveTimeout.current) {
+      clearTimeout(saveTimeout.current);
+      saveTimeout.current = null;
+    }
+    const next = pendingRef.current;
+    if (next) {
+      pendingRef.current = null;
+      onChangeRef.current(next);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener("pagehide", flushPendingSave);
+    return () => {
+      window.removeEventListener("pagehide", flushPendingSave);
+      flushPendingSave();
+    };
+  }, [flushPendingSave]);
 
   // Local state for inputs that need immediate feedback (date, title, notes)
   // mirrors session and writes back via setField.
@@ -188,11 +220,26 @@ export function SessionEditor({
       }
       setExtractStep("mapping");
       setSuggestions(data.suggestions as NotesExtractionResult);
-      // Stamp extractedAt so SessionLog can show "extracted X ago".
+      // Stamp extractedAt so SessionLog can show "extracted X ago". Fold in
+      // any pending debounced edits so the timer can't fire afterwards and
+      // overwrite this commit.
+      if (saveTimeout.current) {
+        clearTimeout(saveTimeout.current);
+        saveTimeout.current = null;
+      }
+      const base = pendingRef.current ?? session;
+      pendingRef.current = null;
       onChange({
-        ...session,
+        ...base,
         notes: notesDraft,
         extractedAt: new Date().toISOString(),
+      });
+      // Stash on the project too — collapsing the session or navigating away
+      // before Apply must not discard the round-trip. Same convention as the
+      // intake page: SuggestionsBanner surfaces it on the relevant tabs.
+      updateProject({
+        pendingSuggestions: data.suggestions as NotesExtractionResult,
+        suggestionsOfferedAt: new Date().toISOString(),
       });
       const s = data.suggestions as NotesExtractionResult;
       const hits =
@@ -469,8 +516,10 @@ export function SessionEditor({
         });
       }
 
-      if (Object.keys(patch).length > 0) {
-        updateProject(patch);
+      // Inline apply consumes the stashed copy — clear it so the per-tab
+      // banners don't re-offer suggestions that were just applied.
+      if (Object.keys(patch).length > 0 || project.pendingSuggestions) {
+        updateProject({ ...patch, pendingSuggestions: null });
       }
 
       setLastApplied(applied);

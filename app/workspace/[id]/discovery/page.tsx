@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useWorkspace } from "@/components/WorkspaceProvider";
 import { DiscoveryForm } from "@/components/DiscoveryForm";
 import { DiscoveryInterview } from "@/components/DiscoveryInterview";
@@ -12,13 +12,34 @@ import { cn } from "@/lib/utils";
 
 type ViewMode = "interview" | "form";
 
+const viewStorageKey = (projectId: string) =>
+  `dtdm:discovery-view:${projectId}`;
+
 export default function DiscoveryPage() {
   const { project, loading, updateProject } = useWorkspace();
-  // Default Interview when the project is blank (no company name); Form when
-  // there's pre-filled data so seeded scenarios aren't disrupted.
-  const [view, setView] = useState<ViewMode>(() =>
-    project?.customer.companyName ? "form" : "interview",
-  );
+  // The provider has no project on first render, so the view must be resolved
+  // after loading flips false. The user's last choice (persisted per project)
+  // wins; otherwise default Interview when the project is blank (no company
+  // name) and Form when there's pre-filled data so seeded scenarios aren't
+  // disrupted.
+  const [view, setViewState] = useState<ViewMode | null>(null);
+
+  useEffect(() => {
+    if (loading || !project || view !== null) return;
+    const stored = localStorage.getItem(viewStorageKey(project.id));
+    setViewState(
+      stored === "interview" || stored === "form"
+        ? stored
+        : project.customer.companyName
+          ? "form"
+          : "interview",
+    );
+  }, [loading, project, view]);
+
+  const setView = (next: ViewMode) => {
+    setViewState(next);
+    if (project) localStorage.setItem(viewStorageKey(project.id), next);
+  };
 
   if (loading)
     return <div className="p-8 text-sm text-muted-foreground">Loading…</div>;
@@ -28,6 +49,8 @@ export default function DiscoveryPage() {
         Project not found.
       </div>
     );
+  if (!view)
+    return <div className="p-8 text-sm text-muted-foreground">Loading…</div>;
 
   return (
     <div className="flex">

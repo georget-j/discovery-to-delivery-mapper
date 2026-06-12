@@ -15,11 +15,17 @@ import {
 } from "../shared/CanvasContextMenu";
 import { useUndoRedo } from "../shared/useUndoRedo";
 import { useCanvasShortcuts } from "../shared/useCanvasShortcuts";
+import { useCanvasActive } from "../shared/CanvasActivityContext";
 import { WorkflowCanvas } from "./WorkflowCanvas";
 import { WorkflowInspectorPanel } from "./WorkflowInspectorPanel";
 import { WorkflowToolbar } from "./WorkflowToolbar";
 import { WorkflowLegend } from "./WorkflowLegend";
-import { newBlankNode, CURRENT_LANE_Y } from "./workflowUtils";
+import {
+  newBlankNode,
+  laneIdForY,
+  CURRENT_LANE_Y,
+  EDIT_NODE_TITLE_EVENT,
+} from "./workflowUtils";
 import { currentStateToMermaid } from "@/lib/visualisations/mermaid-export";
 import { layoutNodesInLanes } from "@/lib/visualisations/auto-layout";
 import { hashWorkflows } from "@/lib/visualisations/workflow-helpers";
@@ -33,6 +39,8 @@ import { generateId } from "@/lib/utils";
 
 export function CurrentStateWorkflowMap() {
   const { project, updateProject, syncRequests } = useWorkspace();
+  // False while this map's tab is CSS-hidden — gates the window-level shortcuts.
+  const isActive = useCanvasActive();
   const [generating, setGenerating] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [multiSelectIds, setMultiSelectIds] = useState<string[]>([]);
@@ -41,6 +49,8 @@ export function CurrentStateWorkflowMap() {
     x: number;
     y: number;
     nodeId: string | null;
+    // Canvas-space position of a pane right-click, for "Add node here".
+    flowPos?: { x: number; y: number };
   } | null>(null);
 
   const map = project?.visualisations?.currentStateWorkflowMap ?? null;
@@ -141,8 +151,11 @@ export function CurrentStateWorkflowMap() {
   const handleAddNode = useCallback(
     (type: WorkflowNodeType, atPos?: { x: number; y: number }) => {
       if (!map) return;
-      const laneId =
-        type === "system_step"
+      // With an explicit position the lane follows the drop point (same rule
+      // as dragging); otherwise the node type picks its default lane.
+      const laneId = atPos
+        ? laneIdForY(atPos.y, map.lanes)
+        : type === "system_step"
           ? "lane_systems"
           : type === "risk" || type === "missing_info"
             ? "lane_notes"
@@ -291,14 +304,26 @@ export function CurrentStateWorkflowMap() {
     });
   }, [map, persist]);
 
+  // Reset is confirmed via modal and keeps a one-shot in-memory snapshot so
+  // the empty state can offer "Restore" (the undo stack dies with the map).
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false);
+  const [resetSnapshot, setResetSnapshot] = useState<MapType | null>(null);
+
   const handleReset = useCallback(() => {
-    if (!project) return;
+    if (!project || !map) return;
+    setResetSnapshot(map);
     const next = { ...(project.visualisations ?? {}) };
     delete next.currentStateWorkflowMap;
     updateProject({ visualisations: next });
     setSelectedNodeId(null);
     setMultiSelectIds([]);
-  }, [project, updateProject]);
+  }, [project, map, updateProject]);
+
+  const handleRestoreReset = useCallback(() => {
+    if (!resetSnapshot) return;
+    persist(resetSnapshot);
+    setResetSnapshot(null);
+  }, [resetSnapshot, persist]);
 
   const handleConvertToRisk = useCallback(
     (node: WorkflowNode) => {
@@ -358,7 +383,7 @@ export function CurrentStateWorkflowMap() {
         setContextMenu(null);
       },
     },
-    !!map,
+    !!map && isActive,
   );
 
   const selectedNode = map?.nodes.find((n) => n.id === selectedNodeId) ?? null;
@@ -385,8 +410,12 @@ export function CurrentStateWorkflowMap() {
           label: "Edit title",
           onClick: () => {
             setSelectedNodeId(contextMenu.nodeId);
-            // Inline edit is triggered by double-click; nudge user to do that.
-            // Could also trigger via custom event in the future.
+            // The matching WorkflowNode opens its inline rename input.
+            window.dispatchEvent(
+              new CustomEvent(EDIT_NODE_TITLE_EVENT, {
+                detail: { id: contextMenu.nodeId },
+              }),
+            );
           },
         },
         { type: "separator" },
@@ -409,6 +438,8 @@ export function CurrentStateWorkflowMap() {
       ]
     : [];
 
+  // "Add node here" drops the node at the right-clicked canvas position.
+  const paneFlowPos = contextMenu?.flowPos;
   const paneContextItems: ContextMenuItem[] = [
     {
       type: "submenu",
@@ -417,23 +448,27 @@ export function CurrentStateWorkflowMap() {
         {
           type: "item",
           label: "Human step",
-          onClick: () => handleAddNode("human_step"),
+          onClick: () => handleAddNode("human_step", paneFlowPos),
         },
         {
           type: "item",
           label: "System step",
-          onClick: () => handleAddNode("system_step"),
+          onClick: () => handleAddNode("system_step", paneFlowPos),
         },
         {
           type: "item",
           label: "Decision",
-          onClick: () => handleAddNode("decision"),
+          onClick: () => handleAddNode("decision", paneFlowPos),
         },
-        { type: "item", label: "Risk", onClick: () => handleAddNode("risk") },
+        {
+          type: "item",
+          label: "Risk",
+          onClick: () => handleAddNode("risk", paneFlowPos),
+        },
         {
           type: "item",
           label: "Missing info",
-          onClick: () => handleAddNode("missing_info"),
+          onClick: () => handleAddNode("missing_info", paneFlowPos),
         },
       ],
     },
@@ -491,7 +526,7 @@ export function CurrentStateWorkflowMap() {
             onAddNode={(t) => handleAddNode(t)}
             onExportMermaid={handleExportMermaid}
             onExportJson={handleExportJson}
-            onReset={handleReset}
+            onReset={() => setConfirmResetOpen(true)}
           />
         }
         canvas={
@@ -505,14 +540,26 @@ export function CurrentStateWorkflowMap() {
               onNodeContextMenu={(nodeId, x, y) =>
                 setContextMenu({ nodeId, x, y })
               }
-              onPaneContextMenu={(x, y) =>
-                setContextMenu({ nodeId: null, x, y })
+              onPaneContextMenu={(x, y, flowPosition) =>
+                setContextMenu({ nodeId: null, x, y, flowPos: flowPosition })
               }
               onDuplicateNode={handleDuplicateNode}
               onDeleteNode={handleDeleteNode}
             />
           ) : (
-            <div className="h-full flex items-center justify-center px-8">
+            <div className="h-full flex flex-col items-center justify-center gap-3 px-8">
+              {resetSnapshot && (
+                <div className="flex items-center gap-2 text-xs rounded-md border bg-background px-3 py-1.5 shadow-sm">
+                  <span className="text-muted-foreground">Map reset.</span>
+                  <button
+                    type="button"
+                    onClick={handleRestoreReset}
+                    className="font-medium text-primary hover:underline"
+                  >
+                    Restore
+                  </button>
+                </div>
+              )}
               <EmptyState
                 icon="🗺"
                 title="No current-state map yet"
@@ -575,6 +622,15 @@ export function CurrentStateWorkflowMap() {
         description="This map contains manual edits. Regenerating replaces it with a fresh AI map — undo (⌘Z) can bring the current version back during this session."
         confirmLabel="Regenerate map"
         onConfirm={() => void runGenerate()}
+      />
+
+      <ConfirmActionModal
+        open={confirmResetOpen}
+        onOpenChange={setConfirmResetOpen}
+        title="Reset this map?"
+        description="This deletes the current-state map. A one-time Restore stays available on the empty canvas until you generate again or leave the page."
+        confirmLabel="Reset map"
+        onConfirm={handleReset}
       />
     </>
   );

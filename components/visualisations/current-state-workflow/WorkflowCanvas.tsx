@@ -69,8 +69,16 @@ function CanvasInner({
   onDuplicateNode,
   onDeleteNode,
 }: Props) {
+  const { screenToFlowPosition } = useReactFlow();
   const initialNodes = useMemo(() => mapToReactFlowNodes(map), [map]);
   const initialEdges = useMemo(() => mapToReactFlowEdges(map), [map]);
+
+  // Lane bands must cover the rightmost node — wide maps (15+ columns) ran
+  // past the old hardcoded band width and nodes floated on blank background.
+  const laneWidth = useMemo(
+    () => Math.max(2800, ...map.nodes.map((n) => n.position.x + 240)),
+    [map.nodes],
+  );
 
   const [nodes, setNodes, onNodesChange] = useNodesState<RFNode>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<RFEdge>(initialEdges);
@@ -215,13 +223,14 @@ function CanvasInner({
   const handlePaneContextMenu = useCallback(
     (e: React.MouseEvent | MouseEvent) => {
       e.preventDefault();
+      const { clientX, clientY } = e as MouseEvent;
       onPaneContextMenu?.(
-        (e as MouseEvent).clientX,
-        (e as MouseEvent).clientY,
-        { x: 0, y: 0 },
+        clientX,
+        clientY,
+        screenToFlowPosition({ x: clientX, y: clientY }),
       );
     },
-    [onPaneContextMenu],
+    [onPaneContextMenu, screenToFlowPosition],
   );
 
   const nodesWithSelection = useMemo(
@@ -242,7 +251,11 @@ function CanvasInner({
       }}
     >
       <div className="absolute inset-0">
-        <WorkflowLaneBackground lanes={map.lanes} laneYs={CURRENT_LANE_Y} />
+        <WorkflowLaneBackground
+          lanes={map.lanes}
+          laneYs={CURRENT_LANE_Y}
+          width={laneWidth}
+        />
         <ReactFlow
           nodes={nodesWithSelection}
           edges={edges}
@@ -266,6 +279,9 @@ function CanvasInner({
           panOnScroll
           panOnScrollMode={PanOnScrollMode.Free}
           zoomOnScroll={false}
+          // Holding either modifier turns scroll into zoom (panOnScroll yields
+          // while a zoom-activation key is pressed).
+          zoomActivationKeyCode={["Meta", "Control"]}
           zoomOnPinch
           nodeDragThreshold={4}
           defaultEdgeOptions={{ type: "smoothstep" }}

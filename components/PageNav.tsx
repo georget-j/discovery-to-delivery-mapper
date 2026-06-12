@@ -3,13 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useWorkspace } from "@/components/WorkspaceProvider";
-import { getPrevNext } from "@/lib/journey";
+import { ALL_TABS } from "@/lib/journey";
 import { cn } from "@/lib/utils";
 
 // One-line rationale per destination tab href — answers "why am I going here?".
-// Keys match Tab.href from lib/journey.ts (empty string === Overview).
+// Keys match Tab.href from lib/journey.ts.
 const WHY_NEXT: Record<string, string> = {
-  "": "Track open actions and see the journey at a glance.",
   "/discovery": "Capture the customer profile and stakeholders.",
   "/workflow":
     "Map the current process so we can identify automation opportunities.",
@@ -26,7 +25,14 @@ export function PageNav() {
 
   if (!project) return null;
 
-  const { prev, next } = getPrevNext(pathname, project.id);
+  // Overview is a hub, not a journey step — walk prev/next over the working
+  // tabs only so "Next" never routes through the dashboard.
+  const journeyTabs = ALL_TABS.filter(({ tab }) => tab.href !== "");
+  const stripped = pathname.replace(`/workspace/${project.id}`, "") || "";
+  const idx = journeyTabs.findIndex(({ tab }) => tab.href === stripped);
+  const prev = idx > 0 ? journeyTabs[idx - 1] : null;
+  const next =
+    idx >= 0 && idx < journeyTabs.length - 1 ? journeyTabs[idx + 1] : null;
   const whyNext = next ? WHY_NEXT[next.tab.href] : undefined;
 
   return (

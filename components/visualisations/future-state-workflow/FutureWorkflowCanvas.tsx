@@ -54,7 +54,11 @@ type Props = {
   selectedNodeId: string | null;
   onMultiSelectChange?: (ids: string[]) => void;
   onNodeContextMenu?: (nodeId: string, x: number, y: number) => void;
-  onPaneContextMenu?: (x: number, y: number) => void;
+  onPaneContextMenu?: (
+    x: number,
+    y: number,
+    flowPosition: { x: number; y: number },
+  ) => void;
   // Node-toolbar actions, surfaced inside each node via MapEditContext.
   onDuplicateNode?: (id: string) => void;
   onDeleteNode?: (id: string) => void;
@@ -92,7 +96,7 @@ function CanvasInner({
   focusNodeId = null,
 }: Props) {
   const setPreview = onPreviewChange ?? (() => {});
-  const { setCenter, getZoom } = useReactFlow();
+  const { setCenter, getZoom, screenToFlowPosition } = useReactFlow();
 
   // Pan to center the walkthrough's current stage. Depends only on the id so
   // routine map edits (drags) don't yank the viewport around.
@@ -108,6 +112,13 @@ function CanvasInner({
   }, [focusNodeId]);
   const initialNodes = useMemo(() => mapToReactFlowNodes(map), [map]);
   const initialEdges = useMemo(() => mapToReactFlowEdges(map), [map]);
+
+  // Lane bands must cover the rightmost node — wide maps (15+ columns) ran
+  // past the old hardcoded band width and nodes floated on blank background.
+  const laneWidth = useMemo(
+    () => Math.max(2800, ...map.nodes.map((n) => n.position.x + 240)),
+    [map.nodes],
+  );
 
   const [nodes, setNodes, onNodesChange] = useNodesState<RFNode>(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<RFEdge>(initialEdges);
@@ -250,9 +261,14 @@ function CanvasInner({
   const handlePaneContextMenu = useCallback(
     (e: React.MouseEvent | MouseEvent) => {
       e.preventDefault();
-      onPaneContextMenu?.((e as MouseEvent).clientX, (e as MouseEvent).clientY);
+      const { clientX, clientY } = e as MouseEvent;
+      onPaneContextMenu?.(
+        clientX,
+        clientY,
+        screenToFlowPosition({ x: clientX, y: clientY }),
+      );
     },
-    [onPaneContextMenu],
+    [onPaneContextMenu, screenToFlowPosition],
   );
 
   // Translucent ghost nodes/edges for the hovered proposal preview — built
@@ -323,7 +339,11 @@ function CanvasInner({
       }}
     >
       <div className="absolute inset-0">
-        <WorkflowLaneBackground lanes={map.lanes} laneYs={FUTURE_LANE_Y} />
+        <WorkflowLaneBackground
+          lanes={map.lanes}
+          laneYs={FUTURE_LANE_Y}
+          width={laneWidth}
+        />
         <ReactFlow
           nodes={nodesWithSelection}
           edges={edgesWithGhost}
@@ -347,6 +367,9 @@ function CanvasInner({
           panOnScroll
           panOnScrollMode={PanOnScrollMode.Free}
           zoomOnScroll={false}
+          // Holding either modifier turns scroll into zoom (panOnScroll yields
+          // while a zoom-activation key is pressed).
+          zoomActivationKeyCode={["Meta", "Control"]}
           zoomOnPinch
           nodeDragThreshold={4}
           defaultEdgeOptions={{ type: "smoothstep" }}

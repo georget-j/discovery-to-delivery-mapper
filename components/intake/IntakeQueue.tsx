@@ -1,12 +1,16 @@
 "use client";
 
+import { useRef } from "react";
 import { cn } from "@/lib/utils";
+import { ACCEPT_ATTR } from "@/components/intake/FileDropzone";
 import type { IntakeJob } from "@/components/intake/useIntakeQueue";
 
 type Props = {
   jobs: IntakeJob[];
   onCancel: (jobId: string) => void;
-  onRetry: (jobId: string) => void;
+  // Passing a file re-associates it with the doc row (post-reload
+  // "Re-upload") before re-queueing.
+  onRetry: (jobId: string, file?: File) => void;
   onRemove: (jobId: string) => void;
   onSummarise?: (jobId: string) => void;
   onRunOcr?: (jobId: string) => void;
@@ -82,6 +86,9 @@ export function IntakeQueue({
                 {job.statusDetail}
               </p>
             )}
+            {job.warning && (
+              <p className="text-xs mt-0.5 text-amber-700">{job.warning}</p>
+            )}
             {job.status === "ready" && (
               <p className="text-xs text-muted-foreground mt-0.5">
                 {summarizeReady(job)}
@@ -94,15 +101,19 @@ export function IntakeQueue({
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {job.status === "failed" && job.recoverable && (
-              <button
-                type="button"
-                onClick={() => onRetry(job.id)}
-                className="text-xs px-2 py-1 rounded border hover:bg-muted/40"
-              >
-                Retry
-              </button>
-            )}
+            {job.status === "failed" &&
+              job.recoverable &&
+              (needsReupload(job) ? (
+                <ReuploadButton onPick={(file) => onRetry(job.id, file)} />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onRetry(job.id)}
+                  className="text-xs px-2 py-1 rounded border hover:bg-muted/40"
+                >
+                  Retry
+                </button>
+              ))}
             {job.status === "failed" &&
               onRunOcr &&
               job.type === "pdf" &&
@@ -192,6 +203,44 @@ function ProgressBar({ value, label }: { value: number; label: string }) {
         {label} · {pct}%
       </p>
     </div>
+  );
+}
+
+// After a reload the original File bytes are gone — a blind Retry would be
+// guaranteed to fail, so those rows get a re-upload picker instead.
+function needsReupload(job: IntakeJob): boolean {
+  return (
+    !job.file &&
+    job.rawText === undefined &&
+    (job.pendingChunkBlueprints?.length ?? 0) === 0
+  );
+}
+
+function ReuploadButton({ onPick }: { onPick: (file: File) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        className="text-xs px-2 py-1 rounded border hover:bg-muted/40"
+        title="The original file isn't stored after a reload — pick it again to finish processing"
+      >
+        Re-upload
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={ACCEPT_ATTR}
+        className="sr-only"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onPick(file);
+          // Reset so picking the same file again re-fires onChange.
+          e.target.value = "";
+        }}
+      />
+    </>
   );
 }
 

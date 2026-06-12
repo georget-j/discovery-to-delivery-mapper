@@ -1,8 +1,9 @@
 "use client";
 
-import { memo, useState, useRef, useEffect } from "react";
+import { memo, useState, useRef, useEffect, useCallback } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { cn } from "@/lib/utils";
+import { EDIT_NODE_TITLE_EVENT } from "./workflowUtils";
 import { useMapEdit } from "../shared/MapEditContext";
 import {
   NodeActionToolbar,
@@ -78,7 +79,7 @@ function useInlineEdit(initial: string, onCommit: (v: string) => void) {
     }
   }, [editing]);
 
-  const start = () => setEditing(true);
+  const start = useCallback(() => setEditing(true), []);
   const commit = () => {
     setEditing(false);
     if (draft.trim() && draft !== initial) onCommit(draft.trim());
@@ -99,6 +100,15 @@ function WorkflowNodeImpl({ id, data, selected }: NodeProps) {
 
   const { editing, draft, setDraft, start, commit, cancel, inputRef } =
     useInlineEdit(node.title, (v) => patchNode(id, { title: v }));
+
+  // Context-menu "Edit title" opens the same inline rename as double-click.
+  useEffect(() => {
+    const onEditTitle = (e: Event) => {
+      if ((e as CustomEvent<{ id?: string }>).detail?.id === id) start();
+    };
+    window.addEventListener(EDIT_NODE_TITLE_EVENT, onEditTitle);
+    return () => window.removeEventListener(EDIT_NODE_TITLE_EVENT, onEditTitle);
+  }, [id, start]);
 
   const actions: NodeAction[] = [];
   if (duplicateNode)

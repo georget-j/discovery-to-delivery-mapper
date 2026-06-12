@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { listScenarios, loadScenario } from "../lib/scenarios";
+import { listScenarios, loadScenario, SCENARIO_META } from "../lib/scenarios";
 
 describe("scenario loader", () => {
   it("listScenarios returns 4 scenarios", () => {
@@ -71,8 +71,29 @@ describe("scenario loader", () => {
     }
   });
 
+  it("exactly one scenario is the recommended starter", () => {
+    const starters = listScenarios().filter(
+      (s) => SCENARIO_META[s.scenarioType].starter,
+    );
+    expect(starters).toHaveLength(1);
+    expect(starters[0].scenarioType).toBe("enterprise_support");
+  });
+
+  it("sortOrder is unique and ranks the starter first", () => {
+    const ordered = [...listScenarios()].sort(
+      (a, b) =>
+        SCENARIO_META[a.scenarioType].sortOrder -
+        SCENARIO_META[b.scenarioType].sortOrder,
+    );
+    const orders = ordered.map((s) => SCENARIO_META[s.scenarioType].sortOrder);
+    expect(new Set(orders).size).toBe(orders.length);
+    expect(SCENARIO_META[ordered[0].scenarioType].starter).toBe(true);
+  });
+
   it("all scenarios have regulatory context if fintech or legaltech", () => {
-    const scenarios = listScenarios().filter((s) => ["fintech", "legaltech"].includes(s.customer.industry));
+    const scenarios = listScenarios().filter((s) =>
+      ["fintech", "legaltech"].includes(s.customer.industry),
+    );
     for (const s of scenarios) {
       expect(s.customer.regulatoryContext.length).toBeGreaterThan(0);
     }

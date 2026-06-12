@@ -51,9 +51,13 @@ export function AppHeader() {
         </nav>
         <div className="ml-auto flex items-center gap-3">
           {workspaceId && <ScenarioSwitcher activeId={workspaceId} />}
-          <span className="hidden sm:inline text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-            Portfolio Demo
-          </span>
+          {/* Hidden inside workspaces — "Portfolio Demo" undermines a
+              customer-facing screen-share. */}
+          {!workspaceId && (
+            <span className="hidden sm:inline text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+              Portfolio Demo
+            </span>
+          )}
         </div>
       </div>
     </header>

@@ -147,3 +147,29 @@ describe("assembleScopedPack", () => {
     expect(out).toContain(fintech.customer.companyName);
   });
 });
+
+describe("citation stripping on export", () => {
+  // Citation markers reference the in-app sources panel, which doesn't exist
+  // in exported documents — assembly must strip them but keep markdown links.
+  const withCitations: OnboardingProject = {
+    ...fintech,
+    outputs: {
+      ...mockOutputs,
+      executiveSummary:
+        "Cuts review time by 70%[1] across teams[12]. See [the docs](https://example.com) for details.",
+    },
+  };
+
+  it("strips [n] markers from the full pack", () => {
+    const out = assembleOnboardingPack(withCitations);
+    expect(out).toContain("Cuts review time by 70% across teams.");
+    expect(out).not.toContain("[1]");
+    expect(out).not.toContain("[12]");
+  });
+
+  it("strips [n] markers from scoped packs but keeps markdown links", () => {
+    const out = assembleScopedPack(withCitations, "customer");
+    expect(out).toContain("[the docs](https://example.com)");
+    expect(out).not.toContain("[1]");
+  });
+});
